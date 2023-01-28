@@ -1,1 +1,2 @@
-# hastebin-go
+# gobin
+

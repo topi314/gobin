@@ -1,0 +1,61 @@
+{{ template "header.gohtml" }}
+
+<div>
+    <label for="language">language:</label>
+    <select id="language">
+        <option value="auto">auto</option>
+    </select>
+
+    <label for="style">style:</label>
+    <select id="style">
+        {{ range $index, $value := .Styles }}
+            <option value="{{ $value.URL }}">{{ $value.Name }}</option>
+        {{ end }}
+    </select>
+
+    <pre><code id="code">{{ .Content }}</code><button class="copy">copy to clipboard</button></pre>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+<script type="text/javascript">
+    hljs.listLanguages().forEach((language) => {
+        const option = document.createElement("option");
+        option.value = language;
+        option.innerText = language;
+        document.querySelector("#language").appendChild(option);
+    });
+
+    setStyle("{{ (index .Styles 0).URL }}");
+    highlightCode();
+
+    document.querySelector("#language").addEventListener("change", (event) => {
+        highlightCode(event.target.value);
+    });
+
+    document.querySelector("#style").addEventListener("change", (event) => {
+        setStyle(event.target.value);
+    });
+
+    function setStyle(style) {
+        document.querySelector(`link[title="Code Theme"]`).href = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/" + style;
+    }
+
+    function highlightCode(language = undefined) {
+        const codeElement = document.querySelector("#code");
+        let result;
+        if (language && language !== "auto") {
+            result = hljs.highlight(codeElement.innerText, {
+                language: language,
+                ignoreIllegals: true
+            });
+        } else {
+            result = hljs.highlightAuto(codeElement.innerText);
+
+            const languageElement = document.querySelector("#language");
+            languageElement.value = result.language;
+        }
+        codeElement.innerHTML = result.value;
+        codeElement.className = "hljs language-" + result.language;
+    }
+</script>
+
+{{ template "footer.gohtml" }}

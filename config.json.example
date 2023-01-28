@@ -1,0 +1,14 @@
+{
+  "dev_mode": true,
+  "listen_addr": ":1234",
+  "expire_after": "0",
+  "cleanup_interval": "1m",
+  "database": {
+    "host": "",
+    "port": ,
+    "username": "",
+    "password": "",
+    "database": "",
+    "ssl_mode": "disable"
+  }
+}
