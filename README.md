@@ -1,0 +1,1 @@
+# hastebin-go
