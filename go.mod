@@ -1,4 +1,4 @@
-module github.com/topisenpai/hastebin-go
+module github.com/topisenpai/gobin
 
 go 1.18
 
