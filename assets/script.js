@@ -239,23 +239,24 @@ function setStyle(style) {
 }
 
 function highlightCode(language = undefined) {
-    const codeElement = document.querySelector("#code-show");
+    const {content} = getState();
     let result;
     if (language && language !== "auto") {
-        result = hljs.highlight(codeElement.innerText, {
+        result = hljs.highlight(content, {
             language: language, ignoreIllegals: true
         });
     } else {
-        result = hljs.highlightAuto(codeElement.innerText);
+        result = hljs.highlightAuto(content);
     }
     if (result.language === undefined) {
         result.language = "plaintext";
     }
+
+    const codeElement = document.querySelector("#code-show");
     codeElement.innerHTML = result.value;
     codeElement.className = "hljs language-" + result.language;
 
-    const languageElement = document.querySelector("#language");
-    languageElement.value = result.language;
+    document.querySelector("#language").value = result.language;
 
     if (result.value) {
         hljs.initLineNumbersOnLoad({singleLine: true});
