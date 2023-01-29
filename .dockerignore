@@ -1,0 +1,8 @@
+.github/
+.gitignore
+schema.sql
+README.md
+LICENSE
+Dockerfile
+config.json
+config.json.example

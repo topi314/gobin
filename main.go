@@ -20,13 +20,15 @@ var (
 type ExecuteTemplateFunc func(wr io.Writer, name string, data any) error
 
 type Server struct {
-	cfg  Config
-	db   *Database
-	tmpl ExecuteTemplateFunc
+	cfg     Config
+	devMode bool
+	db      *Database
+	tmpl    ExecuteTemplateFunc
 }
 
 func main() {
 	cfgPath := flag.String("config", "config.json", "path to config.json")
+	devMode := flag.Bool("dev", false, "enable development mode")
 	flag.Parse()
 
 	log.Println("Gobin starting... (config path:", *cfgPath, ")")
@@ -44,7 +46,8 @@ func main() {
 	defer db.Close()
 
 	var tmplFunc ExecuteTemplateFunc
-	if cfg.DevMode {
+	if *devMode {
+		log.Println("Development mode enabled")
 		tmplFunc = func(wr io.Writer, name string, data any) error {
 			tmpl, err := template.New("").ParseGlob("templates/*")
 			if err != nil {
@@ -61,9 +64,10 @@ func main() {
 	}
 
 	s := &Server{
-		cfg:  cfg,
-		db:   db,
-		tmpl: tmplFunc,
+		cfg:     cfg,
+		devMode: *devMode,
+		db:      db,
+		tmpl:    tmplFunc,
 	}
 
 	log.Println("Gobin listening on:", cfg.ListenAddr)

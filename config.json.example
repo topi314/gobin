@@ -1,14 +1,13 @@
 {
-  "dev_mode": true,
-  "listen_addr": ":1234",
+  "listen_addr": ":80",
   "expire_after": "0",
   "cleanup_interval": "1m",
   "database": {
-    "host": "",
-    "port": ,
-    "username": "",
-    "password": "",
-    "database": "",
+    "host": "database",
+    "port": 5432,
+    "username": "gobin",
+    "password": "gobin",
+    "database": "gobin",
     "ssl_mode": "disable"
   }
 }

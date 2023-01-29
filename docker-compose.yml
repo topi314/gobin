@@ -1,0 +1,11 @@
+version: "3.8"
+
+services:
+    gobin:
+        image: ghcr.io/topisenpai/gobin
+        container_name: gobin
+        restart: unless-stopped
+        volumes:
+            - ./config.json:/var/lib/gobin/config.json
+        ports:
+            - 80:80

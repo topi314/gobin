@@ -20,7 +20,6 @@ func (s *Server) Routes() http.Handler {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
 
-	r.HandleFunc("/favicon.ico", s.Favicon)
 	r.Mount("/assets", s.Assets())
 	r.Delete("/documents/{documentID}", s.DeleteDocument)
 	r.Patch("/documents/{documentID}", s.PatchDocument)
@@ -33,12 +32,8 @@ func (s *Server) Routes() http.Handler {
 	return r
 }
 
-func (s *Server) Favicon(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/assets/favicon.png", http.StatusFound)
-}
-
 func (s *Server) Assets() http.Handler {
-	if s.cfg.DevMode {
+	if s.devMode {
 		return http.FileServer(http.Dir("."))
 	}
 	return http.FileServer(http.FS(assets))

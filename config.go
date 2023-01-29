@@ -9,7 +9,6 @@ import (
 )
 
 type Config struct {
-	DevMode         bool           `json:"dev_mode"`
 	ListenAddr      string         `json:"listen_addr"`
 	Database        DatabaseConfig `json:"database"`
 	ExpireAfter     time.Duration  `json:"expire_after"`
