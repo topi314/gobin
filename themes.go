@@ -1,7 +1,5 @@
 package main
 
-const BaseStyleURL = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/"
-
 type Style struct {
 	Name string
 	URL  string

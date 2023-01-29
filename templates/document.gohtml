@@ -14,11 +14,12 @@
 
     <meta property="og:title" content="gobin">
     <meta property="og:description" content="gobin is a simple pastebin written in Go.">
-    <meta property="og:url" content="https://gobin.io">
+    <meta property="og:url" content="https://{{ .Host }}">
     <meta property="og:type" content="website">
 
     <meta name="twitter:card" content="summary">
     <meta name="twitter:creator" content="@TopiSenpai">
+    <meta name="twitter:url" content="https://{{ .Host }}">
     <meta name="twitter:title" content="gobin">
     <meta name="twitter:description" content="gobin is a simple pastebin written in Go.">
 </head>
@@ -27,7 +28,7 @@
 <nav>
     <a id="title" class="nav-container" href="/">gobin</a>
     <div class="nav-container">
-        <a title="GitHub" id="github" class="nav-button" href="https://github.com/TopiSenpai/gobin" target="_blank" rel="noopener noreferrer"></a>
+        <a title="GitHub" id="github" class="nav-button" href="https://github.com/TopiSenpai/gobin" target="_blank"></a>
         <button title="Save" id="save" class="nav-button"></button>
         <button title="New" id="new" class="nav-button"></button>
         <button title="Edit" id="edit" class="nav-button"></button>

@@ -81,6 +81,7 @@ main {
     justify-content: flex-end;
     gap: 1rem;
     padding-bottom: 1rem;
+    border-bottom: 1px solid var(--bg-secondary);
 }
 
 select {
@@ -186,14 +187,12 @@ select:hover {
 }
 
 #code {
-    padding: 0;
     margin: 0;
 }
 
 #code-show {
     border-radius: 4px;
-    padding: 0;
-
+    padding: 0.5rem 0.5rem 0.5rem 0;
     width: 0;
     height: 0;
     min-width: 100%;
@@ -205,6 +204,7 @@ select:hover {
     color: var(--text-primary);
     background-color: transparent;
     resize: none;
+    padding: 0.5rem;
     border-radius: 4px;
     tab-size: 4;
     white-space: pre;
@@ -222,9 +222,9 @@ select:hover {
 
     text-align: right;
     border-right: 1px solid var(--text-secondary);
-    padding-right: 5px !important;
+    padding-right: 0.3rem !important;
 }
 
 .hljs-ln-code {
-    padding-left: 5px !important;
+    padding-left: 0.3rem !important;
 }

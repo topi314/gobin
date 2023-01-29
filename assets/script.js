@@ -19,7 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     window.history.replaceState(newState, "", url);
 
-    const style = localStorage.getItem("stylePreference") || "github-dark.min.css"
+    const style = localStorage.getItem("stylePreference") || "atom-one-dark.min.css"
     setStyle(style);
 
     updatePage(newState);

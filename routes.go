@@ -54,8 +54,8 @@ type Variables struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 
-	BaseStyleURL string
-	Styles       []Style
+	Host   string
+	Styles []Style
 }
 
 func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
@@ -70,12 +70,12 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 	}
 
 	vars := Variables{
-		ID:           document.ID,
-		Content:      document.Content,
-		CreatedAt:    document.CreatedAt,
-		UpdatedAt:    document.UpdatedAt,
-		BaseStyleURL: BaseStyleURL,
-		Styles:       Styles,
+		ID:        document.ID,
+		Content:   document.Content,
+		CreatedAt: document.CreatedAt,
+		UpdatedAt: document.UpdatedAt,
+		Host:      r.Host,
+		Styles:    Styles,
 	}
 
 	if err = s.tmpl(w, "document.gohtml", vars); err != nil {
