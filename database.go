@@ -13,6 +13,10 @@ import (
 
 var chars = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
 type Document struct {
 	ID          string    `db:"id"`
 	Content     string    `db:"content"`

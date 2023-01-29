@@ -34,7 +34,7 @@ func (s *Server) Routes() http.Handler {
 }
 
 func (s *Server) Favicon(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/assets/favicon.ico", http.StatusFound)
+	http.Redirect(w, r, "/assets/favicon.png", http.StatusFound)
 }
 
 func (s *Server) Assets() http.Handler {
@@ -54,7 +54,11 @@ func (s *Server) getDocument(r *http.Request) (Document, error) {
 }
 
 type Variables struct {
-	Document
+	ID        string
+	Content   string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+
 	BaseStyleURL string
 	Styles       []Style
 }
@@ -71,7 +75,10 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 	}
 
 	vars := Variables{
-		Document:     document,
+		ID:           document.ID,
+		Content:      document.Content,
+		CreatedAt:    document.CreatedAt,
+		UpdatedAt:    document.UpdatedAt,
 		BaseStyleURL: BaseStyleURL,
 		Styles:       Styles,
 	}
@@ -80,7 +87,6 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error while executing template: %s", err)
 		s.Error(w, r, err)
 	}
-
 }
 
 func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
@@ -106,13 +112,18 @@ type DocumentResponse struct {
 func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 	content, err := io.ReadAll(r.Body)
 	if err != nil {
-		s.Error(w, r, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if len(content) == 0 {
+		http.Error(w, "empty document", http.StatusBadRequest)
 		return
 	}
 
 	document, err := s.db.CreateDocument(r.Context(), string(content))
 	if err != nil {
-		s.Error(w, r, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 

@@ -1,61 +1,49 @@
-{{ template "header.gohtml" }}
+<!DOCTYPE html>
+<html lang="en">
 
-<div>
-    <label for="language">language:</label>
-    <select id="language">
-        <option value="auto">auto</option>
-    </select>
+<head>
+    <meta charset="utf-8">
+    <title>gobin {{ if ne .ID "" }} - {{.ID }} {{ end }}</title>
 
-    <label for="style">style:</label>
-    <select id="style">
-        {{ range $index, $value := .Styles }}
-            <option value="{{ $value.URL }}">{{ $value.Name }}</option>
-        {{ end }}
-    </select>
+    <link rel="stylesheet" type="text/css" href="/assets/style.css">
+    <link rel="stylesheet" type="text/css" title="Highlight.js Style" href="">
 
-    <pre><code id="code">{{ .Content }}</code><button class="copy">copy to clipboard</button></pre>
-</div>
+    <link rel="icon" href="/assets/favicon.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+
+<body>
+<nav>
+    <a id="title" class="nav-container" href="/">gobin</a>
+    <div class="nav-container">
+        <a title="GitHub" id="github" class="nav-button" href="https://github.com/TopiSenpai/gobin" target="_blank" rel="noopener noreferrer"></a>
+        <button title="Save" id="save" class="nav-button"></button>
+        <button title="New" id="new" class="nav-button"></button>
+        <button title="Edit" id="edit" class="nav-button"></button>
+        <button title="Delete" id="delete" class="nav-button"></button>
+        <button title="Copy" id="copy" class="nav-button"></button>
+        <button title="Raw" id="raw" class="nav-button"></button>
+    </div>
+</nav>
+<main>
+    <div class="code-nav">
+        <label for="language">language:</label>
+        <select id="language">
+            <option value="auto">auto</option>
+        </select>
+
+        <label for="style">style:</label>
+        <select id="style">
+            {{ range $index, $value := .Styles }}
+                <option value="{{ $value.URL }}">{{ $value.Name }}</option>
+            {{ end }}
+        </select>
+    </div>
+    <pre id="code" {{ if eq .ID "" }}style="display: none;"{{ end }}><code id="code-show">{{ .Content }}</code></pre>
+    <textarea id="code-edit" spellcheck="false" {{ if ne .ID "" }}style="display: none;"{{ end }}></textarea>
+</main>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
-<script type="text/javascript">
-    hljs.listLanguages().forEach((language) => {
-        const option = document.createElement("option");
-        option.value = language;
-        option.innerText = language;
-        document.querySelector("#language").appendChild(option);
-    });
-
-    setStyle("{{ (index .Styles 0).URL }}");
-    highlightCode();
-
-    document.querySelector("#language").addEventListener("change", (event) => {
-        highlightCode(event.target.value);
-    });
-
-    document.querySelector("#style").addEventListener("change", (event) => {
-        setStyle(event.target.value);
-    });
-
-    function setStyle(style) {
-        document.querySelector(`link[title="Code Theme"]`).href = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/" + style;
-    }
-
-    function highlightCode(language = undefined) {
-        const codeElement = document.querySelector("#code");
-        let result;
-        if (language && language !== "auto") {
-            result = hljs.highlight(codeElement.innerText, {
-                language: language,
-                ignoreIllegals: true
-            });
-        } else {
-            result = hljs.highlightAuto(codeElement.innerText);
-
-            const languageElement = document.querySelector("#language");
-            languageElement.value = result.language;
-        }
-        codeElement.innerHTML = result.value;
-        codeElement.className = "hljs language-" + result.language;
-    }
-</script>
-
-{{ template "footer.gohtml" }}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlightjs-line-numbers.js/2.8.0/highlightjs-line-numbers.min.js"></script>
+<script src="/assets/script.js"></script>
+</body>
+</html>

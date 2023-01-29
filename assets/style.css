@@ -1,0 +1,154 @@
+:root {
+    --main-background-color: #282c34;
+    --nav-background-color: #1f2228;
+    --nav-button-background-color: #373b41;
+    --footer-background-color: #22252a;
+    --code-background-color: #282c34;
+    --primary-text-color: #abb2bf;
+    --secondary-text-color: #828997;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    height: 100vh;
+    padding: 0;
+    margin: 0;
+    font-family: monospace;
+    color: var(--primary-text-color);
+    overflow: hidden;
+}
+
+nav {
+    background: var(--nav-background-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+main {
+    background: var(--main-background-color);
+    padding: 1rem;
+    display: grid;
+    grid-template-rows: auto 1fr;
+}
+
+.code-nav {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+}
+
+footer {
+    background: var(--footer-background-color);
+    text-align: center;
+    padding: 1rem;
+}
+
+.nav-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.nav-button {
+    background-color: var(--nav-button-background-color);
+    padding: 1rem;
+    border: none;
+    border-radius: 0.5rem;
+    width: 1rem;
+    height: 1rem;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 1rem;
+    cursor: pointer;
+}
+
+.nav-button:hover {
+    opacity: 0.7;
+}
+
+.nav-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.2;
+}
+
+#title {
+    font-size: 1.5rem;
+    font-weight: bold;
+    text-decoration: none;
+    color: var(--primary-text-color);
+}
+
+#github {
+    background-image: url(/assets/icons/github.svg);
+}
+#new {
+    background-image: url(/assets/icons/new.png);
+}
+#edit {
+    background-image: url(/assets/icons/edit.png);
+}
+#save {
+    background-image: url(/assets/icons/save.png);
+}
+#delete {
+    background-image: url(/assets/icons/delete.png);
+}
+#copy {
+    background-image: url(/assets/icons/copy.png);
+}
+#raw {
+    background-image: url(/assets/icons/raw.png);
+}
+
+#code {
+    padding: 0;
+    margin: 0;
+}
+
+#code-show {
+    border-radius: 4px;
+    padding: 0;
+
+    width: 0;
+    height: 0;
+    min-width: 100%;
+    min-height: 100%;
+    overflow: auto;
+}
+
+#code-edit {
+    color: var(--primary-text-color);
+    background-color: transparent;
+    resize: none;
+    border-radius: 4px;
+    tab-size: 4;
+    white-space: pre;
+    width: 100%;
+    border: none;
+    outline: none;
+}
+
+.hljs-ln-numbers {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+
+    text-align: right;
+    border-right: 1px solid var(--secondary-text-color);
+    padding-right: 5px !important;
+}
+
+.hljs-ln-code {
+    padding-left: 5px !important;
+}
