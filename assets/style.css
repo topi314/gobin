@@ -11,6 +11,23 @@
 * {
     box-sizing: border-box;
 }
+#error-popup {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px;
+    background-color: #926262;
+    color: white;
+    border-radius: 5px;
+    transition: all 0.5s ease;
+}
+
+.hidden {
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.5s ease;
+}
 
 body {
     display: grid;

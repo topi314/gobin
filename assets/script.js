@@ -59,11 +59,46 @@ document.querySelector("#edit").addEventListener("click", async () => {
     updatePageButtons(newState);
 })
 
+document.addEventListener("keydown", async (event) => {
+    if (event.ctrlKey  && event.key === 's') {
+        if (!document.querySelector("#save").disabled)
+            document.querySelector("#save").click();
+    } else if (event.ctrlKey && event.key === 'x') {
+        if (!document.querySelector("#new").disabled)
+            document.querySelector("#new").click();
+    } else if (event.ctrlKey && event.key === 'asd') {
+        if (!document.querySelector("#copy").disabled)
+            document.querySelector("#copy").click();
+    } else if (event.ctrlKey && event.key === 'e') {
+        if (!document.querySelector("#edit").disabled)
+            document.querySelector("#edit").click();
+    } else if (event.ctrlKey && event.shiftKey && event.key === 'd') {
+        if (!document.querySelector("#delete").disabled) {
+            let deleteConfirm = confirm("Are you sure you want to delete this document? This action cannot be undone.")
+            if (!deleteConfirm) return;
+            document.querySelector("#delete").click();
+        }
+    }
+})
+
+
+const showErrorPopup = () => {
+    let popup = document.getElementById("error-popup");
+    popup.classList.remove("hidden");
+    setTimeout(() => popup.classList.add("hidden"), 5000);
+}
+
 document.querySelector("#save").addEventListener("click", async () => {
     const {key, mode, content} = getState()
     if (mode !== "edit") return;
 
+    let saveButton = document.querySelector("#save");
+    if (saveButton.style.disabled) return;
     const updateToken = getUpdateToken(key);
+
+    saveButton.style.backgroundImage = 'url("/assets/icons/loading.gif")';
+    saveButton.style.disabled = true;
+
     let response;
     if (key && updateToken) {
         response = await fetch(`/documents/${key}`, {
@@ -76,8 +111,12 @@ document.querySelector("#save").addEventListener("click", async () => {
             method: "POST", body: content
         });
     }
+    await new Promise(resolve => setTimeout(resolve, 4000));
 
     if (!response.ok) {
+        showErrorPopup();
+        saveButton.style.backgroundImage = 'url("/assets/icons/save.png")'
+        saveButton.style.disabled = false;
         console.error("error from api: ", response);
         return;
     }
@@ -88,6 +127,9 @@ document.querySelector("#save").addEventListener("click", async () => {
     const newState = {key: body.key, mode: "view", content: content};
     window.history.pushState(newState, "", `/${body.key}`);
     updatePage(newState);
+    saveButton.style.backgroundImage = 'url("/assets/icons/save.png")'
+    saveButton.style.disabled = false;
+
 });
 
 document.querySelector("#delete").addEventListener("click", async () => {
@@ -97,6 +139,10 @@ document.querySelector("#delete").addEventListener("click", async () => {
         console.error("no update token");
         return;
     }
+    let deleteButton = document.querySelector("#delete");
+    if (deleteButton.style.disabled) return;
+    deleteButton.style.backgroundImage = 'url("/assets/icons/loading.gif")';
+    deleteButton.style.disabled = true;
 
     let response = await fetch(`/documents/${key}`, {
         method: "DELETE", headers: {
@@ -104,6 +150,9 @@ document.querySelector("#delete").addEventListener("click", async () => {
         }
     });
     if (!response.ok) {
+        deleteButton.style.backgroundImage = 'url("/assets/icons/delete.png")'
+        deleteButton.style.disabled = false;
+        showErrorPopup()
         console.error("error from api: ", response);
         return;
     }
@@ -111,6 +160,9 @@ document.querySelector("#delete").addEventListener("click", async () => {
     const newState = {key: "", mode: "edit", content: ""};
     window.history.pushState(newState, "", "/");
     updatePage(newState);
+    deleteButton.style.backgroundImage = 'url("/assets/icons/delete.png")'
+    deleteButton.style.disabled = false;
+
 })
 
 document.querySelector("#copy").addEventListener("click", async () => {
@@ -239,24 +291,23 @@ function setStyle(style) {
 }
 
 function highlightCode(language = undefined) {
-    const {content} = getState();
+    const codeElement = document.querySelector("#code-show");
     let result;
     if (language && language !== "auto") {
-        result = hljs.highlight(content, {
+        result = hljs.highlight(codeElement.innerText, {
             language: language, ignoreIllegals: true
         });
     } else {
-        result = hljs.highlightAuto(content);
+        result = hljs.highlightAuto(codeElement.innerText);
     }
     if (result.language === undefined) {
         result.language = "plaintext";
     }
-
-    const codeElement = document.querySelector("#code-show");
     codeElement.innerHTML = result.value;
     codeElement.className = "hljs language-" + result.language;
 
-    document.querySelector("#language").value = result.language;
+    const languageElement = document.querySelector("#language");
+    languageElement.value = result.language;
 
     if (result.value) {
         hljs.initLineNumbersOnLoad({singleLine: true});
