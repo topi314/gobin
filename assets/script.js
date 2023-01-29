@@ -31,6 +31,35 @@ window.addEventListener("popstate", (event) => {
     updatePageButtons(event.state);
 });
 
+document.addEventListener("keydown", (event) => {
+    if (!event.ctrlKey) return;
+
+    switch (event.key) {
+        case "s":
+            event.preventDefault();
+            if (document.querySelector("#save").disabled) return;
+            document.querySelector("#save").click();
+            break;
+        case "n":
+            event.preventDefault();
+            if (document.querySelector("#new").disabled) return;
+            document.querySelector("#new").click();
+            break;
+        case "e":
+            event.preventDefault();
+            if (document.querySelector("#edit").disabled) return;
+            document.querySelector("#edit").click();
+            break;
+        case "d":
+            event.preventDefault();
+            if (document.querySelector("#delete").disabled) return;
+            const deleteConfirm = confirm("Are you sure you want to delete this document? This action cannot be undone.")
+            if (!deleteConfirm) return;
+            document.querySelector("#delete").click();
+            break;
+    }
+})
+
 document.querySelector("#code-edit").addEventListener("keyup", (event) => {
     const {key} = getState();
     const newState = {key: key, mode: "edit", content: event.target.value};
@@ -43,6 +72,8 @@ document.querySelector("#new").addEventListener("click", () => {
 })
 
 document.querySelector("#edit").addEventListener("click", async () => {
+    if (document.querySelector("#edit").disabled) return;
+
     const {key, content} = getState();
     let newState;
     let url;
@@ -60,10 +91,14 @@ document.querySelector("#edit").addEventListener("click", async () => {
 })
 
 document.querySelector("#save").addEventListener("click", async () => {
+    if (document.querySelector("#save").disabled) return;
+
     const {key, mode, content} = getState()
     if (mode !== "edit") return;
-
     const updateToken = getUpdateToken(key);
+    const saveButton = document.querySelector("#save");
+    saveButton.classList.add("loading");
+
     let response;
     if (key && updateToken) {
         response = await fetch(`/documents/${key}`, {
@@ -76,9 +111,11 @@ document.querySelector("#save").addEventListener("click", async () => {
             method: "POST", body: content
         });
     }
+    saveButton.classList.remove("loading");
 
     if (!response.ok) {
-        console.error("error from api: ", response);
+        showErrorPopup(response.message);
+        console.error("error saving document:", response);
         return;
     }
 
@@ -91,20 +128,26 @@ document.querySelector("#save").addEventListener("click", async () => {
 });
 
 document.querySelector("#delete").addEventListener("click", async () => {
+    if (document.querySelector("#delete").disabled) return;
+
     const {key} = getState();
     const updateToken = getUpdateToken(key);
     if (updateToken === "") {
-        console.error("no update token");
         return;
     }
+    let deleteButton = document.querySelector("#delete");
+    deleteButton.classList.add("loading");
 
     let response = await fetch(`/documents/${key}`, {
         method: "DELETE", headers: {
             Authorization: updateToken
         }
     });
+    deleteButton.classList.remove("loading");
+
     if (!response.ok) {
-        console.error("error from api: ", response);
+        showErrorPopup(response.message)
+        console.error("error deleting document:", response);
         return;
     }
     deleteUpdateToken();
@@ -114,12 +157,16 @@ document.querySelector("#delete").addEventListener("click", async () => {
 })
 
 document.querySelector("#copy").addEventListener("click", async () => {
-    const data = window.history.state.content;
-    if (!data) return;
-    await navigator.clipboard.writeText(data);
+    if (document.querySelector("#copy").disabled) return;
+
+    const {content} = getState();
+    if (!content) return;
+    await navigator.clipboard.writeText(content);
 })
 
 document.querySelector("#raw").addEventListener("click", async () => {
+    if (document.querySelector("#raw").disabled) return;
+
     const {key} = getState();
     if (!key) return;
     window.open(`/raw/${key}`, "_blank").focus();
@@ -132,6 +179,14 @@ document.querySelector("#language").addEventListener("change", (event) => {
 document.querySelector("#style").addEventListener("change", (event) => {
     setStyle(event.target.value);
 });
+
+function showErrorPopup(message) {
+    const popup = document.getElementById("error-popup");
+    popup.style.display = "block";
+    popup.innerText = message || "Something went wrong.";
+    setTimeout(() => popup.style.display = "none", 5000);
+}
+
 
 function getState() {
     return window.history.state;
@@ -252,9 +307,9 @@ function highlightCode(language = undefined) {
         result.language = "plaintext";
     }
 
-    const codeElement = document.querySelector("#code-show");
-    codeElement.innerHTML = result.value;
-    codeElement.className = "hljs language-" + result.language;
+    const codeShowElement = document.querySelector("#code-show");
+    codeShowElement.innerHTML = result.value;
+    codeShowElement.className = "hljs language-" + result.language;
 
     document.querySelector("#language").value = result.language;
 

@@ -6,10 +6,24 @@
     --code-background-color: #282c34;
     --primary-text-color: #abb2bf;
     --secondary-text-color: #828997;
+    --error-popup-background-color: #a65757;
+    --error-popup-text-color: #fff;
 }
 
 * {
     box-sizing: border-box;
+}
+
+#error-popup {
+    position: absolute;
+    top: 0.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 1rem;
+    background-color: var(--error-popup-background-color);
+    color: var(--error-popup-text-color);
+    border-radius: 4px;
+    transition: all 0.5s ease;
 }
 
 body {
@@ -107,6 +121,10 @@ footer {
 }
 #raw {
     background-image: url(/assets/icons/raw.png);
+}
+
+.nav-button.loading {
+    background-image: url(/assets/icons/loading.gif) !important;
 }
 
 #code {
