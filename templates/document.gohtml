@@ -38,12 +38,10 @@
 </nav>
 <main>
     <div class="code-nav">
-        <label for="language">language:</label>
         <select id="language">
             <option value="auto">auto</option>
         </select>
 
-        <label for="style">style:</label>
         <select id="style">
             {{ range $index, $value := .Styles }}
                 <option value="{{ $value.URL }}">{{ $value.Name }}</option>
