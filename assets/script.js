@@ -5,30 +5,37 @@ hljs.listLanguages().forEach((language) => {
     document.querySelector("#language").appendChild(option);
 });
 
-
 document.addEventListener("DOMContentLoaded", () => {
+    const key = window.location.pathname === "/" ? "" : window.location.pathname.slice(1);
+    let newState;
+    let url;
+    if (key) {
+        const content = document.querySelector("#code-show").innerText
+        newState = {key: key, mode: "view", content: content};
+        url = `/${key}`;
+    } else {
+        newState = {key: "", mode: "edit", content: ""};
+        url = "/";
+    }
+    window.history.replaceState(newState, "", url);
+
     const style = localStorage.getItem("stylePreference") || "github-dark.min.css"
     setStyle(style);
-    highlightCode();
 
-    const key = getDocumentKey()
-    if (!key || getUpdateToken(key) === "") {
-        document.querySelector("#delete").disabled = true
-    }
+    updatePage(newState);
+    updatePageButtons(newState);
+});
 
-    if (!key) {
-        document.querySelector("#edit").disabled = true
-        document.querySelector("#raw").disabled = true
-        document.querySelector("#copy").disabled = true
-    }
-
-    const codeEditElement = document.querySelector("#code-edit")
-    codeEditElement.value = "";
-    updateSaveButton(codeEditElement)
+window.addEventListener("popstate", (event) => {
+    updatePage(event.state);
+    updatePageButtons(event.state);
 });
 
 document.querySelector("#code-edit").addEventListener("keyup", (event) => {
-    updateSaveButton(event.target)
+    const {key} = getState();
+    const newState = {key: key, mode: "edit", content: event.target.value};
+    window.history.replaceState(newState, "", `/${key}`);
+    updatePageButtons(newState);
 })
 
 document.querySelector("#new").addEventListener("click", () => {
@@ -36,42 +43,37 @@ document.querySelector("#new").addEventListener("click", () => {
 })
 
 document.querySelector("#edit").addEventListener("click", async () => {
-    const data = await getDocumentRaw();
-    if (!data) return;
-
-    if (getUpdateToken(getDocumentKey()) === "") {
-        window.history.pushState("Gobin", "", "/");
+    const {key, content} = getState();
+    let newState;
+    let url;
+    if (getUpdateToken(key) === "") {
+        newState = {key: "", mode: "edit", content: content};
+        url = "/";
+    } else {
+        newState = {key: key, mode: "edit", content: content};
+        url = `/${key}`;
     }
+    window.history.pushState(newState, "", url);
 
-    document.querySelector("#code").style.display = "none";
-    const codeEditElement = document.querySelector("#code-edit");
-    codeEditElement.value = data;
-    codeEditElement.style.display = "block";
-    document.querySelector("#delete").disabled = true;
-    document.querySelector("#edit").disabled = true;
-    document.querySelector("#copy").disabled = true;
-    document.querySelector("#raw").disabled = true;
+    updatePage(newState);
+    updatePageButtons(newState);
 })
 
 document.querySelector("#save").addEventListener("click", async () => {
-    let data = document.querySelector("#code-edit").value;
-    if (data.length === 0) return;
+    const {key, mode, content} = getState()
+    if (mode !== "edit") return;
 
-    const key = getDocumentKey();
     const updateToken = getUpdateToken(key);
     let response;
     if (key && updateToken) {
         response = await fetch(`/documents/${key}`, {
-            method: "PATCH",
-            body: data,
-            headers: {
+            method: "PATCH", body: content, headers: {
                 Authorization: updateToken
             }
         });
     } else {
         response = await fetch("/documents", {
-            method: "POST",
-            body: data
+            method: "POST", body: content
         });
     }
 
@@ -83,20 +85,13 @@ document.querySelector("#save").addEventListener("click", async () => {
     const body = await response.json();
     setUpdateToken(body.key, body.update_token);
 
-    window.history.pushState(`Gobin - ${body.key}`, "", `/${body.key}`);
-    document.querySelector("#delete").disabled = false;
-    document.querySelector("#save").disabled = true;
-    document.querySelector("#edit").disabled = false;
-    document.querySelector("#copy").disabled = false;
-    document.querySelector("#raw").disabled = false;
-    document.querySelector("#code-edit").style.display = "none";
-    document.querySelector("#code-show").innerText = data;
-    document.querySelector("#code").style.display = "block";
-    highlightCode();
+    const newState = {key: body.key, mode: "view", content: content};
+    window.history.pushState(newState, "", `/${body.key}`);
+    updatePage(newState);
 });
 
 document.querySelector("#delete").addEventListener("click", async () => {
-    const key = getDocumentKey();
+    const {key} = getState();
     const updateToken = getUpdateToken(key);
     if (updateToken === "") {
         console.error("no update token");
@@ -104,8 +99,7 @@ document.querySelector("#delete").addEventListener("click", async () => {
     }
 
     let response = await fetch(`/documents/${key}`, {
-        method: "DELETE",
-        headers: {
+        method: "DELETE", headers: {
             Authorization: updateToken
         }
     });
@@ -114,28 +108,21 @@ document.querySelector("#delete").addEventListener("click", async () => {
         return;
     }
     deleteUpdateToken();
-    document.querySelector("#delete").disabled = true;
-    document.querySelector("#save").disabled = true;
-    document.querySelector("#edit").disabled = true;
-    document.querySelector("#copy").disabled = true;
-    document.querySelector("#raw").disabled = true;
-    document.querySelector("#code-show").innerText = "";
-    document.querySelector("#code").style.display = "none";
-    const codeEditElement = document.querySelector("#code-edit");
-    codeEditElement.value = "";
-    codeEditElement.style.display = "block";
-
-    window.history.pushState("Gobin", "", "/");
+    const newState = {key: "", mode: "edit", content: ""};
+    window.history.pushState(newState, "", "/");
+    updatePage(newState);
 })
 
 document.querySelector("#copy").addEventListener("click", async () => {
-    const data = await getDocumentRaw();
+    const data = window.history.state.content;
     if (!data) return;
     await navigator.clipboard.writeText(data);
 })
 
 document.querySelector("#raw").addEventListener("click", async () => {
-    window.open(`/raw/${getDocumentKey()}`, "_blank").focus();
+    const {key} = getState();
+    if (!key) return;
+    window.open(`/raw/${key}`, "_blank").focus();
 })
 
 document.querySelector("#language").addEventListener("change", (event) => {
@@ -146,31 +133,8 @@ document.querySelector("#style").addEventListener("change", (event) => {
     setStyle(event.target.value);
 });
 
-async function getDocumentRaw() {
-    const key = getDocumentKey()
-    const response = await fetch(`/raw/${key}`, {
-        method: "GET"
-    });
-
-    if (!response.ok) {
-        console.error("error from api: ", response);
-        return "";
-    }
-    return await response.text();
-}
-
-function updateSaveButton(element) {
-    if (element.value.length === 0) {
-        document.querySelector("#save").disabled = true;
-        return
-    }
-    document.querySelector("#save").disabled = false;
-}
-
-function getDocumentKey() {
-    const paths = window.location.pathname.split("/")
-    if (paths.length < 2) return ""
-    return paths[1]
+function getState() {
+    return window.history.state;
 }
 
 function getUpdateToken(key) {
@@ -193,12 +157,79 @@ function setUpdateToken(key, updateToken) {
 }
 
 function deleteUpdateToken() {
-    const key = getDocumentKey()
-    const documents = localStorage.getItem("documents")
-    if (!documents) return
-    const parsedDocuments = JSON.parse(documents)
+    const {key} = getState();
+    const documents = localStorage.getItem("documents");
+    if (!documents) return;
+    const parsedDocuments = JSON.parse(documents);
     delete parsedDocuments[key]
-    localStorage.setItem("documents", JSON.stringify(parsedDocuments))
+    localStorage.setItem("documents", JSON.stringify(parsedDocuments));
+}
+
+function updatePageButtons(state) {
+    const {key, mode, content} = state;
+    const updateToken = getUpdateToken(key);
+
+    if (mode === "edit" && content && (!key || key && updateToken)) {
+        document.querySelector("#save").disabled = false;
+    } else {
+        document.querySelector("#save").disabled = true;
+    }
+
+    if (mode === "edit" || !content) {
+        document.querySelector("#new").disabled = true;
+    } else {
+        document.querySelector("#new").disabled = false;
+    }
+
+    if (updateToken) {
+        document.querySelector("#delete").disabled = false;
+        document.querySelector("#edit").disabled = false;
+    } else {
+        document.querySelector("#delete").disabled = true;
+        document.querySelector("#edit").disabled = true;
+    }
+
+    if (key && mode === "view") {
+        document.querySelector("#copy").disabled = false;
+        document.querySelector("#raw").disabled = false;
+    } else if (key) {
+        document.querySelector("#copy").disabled = true;
+        document.querySelector("#raw").disabled = true;
+    }
+}
+
+function updatePage(state) {
+    const {key, mode, content} = state;
+
+    // update page title
+    if (key) {
+        document.title = `gobin - ${key}`;
+    } else {
+        document.title = "gobin";
+    }
+
+    if (mode === "view") {
+        document.querySelector("#delete").disabled = false;
+        document.querySelector("#save").disabled = true;
+        document.querySelector("#edit").disabled = false;
+        document.querySelector("#copy").disabled = false;
+        document.querySelector("#raw").disabled = false;
+        document.querySelector("#code-edit").style.display = "none";
+        document.querySelector("#code-show").innerText = content;
+        document.querySelector("#code").style.display = "block";
+        highlightCode();
+    } else if (mode === "edit") {
+        document.querySelector("#delete").disabled = true;
+        document.querySelector("#save").disabled = true;
+        document.querySelector("#edit").disabled = true;
+        document.querySelector("#copy").disabled = true;
+        document.querySelector("#raw").disabled = true;
+        document.querySelector("#code-show").innerText = "";
+        document.querySelector("#code").style.display = "none";
+        const codeEditElement = document.querySelector("#code-edit");
+        codeEditElement.value = content;
+        codeEditElement.style.display = "block";
+    }
 }
 
 function setStyle(style) {
@@ -212,8 +243,7 @@ function highlightCode(language = undefined) {
     let result;
     if (language && language !== "auto") {
         result = hljs.highlight(codeElement.innerText, {
-            language: language,
-            ignoreIllegals: true
+            language: language, ignoreIllegals: true
         });
     } else {
         result = hljs.highlightAuto(codeElement.innerText);
