@@ -5,7 +5,6 @@
 [![Docker](https://github.com/TopiSenpai/gobin/actions/workflows/docker.yml/badge.svg)](https://github.com/TopiSenpai/gobin/actions/workflows/docker.yml)
 [![Discord](https://discordapp.com/api/guilds/608506410803658753/embed.png?style=shield)](https://discord.gg/sD3ABd5)
 
-
 # gobin
 
 gobin is a simple lightweight haste-server alternative written in Go, HTML, JS and CSS. It is easy to deploy and use. You can find a public version at [xgob.in](https://xgob.in).
@@ -28,8 +27,10 @@ The easiest way to deploy gobin is using docker with [Docker Compose](https://do
 
 #### Docker Compose
 
-> **Note:** You should change the password in the `docker-compose.yml` and `config.json` file.
-`docker-compose.yml`
+Create a new `docker-compose.yml` file with the following content:
+
+> **Note:**
+> You should change the password in the `docker-compose.yml` and `config.json` file.
 
 ```yaml
 version: "3.8"
@@ -56,7 +57,7 @@ services:
       POSTGRES_PASSWORD: password
 ```
 
-For `config.json` see [Configuration](#configuration).
+For `config.json` and database see schema [Configuration](#configuration).
 
 ```bash
 docker-compose up -d
@@ -91,7 +92,7 @@ gobin --config=config.json
 
 #### Configuration
 
-Create a new table in your PostgreSQL database with the following schema.
+Create a new table in your PostgreSQL database with the following schema:
 
 ```sql
 CREATE TABLE documents
@@ -105,9 +106,11 @@ CREATE TABLE documents
 );
 ```
 
-Then create a new `config.json` file with the following content.
+Then create a new `config.json` file with the following content:
 
-> **Note:** Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
+> **Note:**
+> Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
+
 ```json
 {
   "listen_addr": "0.0.0.0:80",
@@ -130,7 +133,8 @@ Then create a new `config.json` file with the following content.
 
 To create a paste you have to send a `POST` request to `/documents` with the `content` as `plain/text` body.
 
-> **Note:** You can also specify the code language with the `Language` header.
+> **Note:**
+> You can also specify the code language with the `Language` header.
 
 ```
 Language: go
@@ -155,7 +159,8 @@ A successful request will return a `200 OK` response with a JSON body containing
 
 To update a paste you have to send a `PATCH` request to `/documents/{key}` with the `content` as `plain/text` body and the `update_token` as `Authorization` header.
 
-> **Note:** You can also specify the code language with the `Language` header.
+> **Note:**
+> You can also specify the code language with the `Language` header.
 
 ```
 Authorization: kiczgez33j7qkvqdg9f7ksrd8jk88wba
@@ -170,7 +175,8 @@ func main() {
 
 A successful request will return a `200 OK` response with a JSON body containing the document key and token to update the document.
 
-> **Note:** The update token will not change after updating the document. You can use the same token to update the document again.
+> **Note:**
+> The update token will not change after updating the document. You can use the same token to update the document again.
 
 ```json
 {
