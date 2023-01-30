@@ -1,6 +1,5 @@
 .github/
 .gitignore
-schema.sql
 README.md
 LICENSE
 Dockerfile
