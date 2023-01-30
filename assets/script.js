@@ -5,18 +5,6 @@ hljs.listLanguages().forEach((language) => {
     document.querySelector("#language").appendChild(option);
 });
 
-window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (event) => {
-    const faviconElement = document.querySelector(`link[rel="icon"]`)
-    if (event.matches) {
-        setStyle("atom-one-dark.min.css");
-        faviconElement.href = "/assets/favicon.png";
-    } else {
-        setStyle("atom-one-light.min.css");
-        faviconElement.href = "/assets/favicon-light.png";
-    }
-})
-
-
 document.addEventListener("DOMContentLoaded", () => {
     const key = window.location.pathname === "/" ? "" : window.location.pathname.slice(1);
     let newState;
@@ -31,7 +19,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     window.history.replaceState(newState, "", url);
 
-    const style = localStorage.getItem("stylePreference") || "atom-one-dark.min.css"
+    const darkMediaMatcher = window.matchMedia("(prefers-color-scheme: dark)");
+    darkMediaMatcher.addEventListener("change", (event) => {
+        updateFaviconStyle(event.matches);
+    })
+    updateFaviconStyle(darkMediaMatcher.matches);
+
+    const style = localStorage.getItem("stylePreference") || darkMediaMatcher.matches ? "atom-one-dark.min.css" : "atom-one-light.min.css";
     setStyle(style);
 
     updatePage(newState);
@@ -297,6 +291,15 @@ function updatePage(state) {
         codeEditElement.value = content;
         codeEditElement.style.display = "block";
     }
+}
+
+function updateFaviconStyle(matches) {
+    const faviconElement = document.querySelector(`link[rel="icon"]`)
+    if (matches) {
+        faviconElement.href = "/assets/favicon.png";
+        return
+    }
+    faviconElement.href = "/assets/favicon-light.png";
 }
 
 function setStyle(style) {
