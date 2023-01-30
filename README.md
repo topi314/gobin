@@ -91,9 +91,23 @@ gobin --config=config.json
 
 #### Configuration
 
-> **Note:** Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
-`config.json`
+Create a new table in your PostgreSQL database with the following schema.
 
+```sql
+CREATE TABLE documents
+(
+    id           VARCHAR PRIMARY KEY,
+    content      TEXT      NOT NULL,
+    language     VARCHAR   NOT NULL,
+    update_token VARCHAR   NOT NULL,
+    created_at   TIMESTAMP NOT NULL,
+    updated_at   TIMESTAMP NOT NULL
+);
+```
+
+Then create a new `config.json` file with the following content.
+
+> **Note:** Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
 ```json
 {
   "listen_addr": "0.0.0.0:80",
