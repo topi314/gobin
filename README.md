@@ -8,7 +8,7 @@
 
 # gobin
 
-gobin is a simple lightweight haste-server alternative written in Go, HTML, JS and CSS. It is easy to deploy and use. You can find a public at [xgob.in](https://xgob.in).
+gobin is a simple lightweight haste-server alternative written in Go, HTML, JS and CSS. It is easy to deploy and use. You can find a public version at [xgob.in](https://xgob.in).
 
 ## Features
 
