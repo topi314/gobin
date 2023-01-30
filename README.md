@@ -29,7 +29,7 @@ The easiest way to deploy gobin is using docker with [Docker Compose](https://do
 
 Create a new `docker-compose.yml` file with the following content:
 
-> **Note:**
+> **Note**
 > You should change the password in the `docker-compose.yml` and `config.json` file.
 
 ```yaml
@@ -108,7 +108,7 @@ CREATE TABLE documents
 
 Then create a new `config.json` file with the following content:
 
-> **Note:**
+> **Note**
 > Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
 
 ```json
@@ -133,7 +133,7 @@ Then create a new `config.json` file with the following content:
 
 To create a paste you have to send a `POST` request to `/documents` with the `content` as `plain/text` body.
 
-> **Note:**
+> **Note**
 > You can also specify the code language with the `Language` header.
 
 ```
@@ -159,7 +159,7 @@ A successful request will return a `200 OK` response with a JSON body containing
 
 To update a paste you have to send a `PATCH` request to `/documents/{key}` with the `content` as `plain/text` body and the `update_token` as `Authorization` header.
 
-> **Note:**
+> **Note**
 > You can also specify the code language with the `Language` header.
 
 ```
@@ -175,7 +175,7 @@ func main() {
 
 A successful request will return a `200 OK` response with a JSON body containing the document key and token to update the document.
 
-> **Note:**
+> **Note**
 > The update token will not change after updating the document. You can use the same token to update the document again.
 
 ```json
