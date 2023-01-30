@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"errors"
 	"log"
 	"math/rand"
@@ -9,12 +10,54 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
+	_ "modernc.org/sqlite"
 )
 
-var chars = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
+var (
+	//go:embed schema.sql
+	schema string
+
+	chars = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
+)
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
+}
+
+func New(ctx context.Context, cfg Config) (*Database, error) {
+	var (
+		driverName     string
+		dataSourceName string
+	)
+	switch cfg.Database.Type {
+	case "postgres":
+		driverName = "pgx"
+		dataSourceName = cfg.Database.PostgresDataSourceName()
+	case "sqlite":
+		driverName = "sqlite"
+		dataSourceName = cfg.Database.Path
+	default:
+		return nil, errors.New("invalid database type, must be one of: postgres, sqlite")
+	}
+	dbx, err := sqlx.ConnectContext(ctx, driverName, dataSourceName)
+	if err != nil {
+		return nil, err
+	}
+
+	// execute schema
+	if _, err = dbx.ExecContext(ctx, schema); err != nil {
+		return nil, err
+	}
+
+	cleanupContext, cancel := context.WithCancel(context.Background())
+	db := &Database{
+		DB:            dbx,
+		cleanupCancel: cancel,
+	}
+
+	go db.cleanup(cleanupContext, cfg.CleanupInterval, cfg.ExpireAfter)
+
+	return db, nil
 }
 
 type Document struct {
@@ -26,26 +69,9 @@ type Document struct {
 	UpdatedAt   time.Time `db:"updated_at"`
 }
 
-func NewDatabase(cfg Config) (*Database, error) {
-	dbx, err := sqlx.Connect("pgx", cfg.Database.DataSourceName())
-	if err != nil {
-		return nil, err
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	db := &Database{
-		DB:     dbx,
-		cancel: cancel,
-	}
-
-	go db.cleanup(ctx, cfg.CleanupInterval, cfg.ExpireAfter)
-
-	return db, nil
-}
-
 type Database struct {
 	*sqlx.DB
-	cancel context.CancelFunc
+	cleanupCancel context.CancelFunc
 }
 
 func (d *Database) Close() error {

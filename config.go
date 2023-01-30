@@ -9,6 +9,7 @@ import (
 )
 
 type Config struct {
+	DevMode         bool           `json:"dev_mode"`
 	ListenAddr      string         `json:"listen_addr"`
 	Database        DatabaseConfig `json:"database"`
 	ExpireAfter     time.Duration  `json:"expire_after"`
@@ -46,6 +47,12 @@ func (c Config) String() string {
 }
 
 type DatabaseConfig struct {
+	Type string `json:"type"`
+
+	// SQLite
+	Path string `json:"path"`
+
+	// PostgreSQL
 	Host     string `json:"host"`
 	Port     int    `json:"port"`
 	Username string `json:"username"`
@@ -55,10 +62,19 @@ type DatabaseConfig struct {
 }
 
 func (c DatabaseConfig) String() string {
-	return fmt.Sprintf("\n  Host: %s,\n  Port: %d,\n  Username: %s,\n  Password: %s,\n  Database: %s,\n  SSLMode: %s", c.Host, c.Port, c.Username, strings.Repeat("*", len(c.Password)), c.Database, c.SSLMode)
+	str := fmt.Sprintf("\n  Type: %s,\n  ", c.Type)
+	switch c.Type {
+	case "postgres":
+		str += fmt.Sprintf("Host: %s,\n  Port: %d,\n  Username: %s,\n  Password: %s,\n  Database: %s,\n  SSLMode: %s", c.Host, c.Port, c.Username, strings.Repeat("*", len(c.Password)), c.Database, c.SSLMode)
+	case "sqlite":
+		str += fmt.Sprintf("Path: %s", c.Path)
+	default:
+		str += "Invalid database type!"
+	}
+	return str
 }
 
-func (c DatabaseConfig) DataSourceName() string {
+func (c DatabaseConfig) PostgresDataSourceName() string {
 	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s", c.Host, c.Port, c.Username, c.Password, c.Database, c.SSLMode)
 }
 

@@ -49,7 +49,7 @@ func (s *Server) Routes() http.Handler {
 }
 
 func (s *Server) Assets() http.Handler {
-	if s.devMode {
+	if s.cfg.DevMode {
 		return http.FileServer(http.Dir("."))
 	}
 	return http.FileServer(http.FS(assets))

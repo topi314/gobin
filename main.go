@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"flag"
 	"html/template"
 	"io"
 	"log"
 	"net/http"
+	"time"
 )
 
 var (
@@ -20,15 +22,13 @@ var (
 type ExecuteTemplateFunc func(wr io.Writer, name string, data any) error
 
 type Server struct {
-	cfg     Config
-	devMode bool
-	db      *Database
-	tmpl    ExecuteTemplateFunc
+	cfg  Config
+	db   *Database
+	tmpl ExecuteTemplateFunc
 }
 
 func main() {
 	cfgPath := flag.String("config", "config.json", "path to config.json")
-	devMode := flag.Bool("dev", false, "enable development mode")
 	flag.Parse()
 
 	log.Println("Gobin starting... (config path:", *cfgPath, ")")
@@ -39,14 +39,16 @@ func main() {
 	}
 	log.Println("Config:", cfg)
 
-	db, err := NewDatabase(cfg)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	db, err := New(ctx, cfg)
 	if err != nil {
 		log.Fatalln("Error while connecting to database:", err)
 	}
 	defer db.Close()
 
 	var tmplFunc ExecuteTemplateFunc
-	if *devMode {
+	if cfg.DevMode {
 		log.Println("Development mode enabled")
 		tmplFunc = func(wr io.Writer, name string, data any) error {
 			tmpl, err := template.New("").ParseGlob("templates/*")
@@ -64,10 +66,9 @@ func main() {
 	}
 
 	s := &Server{
-		cfg:     cfg,
-		devMode: *devMode,
-		db:      db,
-		tmpl:    tmplFunc,
+		cfg:  cfg,
+		db:   db,
+		tmpl: tmplFunc,
 	}
 
 	log.Println("Gobin listening on:", cfg.ListenAddr)

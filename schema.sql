@@ -1,4 +1,4 @@
-CREATE TABLE documents
+CREATE TABLE IF NOT EXISTS documents
 (
     id           VARCHAR PRIMARY KEY,
     content      TEXT      NOT NULL,

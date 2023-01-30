@@ -7,7 +7,7 @@
 
 # gobin
 
-gobin is a simple lightweight haste-server alternative written in Go, HTML, JS and CSS. It is easy to deploy and use. You can find a public version at [xgob.in](https://xgob.in).
+gobin is a simple lightweight haste-server alternative written in Go, HTML, JS and CSS. It is aimed to be easy to use and deploy. You can find an instance running at [xgob.in](https://xgob.in).
 
 ## Features
 
@@ -15,7 +15,7 @@ gobin is a simple lightweight haste-server alternative written in Go, HTML, JS a
 - Create, update and delete documents
 - Syntax highlighting
 - Document expiration
-- Only [PostgreSQL](https://www.postgresql.org/) required
+- Supports [PostgreSQL](https://www.postgresql.org/) or [SQLite](https://sqlite.org/)
 - One binary and config file
 - Docker image available
 
@@ -42,9 +42,12 @@ services:
     restart: unless-stopped
     volumes:
       - ./config.json:/var/lib/gobin/config.json
+      # use this for sqlite
+      - ./gobin.db:/var/lib/gobin/gobin.db
     ports:
       - 80:80
 
+  # or use this for postgres
   postgres:
     image: postgres:latest
     container_name: postgres
@@ -92,31 +95,27 @@ gobin --config=config.json
 
 #### Configuration
 
-Create a new table in your PostgreSQL database with the following schema:
+The schema is automatically created when you start gobin and there is no `documents` table in the database.
 
-```sql
-CREATE TABLE documents
-(
-    id           VARCHAR PRIMARY KEY,
-    content      TEXT      NOT NULL,
-    language     VARCHAR   NOT NULL,
-    update_token VARCHAR   NOT NULL,
-    created_at   TIMESTAMP NOT NULL,
-    updated_at   TIMESTAMP NOT NULL
-);
-```
-
-Then create a new `config.json` file with the following content:
+Create a new `config.json` file with the following content:
 
 > **Note**
 > Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
 
-```json
+```yml
 {
   "listen_addr": "0.0.0.0:80",
   "expire_after": "168h",
   "cleanup_interval": "10m",
   "database": {
+    # either "postgres" or "sqlite"
+    "type": "postgres",
+    
+    # path to sqlite database
+    # if you run gobin with docker make sure to set it to "/var/lib/gobin/gobin.db"
+    "path": "gobin.db",
+    
+    # postgres connection settings
     "host": "localhost",
     "port": 5432,
     "username": "gobin",

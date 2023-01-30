@@ -1,8 +1,16 @@
 {
+  "dev_mode": false,
   "listen_addr": ":80",
   "expire_after": "0",
   "cleanup_interval": "1m",
   "database": {
+    // type can be "sqlite" or "postgres"
+    "type": "postgres",
+
+    // "path" is only used for SQLite
+    "path": "gobin.db",
+
+    // "host", "port", "username", "password", "database", "ssl_mode" are only used for PostgreSQL
     "host": "database",
     "port": 5432,
     "username": "gobin",
