@@ -19,68 +19,89 @@ func main() {
 
 	client := github.NewClient(nil)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	tags, _, err := client.Repositories.ListTags(ctx, "highlightjs", "cdn-release", nil)
-	if err != nil {
-		println("Error: ", err.Error())
+	if err := downloadHighlightJS(client); err != nil {
+		println("Failed to download HighlightJS:", err.Error())
 		return
 	}
 
-	if len(tags) == 0 {
-		println("Error: No tags found")
+	if err := downloadHighlightJSLineNumbers(client); err != nil {
+		println("Failed to download HighlightJS Line Numbers:", err.Error())
 		return
-	}
-	latestTag := tags[0]
-	fmt.Printf("Latest version: %s", latestTag.GetName())
-
-	rs, err := http.Get(latestTag.GetTarballURL())
-	if err != nil {
-		println("Error: ", err.Error())
-		return
-	}
-	defer rs.Body.Close()
-
-	data, err := io.ReadAll(rs.Body)
-	if err != nil {
-		println("Error: ", err.Error())
-		return
-	}
-
-	files := []string{
-		"build/highlight.min.js",
-		"build/styles/atom-one-dark.min.css",
-		"build/styles/atom-one-light.min.css",
-		"build/styles/github-dark.min.css",
-		"build/styles/github.min.css",
-	}
-
-	zipReader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
-	if err != nil {
-		return
-	}
-
-	for _, file := range files {
-		println("Copying: ", file)
-		if err = copyToAssets(zipReader, file); err != nil {
-			println("Error: ", err.Error())
-			return
-		}
 	}
 
 	println("Done")
 }
 
-func copyToAssets(zipReader *zip.Reader, filename string) error {
-	zipFile, err := zipReader.Open(filename)
+func downloadLatestTagZipball(client *github.Client, owner string, repo string) (*zip.Reader, error) {
+	latestTag, err := getLatestTag(client, owner, repo)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed to get latest tag: %w", err)
+	}
+	println("Latest", owner+"/"+repo, "version:", latestTag.GetName())
+
+	println(owner+"/"+repo, "Zipball URL:", latestTag.GetZipballURL())
+
+	zipReader, err := downloadZip(latestTag.GetZipballURL())
+	if err != nil {
+		return nil, fmt.Errorf("failed to download zip: %w", err)
+	}
+
+	if len(zipReader.File) == 0 {
+		return nil, fmt.Errorf("zip is empty")
+	}
+
+	return zipReader, nil
+}
+
+func getLatestTag(client *github.Client, owner string, repo string) (*github.RepositoryTag, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	tags, _, err := client.Repositories.ListTags(ctx, owner, repo, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list tags: %w", err)
+	}
+
+	if len(tags) == 0 {
+		return nil, fmt.Errorf("no tags found")
+	}
+
+	return tags[0], nil
+}
+
+func downloadZip(url string) (*zip.Reader, error) {
+	rs, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to download zip: %w", err)
+	}
+	defer rs.Body.Close()
+
+	data, err := io.ReadAll(rs.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read zip: %w", err)
+	}
+
+	zipReader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read zip: %w", err)
+	}
+
+	if len(zipReader.File) == 0 {
+		return nil, fmt.Errorf("zip is empty")
+	}
+
+	return zipReader, nil
+}
+
+func copyToAssets(zipReader *zip.Reader, prefix string, buildPrefix string, filename string) error {
+	zipFile, err := zipReader.Open(prefix + filename)
+	if err != nil {
+		return fmt.Errorf("failed to open zip file: %w", err)
 	}
 	defer zipFile.Close()
 
-	assetsFile, err := os.Open("assets/" + strings.TrimPrefix(filename, "build/"))
+	assetsFile, err := os.OpenFile("assets/"+strings.TrimPrefix(filename, buildPrefix), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open assets file: %w", err)
 	}
 	defer assetsFile.Close()
 

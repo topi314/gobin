@@ -5,6 +5,18 @@ hljs.listLanguages().forEach((language) => {
     document.querySelector("#language").appendChild(option);
 });
 
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (event) => {
+    const faviconElement = document.querySelector(`link[rel="icon"]`)
+    if (event.matches) {
+        setStyle("atom-one-dark.min.css");
+        faviconElement.href = "/assets/favicon.png";
+    } else {
+        setStyle("atom-one-light.min.css");
+        faviconElement.href = "/assets/favicon-light.png";
+    }
+})
+
+
 document.addEventListener("DOMContentLoaded", () => {
     const key = window.location.pathname === "/" ? "" : window.location.pathname.slice(1);
     let newState;
@@ -289,7 +301,7 @@ function updatePage(state) {
 
 function setStyle(style) {
     localStorage.setItem("stylePreference", style)
-    document.querySelector(`link[title="Highlight.js Style"]`).href = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/" + style;
+    document.querySelector(`link[title="Highlight.js Style"]`).href = "/assets/styles/" + style;
     document.querySelector("#style").value = style;
 }
 

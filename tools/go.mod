@@ -1,4 +1,4 @@
-module tools
+module github.com/topisenpai/gobin/tools
 
 go 1.19
 
