@@ -2,14 +2,17 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	_ "embed"
 	"errors"
 	"log"
 	"math/rand"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
+	"modernc.org/sqlite"
 	_ "modernc.org/sqlite"
 )
 
@@ -24,7 +27,7 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-func New(ctx context.Context, cfg Config) (*Database, error) {
+func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 	var (
 		driverName     string
 		dataSourceName string
@@ -85,6 +88,13 @@ func (d *Database) GetDocument(ctx context.Context, id string) (Document, error)
 }
 
 func (d *Database) CreateDocument(ctx context.Context, content string, language string) (Document, error) {
+	return d.createDocument(ctx, content, language, 0)
+}
+
+func (d *Database) createDocument(ctx context.Context, content string, language string, try int) (Document, error) {
+	if try >= 10 {
+		return Document{}, errors.New("failed to create document because of duplicate key after 10 tries")
+	}
 	now := time.Now()
 	doc := Document{
 		ID:          randomString(8),
@@ -95,6 +105,19 @@ func (d *Database) CreateDocument(ctx context.Context, content string, language 
 		UpdatedAt:   now,
 	}
 	_, err := d.NamedExecContext(ctx, "INSERT INTO documents (id, content, language, update_token, created_at, updated_at) VALUES (:id, :content, :language, :update_token, :created_at, :updated_at)", doc)
+
+	if err != nil {
+		var (
+			sqliteErr *sqlite.Error
+			pgErr     *pgconn.PgError
+		)
+		if errors.As(err, &sqliteErr) || errors.As(err, &pgErr) {
+			if (sqliteErr != nil && sqliteErr.Code() == 1555) || (pgErr != nil && pgErr.Code == "23505") {
+				return d.createDocument(ctx, content, language, try+1)
+			}
+		}
+	}
+
 	return doc, err
 }
 
@@ -106,13 +129,35 @@ func (d *Database) UpdateDocument(ctx context.Context, id string, updateToken st
 		UpdateToken: updateToken,
 		UpdatedAt:   time.Now(),
 	}
-	_, err := d.NamedExecContext(ctx, "UPDATE documents SET content = :content, language = :language, updated_at = :updated_at WHERE id = :id AND update_token = :update_token", doc)
-	return doc, err
+	res, err := d.NamedExecContext(ctx, "UPDATE documents SET content = :content, language = :language, updated_at = :updated_at WHERE id = :id AND update_token = :update_token", doc)
+	if err != nil {
+		return Document{}, err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return Document{}, err
+	}
+	if rows == 0 {
+		return Document{}, sql.ErrNoRows
+	}
+
+	return doc, nil
 }
 
 func (d *Database) DeleteDocument(ctx context.Context, id string, updateToken string) error {
-	_, err := d.ExecContext(ctx, "DELETE FROM documents WHERE id = $1 AND update_token = $2", id, updateToken)
-	return err
+	res, err := d.ExecContext(ctx, "DELETE FROM documents WHERE id = $1 AND update_token = $2", id, updateToken)
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
 }
 
 func (d *Database) DeleteExpiredDocuments(ctx context.Context, expireAfter time.Duration) error {

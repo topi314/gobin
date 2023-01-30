@@ -41,7 +41,7 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	db, err := New(ctx, cfg)
+	db, err := NewDatabase(ctx, cfg)
 	if err != nil {
 		log.Fatalln("Error while connecting to database:", err)
 	}

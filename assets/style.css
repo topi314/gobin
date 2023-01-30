@@ -76,17 +76,16 @@ main {
     grid-template-rows: auto 1fr;
 }
 
-.error-title {
-    text-align: center;
-    font-weight: bolder;
-}
-
 .error {
     text-align: center;
 }
 
+.error h1 {
+    font-weight: bolder;
+}
+
 .error p {
-    color: var(--text-error);
+    color: var(--bg-error);
 }
 
 .error a {

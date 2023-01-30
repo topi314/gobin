@@ -55,7 +55,6 @@ document.addEventListener("keydown", (event) => {
             break;
         case "n":
             event.preventDefault();
-            if (document.querySelector("#new").disabled) return;
             document.querySelector("#new").click();
             break;
         case "e":
@@ -78,10 +77,6 @@ document.querySelector("#code-edit").addEventListener("keyup", (event) => {
     const newState = {key: key, mode: "edit", content: event.target.value, language: language};
     window.history.replaceState(newState, "", `/${key}`);
     updatePageButtons(newState);
-})
-
-document.querySelector("#new").addEventListener("click", () => {
-    window.open("/", "_blank").focus();
 })
 
 document.querySelector("#edit").addEventListener("click", async () => {
@@ -116,30 +111,33 @@ document.querySelector("#save").addEventListener("click", async () => {
     let response;
     if (key && updateToken) {
         response = await fetch(`/documents/${key}`, {
-            method: "PATCH", body: content, headers: {
+            method: "PATCH",
+            body: content,
+            headers: {
                 Authorization: updateToken,
                 Language: language
             }
         });
     } else {
         response = await fetch("/documents", {
-            method: "POST", body: content, headers: {
+            method: "POST",
+            body: content,
+            headers: {
                 Language: language
             }
         });
     }
     saveButton.classList.remove("loading");
 
+    const body = await response.json();
     if (!response.ok) {
-        showErrorPopup(response.message);
+        showErrorPopup(body.message || response.statusText);
         console.error("error saving document:", response);
         return;
     }
 
-    const body = await response.json();
+    const newState = {key: body.key, mode: "view", content: body.data, language: body.language};
     setUpdateToken(body.key, body.update_token);
-
-    const newState = {key: body.key, mode: "view", content: content, language: language};
     updatePage(newState);
     window.history.pushState(newState, "", `/${body.key}`);
 });
@@ -162,8 +160,9 @@ document.querySelector("#delete").addEventListener("click", async () => {
     });
     deleteButton.classList.remove("loading");
 
+    const body = await response.json();
     if (!response.ok) {
-        showErrorPopup(response.message)
+        showErrorPopup(body.message || response.statusText)
         console.error("error deleting document:", response);
         return;
     }
@@ -248,12 +247,6 @@ function updatePageButtons(state) {
         document.querySelector("#save").disabled = false;
     } else {
         document.querySelector("#save").disabled = true;
-    }
-
-    if (mode === "edit" || !content) {
-        document.querySelector("#new").disabled = true;
-    } else {
-        document.querySelector("#new").disabled = false;
     }
 
     if (updateToken) {

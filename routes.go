@@ -13,6 +13,12 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
+var (
+	ErrDocumentNotFound = errors.New("document not found")
+	ErrUnauthorized     = errors.New("unauthorized")
+	ErrEmptyBody        = errors.New("empty request body")
+)
+
 type Variables struct {
 	ID        string
 	Content   string
@@ -47,13 +53,17 @@ func (s *Server) Routes() http.Handler {
 	r.Head("/raw/{documentID}", s.GetRawDocument)
 
 	r.Post("/documents", s.PostDocument)
+	r.Head("/documents/{documentID}", s.GetDocument)
+	r.Get("/documents/{documentID}", s.GetDocument)
 	r.Patch("/documents/{documentID}", s.PatchDocument)
 	r.Delete("/documents/{documentID}", s.DeleteDocument)
-	r.Get("/documents/{documentID}", s.GetDocument)
-	r.Head("/documents/{documentID}", s.GetDocument)
 
 	r.Get("/{documentID}", s.GetPrettyDocument)
+	r.Head("/{documentID}", s.GetPrettyDocument)
+
 	r.Get("/", s.GetPrettyDocument)
+	r.Head("/", s.GetPrettyDocument)
+
 	r.NotFound(s.Redirect)
 
 	return r
@@ -66,23 +76,24 @@ func (s *Server) Assets() http.Handler {
 	return http.FileServer(http.FS(assets))
 }
 
-func (s *Server) getDocument(r *http.Request) (Document, error) {
-	documentID := chi.URLParam(r, "documentID")
-	if documentID == "" {
-		return Document{}, nil
-	}
-
-	return s.db.GetDocument(r.Context(), documentID)
-}
-
 func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
-	document, err := s.getDocument(r)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			s.Redirect(w, r)
+	documentID := chi.URLParam(r, "documentID")
+	var document Document
+	if documentID != "" {
+		var err error
+		document, err = s.db.GetDocument(r.Context(), documentID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				s.Redirect(w, r)
+				return
+			}
+			s.PrettyError(w, r, err, http.StatusInternalServerError)
 			return
 		}
-		s.Error(w, r, err)
+	}
+
+	w.WriteHeader(http.StatusOK)
+	if r.Method == http.MethodHead {
 		return
 	}
 
@@ -95,36 +106,25 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		Host:      r.Host,
 		Styles:    Styles,
 	}
-
-	if err = s.tmpl(w, "document.gohtml", vars); err != nil {
-		log.Printf("Error while executing template: %s", err)
-		s.Error(w, r, err)
+	if err := s.tmpl(w, "document.gohtml", vars); err != nil {
+		log.Println("Error while executing template:", err)
 	}
 }
 
 func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
-	document, err := s.getDocument(r)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			http.Error(w, "document not found", http.StatusNotFound)
-			return
-		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	document := s.getDocument(w, r)
+	if document == nil {
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(document.Content))
 }
 
 func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
-	document, err := s.getDocument(r)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			http.Error(w, "document not found", http.StatusNotFound)
-			return
-		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	document := s.getDocument(w, r)
+	if document == nil {
 		return
 	}
 
@@ -143,20 +143,14 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 	language := r.Header.Get("Language")
 
-	content, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if len(content) == 0 {
-		s.JSONError(w, r, errors.New("empty document"), http.StatusBadRequest)
+	content := s.readBody(w, r)
+	if content == nil {
 		return
 	}
 
 	document, err := s.db.CreateDocument(r.Context(), string(content), language)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.Error(w, r, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -170,23 +164,25 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 	documentID := chi.URLParam(r, "documentID")
-	updateToken := r.Header.Get("Authorization")
 	language := r.Header.Get("Language")
 
+	updateToken := s.getUpdateToken(w, r)
 	if updateToken == "" {
-		s.JSONError(w, r, errors.New("missing Authorization header"), http.StatusUnauthorized)
 		return
 	}
 
-	content, err := io.ReadAll(r.Body)
-	if err != nil {
-		s.JSONError(w, r, err, http.StatusInternalServerError)
+	content := s.readBody(w, r)
+	if content == nil {
 		return
 	}
 
 	document, err := s.db.UpdateDocument(r.Context(), documentID, updateToken, string(content), language)
 	if err != nil {
-		s.JSONError(w, r, err, http.StatusInternalServerError)
+		if errors.Is(err, sql.ErrNoRows) {
+			s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+			return
+		}
+		s.Error(w, r, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -203,37 +199,92 @@ func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
 	updateToken := r.Header.Get("Authorization")
 
 	if err := s.db.DeleteDocument(r.Context(), documentID, updateToken); err != nil {
-		s.Error(w, r, err)
+		if errors.Is(err, sql.ErrNoRows) {
+			s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+			return
+		}
+		s.Error(w, r, err, http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) getDocument(w http.ResponseWriter, r *http.Request) *Document {
+	documentID := chi.URLParam(r, "documentID")
+	if documentID == "" {
+		return &Document{}
+	}
+
+	document, err := s.db.GetDocument(r.Context(), documentID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+			return nil
+		}
+		s.Error(w, r, err, http.StatusInternalServerError)
+		return nil
+	}
+	return &document
+}
+
+func (s *Server) getUpdateToken(w http.ResponseWriter, r *http.Request) string {
+	updateToken := r.Header.Get("Authorization")
+	if updateToken == "" {
+		s.Unauthorized(w, r)
+		return ""
+	}
+	return updateToken
+}
+
+func (s *Server) readBody(w http.ResponseWriter, r *http.Request) []byte {
+	content, err := io.ReadAll(r.Body)
+	if err != nil {
+		s.Error(w, r, err, http.StatusInternalServerError)
+		return nil
+	}
+
+	if len(content) == 0 {
+		s.Error(w, r, ErrEmptyBody, http.StatusBadRequest)
+		return nil
+	}
+	return content
 }
 
 func (s *Server) Redirect(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
-func (s *Server) Unauthorized(w http.ResponseWriter) {
-	http.Error(w, "Unauthorized", http.StatusUnauthorized)
+func (s *Server) Unauthorized(w http.ResponseWriter, r *http.Request) {
+	s.Error(w, r, errors.New("unauthorized"), http.StatusUnauthorized)
 }
 
-func (s *Server) Error(w http.ResponseWriter, r *http.Request, err error) {
-	log.Printf("Error while handling request %s: %s", r.URL, err)
+func (s *Server) PrettyError(w http.ResponseWriter, r *http.Request, err error, status int) {
+	log.Printf("Error while handling request %s: %s\n", r.URL, err)
+	w.WriteHeader(status)
 	if tmplErr := s.tmpl(w, "error.gohtml", err.Error()); tmplErr != nil {
 		log.Println("Error while executing template:", tmplErr)
 	}
 }
 
-func (s *Server) JSONError(w http.ResponseWriter, r *http.Request, err error, status int) {
-	w.WriteHeader(status)
-	s.JSON(w, r, ErrorResponse{
+func (s *Server) Error(w http.ResponseWriter, r *http.Request, err error, status int) {
+	log.Printf("Error while handling request %s: %s\n", r.URL, err)
+	s.json(w, r, ErrorResponse{
 		Message: err.Error(),
-	})
+	}, status)
 }
 
 func (s *Server) JSON(w http.ResponseWriter, r *http.Request, v any) {
+	s.json(w, r, v, http.StatusOK)
+}
+
+func (s *Server) json(w http.ResponseWriter, r *http.Request, v any, status int) {
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if r.Method == http.MethodHead {
+		return
+	}
+
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		log.Printf("Error while encoding JSON %s: %s", r.URL, err)
+		log.Printf("Error while encoding JSON %s: %s\n", r.URL, err)
 	}
 }
