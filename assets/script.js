@@ -2,7 +2,18 @@ hljs.listLanguages().forEach((language) => {
     const option = document.createElement("option");
     option.value = language;
     option.innerText = language;
-    document.querySelector("#language").appendChild(option);
+
+    const languageElement = document.querySelector("#language")
+    if (languageElement.value === language) {
+        languageElement.removeChild(languageElement.querySelector(`option[value="${language}"]`));
+        option.selected = true;
+    }
+
+    languageElement.appendChild(option);
+});
+
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (event) => {
+    updateFaviconStyle(event.matches);
 });
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -11,25 +22,21 @@ document.addEventListener("DOMContentLoaded", () => {
     let url;
     if (key) {
         const content = document.querySelector("#code-show").innerText
-        newState = {key: key, mode: "view", content: content};
+        const language = document.querySelector("#language").value;
+        newState = {key: key, mode: "view", content: content, language: language};
         url = `/${key}`;
     } else {
-        newState = {key: "", mode: "edit", content: ""};
+        newState = {key: "", mode: "edit", content: "", language: ""};
         url = "/";
     }
-    window.history.replaceState(newState, "", url);
 
-    const darkMediaMatcher = window.matchMedia("(prefers-color-scheme: dark)");
-    darkMediaMatcher.addEventListener("change", (event) => {
-        updateFaviconStyle(event.matches);
-    })
-    updateFaviconStyle(darkMediaMatcher.matches);
-
-    const style = localStorage.getItem("stylePreference") || darkMediaMatcher.matches ? "atom-one-dark.min.css" : "atom-one-light.min.css";
-    setStyle(style);
-
+    const matches = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    updateFaviconStyle(matches);
+    setStyle(localStorage.getItem("stylePreference") || matches ? "atom-one-dark.min.css" : "atom-one-light.min.css");
     updatePage(newState);
     updatePageButtons(newState);
+
+    window.history.replaceState(newState, "", url);
 });
 
 window.addEventListener("popstate", (event) => {
@@ -67,8 +74,8 @@ document.addEventListener("keydown", (event) => {
 })
 
 document.querySelector("#code-edit").addEventListener("keyup", (event) => {
-    const {key} = getState();
-    const newState = {key: key, mode: "edit", content: event.target.value};
+    const {key, language} = getState();
+    const newState = {key: key, mode: "edit", content: event.target.value, language: language};
     window.history.replaceState(newState, "", `/${key}`);
     updatePageButtons(newState);
 })
@@ -80,26 +87,27 @@ document.querySelector("#new").addEventListener("click", () => {
 document.querySelector("#edit").addEventListener("click", async () => {
     if (document.querySelector("#edit").disabled) return;
 
-    const {key, content} = getState();
+    const {key, content, language} = getState();
     let newState;
     let url;
     if (getUpdateToken(key) === "") {
-        newState = {key: "", mode: "edit", content: content};
+        newState = {key: "", mode: "edit", content: content, language: language};
         url = "/";
     } else {
-        newState = {key: key, mode: "edit", content: content};
+        newState = {key: key, mode: "edit", content: content, language: language};
         url = `/${key}`;
     }
-    window.history.pushState(newState, "", url);
 
     updatePage(newState);
     updatePageButtons(newState);
+
+    window.history.pushState(newState, "", url);
 })
 
 document.querySelector("#save").addEventListener("click", async () => {
     if (document.querySelector("#save").disabled) return;
 
-    const {key, mode, content} = getState()
+    const {key, mode, content, language} = getState()
     if (mode !== "edit") return;
     const updateToken = getUpdateToken(key);
     const saveButton = document.querySelector("#save");
@@ -109,12 +117,15 @@ document.querySelector("#save").addEventListener("click", async () => {
     if (key && updateToken) {
         response = await fetch(`/documents/${key}`, {
             method: "PATCH", body: content, headers: {
-                Authorization: updateToken
+                Authorization: updateToken,
+                Language: language
             }
         });
     } else {
         response = await fetch("/documents", {
-            method: "POST", body: content
+            method: "POST", body: content, headers: {
+                Language: language
+            }
         });
     }
     saveButton.classList.remove("loading");
@@ -128,9 +139,9 @@ document.querySelector("#save").addEventListener("click", async () => {
     const body = await response.json();
     setUpdateToken(body.key, body.update_token);
 
-    const newState = {key: body.key, mode: "view", content: content};
-    window.history.pushState(newState, "", `/${body.key}`);
+    const newState = {key: body.key, mode: "view", content: content, language: language};
     updatePage(newState);
+    window.history.pushState(newState, "", `/${body.key}`);
 });
 
 document.querySelector("#delete").addEventListener("click", async () => {
@@ -157,9 +168,9 @@ document.querySelector("#delete").addEventListener("click", async () => {
         return;
     }
     deleteUpdateToken();
-    const newState = {key: "", mode: "edit", content: ""};
-    window.history.pushState(newState, "", "/");
+    const newState = {key: "", mode: "edit", content: "", language: ""};
     updatePage(newState);
+    window.history.pushState(newState, "", "/");
 })
 
 document.querySelector("#copy").addEventListener("click", async () => {
@@ -179,7 +190,10 @@ document.querySelector("#raw").addEventListener("click", async () => {
 })
 
 document.querySelector("#language").addEventListener("change", (event) => {
-    highlightCode(event.target.value);
+    const {key, mode, content} = getState();
+    const newState = {key: key, mode: mode, content: content, language: event.target.value};
+    highlightCode(newState);
+    window.history.replaceState(newState, "", window.location.pathname);
 });
 
 document.querySelector("#style").addEventListener("change", (event) => {
@@ -278,7 +292,7 @@ function updatePage(state) {
         document.querySelector("#code-edit").style.display = "none";
         document.querySelector("#code-show").innerText = content;
         document.querySelector("#code").style.display = "block";
-        highlightCode();
+        highlightCode(state);
     } else if (mode === "edit") {
         document.querySelector("#delete").disabled = true;
         document.querySelector("#save").disabled = true;
@@ -308,8 +322,8 @@ function setStyle(style) {
     document.querySelector("#style").value = style;
 }
 
-function highlightCode(language = undefined) {
-    const {content} = getState();
+function highlightCode(state) {
+    const {content, language} = state;
     let result;
     if (language && language !== "auto") {
         result = hljs.highlight(content, {
@@ -320,6 +334,10 @@ function highlightCode(language = undefined) {
     }
     if (result.language === undefined) {
         result.language = "plaintext";
+    }
+
+    if (result.language !== language) {
+        state.language = result.language;
     }
 
     const codeShowElement = document.querySelector("#code-show");

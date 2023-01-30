@@ -40,6 +40,9 @@
 <main>
     <div class="code-nav">
         <select id="language">
+            {{ if and (ne .Language "") (ne .Language "auto") }}
+                <option value="{{ .Language }}" selected="selected">{{ .Language }}</option>
+            {{ end }}
             <option value="auto">auto</option>
         </select>
 

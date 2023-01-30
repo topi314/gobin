@@ -51,6 +51,7 @@ func (s *Server) getDocument(r *http.Request) (Document, error) {
 type Variables struct {
 	ID        string
 	Content   string
+	Language  string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 
@@ -72,6 +73,7 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 	vars := Variables{
 		ID:        document.ID,
 		Content:   document.Content,
+		Language:  document.Language,
 		CreatedAt: document.CreatedAt,
 		UpdatedAt: document.UpdatedAt,
 		Host:      r.Host,
@@ -105,6 +107,8 @@ type DocumentResponse struct {
 }
 
 func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
+	language := r.Header.Get("Language")
+
 	content, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -116,7 +120,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	document, err := s.db.CreateDocument(r.Context(), string(content))
+	document, err := s.db.CreateDocument(r.Context(), string(content), language)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -131,6 +135,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 	documentID := chi.URLParam(r, "documentID")
 	updateToken := r.Header.Get("Authorization")
+	language := r.Header.Get("Language")
 
 	content, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -138,7 +143,7 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	document, err := s.db.UpdateDocument(r.Context(), documentID, updateToken, string(content))
+	document, err := s.db.UpdateDocument(r.Context(), documentID, updateToken, string(content), language)
 	if err != nil {
 		s.Error(w, r, err)
 		return
