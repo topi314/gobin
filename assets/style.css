@@ -103,7 +103,7 @@ main {
 select {
     appearance: none;
     margin: 0;
-    padding: 0.5rem 0.5rem 0.5rem 2rem;
+    padding: 0.5rem 2rem 0.5rem 2rem;
     font-family: inherit;
     min-width: 10rem;
     user-select: none;
