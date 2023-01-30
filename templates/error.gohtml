@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Gobin - {{ . }}}</title>
+    <title>Gobin - Error</title>
     <link rel="stylesheet" href="/assets/style.css">
 
     <link rel="icon" href="/assets/favicon.png">
@@ -11,8 +11,18 @@
 </head>
 
 <body>
-<div>
-    Error: {{ . }}
-</div>
+<h1 class="error-title">Oops!</h1>
+<main class="error">
+    <h2>Something went wrong:</h2>
+    <div>
+        <p>{{ . }}</p>
+        <h3>
+        Try again later.
+        <br/>
+        Or crate an issue on <a href="https://github.com/TopiSenpai/gobin/issues/new">GitHub</a>
+        </h3>
+    </div>
+
+</main>
 </body>
 </html>

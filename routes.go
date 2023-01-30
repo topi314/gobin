@@ -13,6 +13,22 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
+type Variables struct {
+	ID        string
+	Content   string
+	Language  string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+
+	Host   string
+	Styles []Style
+}
+
+type DocumentResponse struct {
+	Key         string `json:"key"`
+	UpdateToken string `json:"update_token"`
+}
+
 func (s *Server) Routes() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
@@ -46,17 +62,6 @@ func (s *Server) getDocument(r *http.Request) (Document, error) {
 	}
 
 	return s.db.GetDocument(r.Context(), documentID)
-}
-
-type Variables struct {
-	ID        string
-	Content   string
-	Language  string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-
-	Host   string
-	Styles []Style
 }
 
 func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
@@ -99,11 +104,6 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/plain")
 	_, _ = w.Write([]byte(document.Content))
-}
-
-type DocumentResponse struct {
-	Key         string `json:"key"`
-	UpdateToken string `json:"update_token"`
 }
 
 func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
