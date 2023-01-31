@@ -32,7 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const matches = window.matchMedia("(prefers-color-scheme: dark)").matches;
     updateFaviconStyle(matches);
-    setStyle(localStorage.getItem("stylePreference") || matches ? "atom-one-dark.min.css" : "atom-one-light.min.css");
+    setStyle(localStorage.getItem("stylePreference") || (matches ? "atom-one-dark.min.css" : "atom-one-light.min.css"));
     updatePage(newState);
     updatePageButtons(newState);
 
