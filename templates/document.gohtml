@@ -1,9 +1,9 @@
 {{ template "head.gohtml" . }}
 <body>
 <div id="error-popup" style="display: none;"></div>
-{{ template "nav.gohtml" . }}
+{{ template "header.gohtml" . }}
 <main>
-    <div class="code-nav">
+    <div class="settings">
         <select id="language">
             {{ if and (ne .Language "") (ne .Language "auto") }}
                 <option value="{{ .Language }}" selected="selected">{{ .Language }}</option>

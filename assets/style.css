@@ -98,12 +98,117 @@ body {
     overflow: hidden;
 }
 
-nav {
+header {
     background: var(--bg-secondary);
     display: flex;
     justify-content: space-between;
-    align-items: start;
+    align-items: center;
     gap: 1rem;
+    height: 4rem;
+}
+
+#nav-btn {
+    display: none;
+}
+
+#title {
+    padding: 1rem;
+    font-size: 2rem;
+    font-weight: bold;
+    text-decoration: none;
+    color: var(--text-primary);
+    user-select: none;
+}
+
+.hamb{
+    cursor: pointer;
+    float: right;
+    padding: 1rem;
+    font-size: 2rem;
+    font-weight: bold;
+    height: 4rem;
+
+    display: flex;
+    align-items: center;
+}
+
+.hamb span {
+    position: relative;
+    height: 2px;
+    width: 2rem;
+    background-color: var(--text-primary);
+}
+
+.hamb span::before,
+.hamb span::after{
+    content: '';
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    transition: all .2s ease-out;
+    background-color: var(--text-primary);
+}
+.hamb span::before{
+    top: 6px;
+}
+.hamb span::after{
+    top: -6px;
+}
+
+#nav-btn:checked ~ nav {
+    height: 4rem;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+}
+#nav-btn:checked ~ .hamb span {
+    background: transparent;
+}
+#nav-btn:checked ~ .hamb span::before {
+    transform: rotate(-45deg);
+    top: 0;
+}
+#nav-btn:checked ~ .hamb span::after {
+    transform: rotate(45deg);
+    top: 0;
+}
+
+nav {
+    position: fixed;
+    top: 4rem;
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+    padding: 0 1rem 0 1rem;
+    height: 0;
+    border-top: 1px solid var(--bg-primary);
+    border-bottom: 1px solid var(--bg-primary);
+    overflow-x: auto;
+    overflow-y: hidden;
+    background-color: var(--bg-secondary);
+    transition: height 0.2s ease-out, padding-top 0.2s ease-out;
+}
+
+nav > * {
+    flex-shrink: 0;
+    border: none;
+    border-radius: 0.5rem;
+    width: 2rem;
+    height: 2rem;
+    background-color: var(--nav-button-bg);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 1rem;
+    cursor: pointer;
+}
+
+nav > *:hover {
+    opacity: 0.7;
+}
+
+nav > *:disabled {
+    cursor: not-allowed;
+    opacity: 0.2;
 }
 
 main {
@@ -129,21 +234,27 @@ main {
     color: var(--text-primary);
 }
 
-.code-nav {
+.settings {
     display: flex;
-    justify-content: flex-end;
+    justify-content: flex-start;
     gap: 1rem;
     padding-bottom: 1rem;
     border-bottom: 1px solid var(--bg-secondary);
+    overflow-x: auto;
+}
+
+.settings > * {
+    flex-shrink: 0;
 }
 
 select {
     appearance: none;
     margin: 0;
-    padding: 0.5rem 2rem 0.5rem 2rem;
+    height: 2rem;
+    padding: 0.5rem 1.5rem 0.5rem 0.5rem;
     font-family: inherit;
-    min-width: 10rem;
     user-select: none;
+    min-width: 8rem;
 
     background-color: var(--bg-secondary);
     color: var(--text-primary);
@@ -161,50 +272,11 @@ select:hover {
 }
 
 #language {
-    background-image: var(--arrow-down), var(--language);
+    background-image: var(--arrow-down);
 }
 
 #style {
-    background-image: var(--arrow-down), var(--style);
-}
-
-
-.nav-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-    padding: 1rem;
-}
-
-.nav-button {
-    background-color: var(--nav-button-bg);
-    padding: 1rem;
-    border: none;
-    border-radius: 0.5rem;
-    width: 1rem;
-    height: 1rem;
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: 1rem;
-    cursor: pointer;
-}
-
-.nav-button:hover {
-    opacity: 0.7;
-}
-
-.nav-button:disabled {
-    cursor: not-allowed;
-    opacity: 0.2;
-}
-
-#title {
-    font-size: 2rem;
-    font-weight: bold;
-    text-decoration: none;
-    color: var(--text-primary);
-    user-select: none;
+    background-image: var(--arrow-down);
 }
 
 #github {
@@ -235,8 +307,33 @@ select:hover {
     background-image: var(--raw);
 }
 
-.nav-button.loading {
+.loading {
     background-image: url(/assets/icons/loading.gif) !important;
+}
+
+@media (min-width: 30rem) {
+    nav{
+        display: inline-flex;
+        width: fit-content;
+        height: 4rem;
+
+        padding: 1rem;
+        position: relative;
+        top: unset;
+        background-color: transparent;
+    }
+    .hamb{
+        display: none;
+    }
+    select {
+        padding: 0.5rem 1.5rem 0.5rem 2rem;
+    }
+    #language {
+        background-image: var(--arrow-down), var(--language);
+    }
+    #style {
+        background-image: var(--arrow-down), var(--style);
+    }
 }
 
 #code {
