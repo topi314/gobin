@@ -62,13 +62,13 @@ html, body {
 
 ::-webkit-scrollbar {
     background-color: var(--bg-scrollbar);
-    border-radius: 4px;
+    border-radius: 1rem;
     width: 0.5rem;
 }
 
 ::-webkit-scrollbar-thumb {
     background-color: var(--bg-scrollbar-thumb);
-    border-radius: 4px;
+    border-radius: 1rem;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -83,7 +83,7 @@ html, body {
     padding: 1rem;
     background-color: var(--bg-error);
     color: var(--text-error);
-    border-radius: 4px;
+    border-radius: 1rem;
     transition: all 0.5s ease;
 }
 
@@ -192,7 +192,7 @@ nav {
 nav > * {
     flex-shrink: 0;
     border: none;
-    border-radius: 0.5rem;
+    border-radius: 1rem;
     width: 2rem;
     height: 2rem;
     background-color: var(--nav-button-bg);
@@ -259,7 +259,7 @@ select {
     background-color: var(--bg-secondary);
     color: var(--text-primary);
     border: none;
-    border-radius: 4px;
+    border-radius: 1rem;
     cursor: pointer;
 
     background-repeat: no-repeat;
@@ -311,6 +311,34 @@ select:hover {
     background-image: url(/assets/icons/loading.gif) !important;
 }
 
+#code {
+    margin: 0;
+}
+
+#code-show {
+    border-radius: 1rem;
+    padding: 0.5rem;
+    width: 0;
+    height: 0;
+    min-width: 100%;
+    min-height: 100%;
+    overflow: auto;
+}
+
+#code-edit {
+    color: var(--text-primary);
+    background-color: transparent;
+    resize: none;
+    padding: 0.5rem;
+    border-radius: 1rem;
+    -moz-tab-size : 4;
+    tab-size : 4;
+    white-space: pre;
+    width: 100%;
+    border: none;
+    outline: none;
+}
+
 @media (min-width: 30rem) {
     nav{
         display: inline-flex;
@@ -334,34 +362,6 @@ select:hover {
     #style {
         background-image: var(--arrow-down), var(--style);
     }
-}
-
-#code {
-    margin: 0;
-}
-
-#code-show {
-    border-radius: 4px;
-    padding: 0.5rem;
-    width: 0;
-    height: 0;
-    min-width: 100%;
-    min-height: 100%;
-    overflow: auto;
-}
-
-#code-edit {
-    color: var(--text-primary);
-    background-color: transparent;
-    resize: none;
-    padding: 0.5rem;
-    border-radius: 4px;
-    -moz-tab-size : 4;
-    tab-size : 4;
-    white-space: pre;
-    width: 100%;
-    border: none;
-    outline: none;
 }
 
 .hljs-ln-numbers {
