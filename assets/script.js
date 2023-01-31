@@ -311,8 +311,13 @@ function updateFaviconStyle(matches) {
 
 function setStyle(style) {
     localStorage.setItem("stylePreference", style)
-    document.querySelector(`link[title="Highlight.js Style"]`).href = "/assets/styles/" + style;
+    document.querySelector(`link[title="Highlight.js Style"]`).href = `/assets/styles/${style}`;
     document.querySelector("#style").value = style;
+
+    const theme = style.includes("dark") ? "dark" : "light";
+    const rootClassList = document.querySelector(":root").classList;
+    rootClassList.add(theme);
+    rootClassList.remove(theme === "dark" ? "light" : "dark");
 }
 
 function highlightCode(state) {

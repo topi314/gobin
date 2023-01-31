@@ -1,16 +1,53 @@
 :root {
+    --bg-error: #a65757;
+    --text-error: #fff;
+}
+
+.dark {
     --bg-primary: #282c34;
     --bg-secondary: #1f2228;
     --nav-button-bg: #373b41;
-    --code-bg: #282c34;
     --text-primary: #c8cdd3;
     --text-secondary: #828997;
-    --bg-error: #a65757;
-    --text-error: #fff;
+
 
     --bg-scrollbar: #373b41;
     --bg-scrollbar-thumb: #1f2228;
     --bg-scrollbar-thumb-hover: #232529;
+
+    --arrow-down: url("/assets/icons/dark/arrow-down.png");
+    --copy: url("/assets/icons/dark/copy.png");
+    --delete: url("/assets/icons/dark/delete.png");
+    --edit: url("/assets/icons/dark/edit.png");
+    --github: url("/assets/icons/dark/github.svg");
+    --language: url("/assets/icons/dark/language.png");
+    --new: url("/assets/icons/dark/new.png");
+    --raw: url("/assets/icons/dark/raw.png");
+    --save: url("/assets/icons/dark/save.png");
+    --style: url("/assets/icons/dark/style.png");
+}
+
+.light {
+    --bg-primary: #fafafa;
+    --bg-secondary: #ebecef;
+    --nav-button-bg: #d1d5da;
+    --text-primary: #282c34;
+    --text-secondary: #1f2228;
+
+    --bg-scrollbar: #ebecef;
+    --bg-scrollbar-thumb: #d4d5dc;
+    --bg-scrollbar-thumb-hover: #c3c8ce;
+
+    --arrow-down: url("/assets/icons/light/arrow-down.png");
+    --copy: url("/assets/icons/light/copy.png");
+    --delete: url("/assets/icons/light/delete.png");
+    --edit: url("/assets/icons/light/edit.png");
+    --github: url("/assets/icons/light/github.svg");
+    --language: url("/assets/icons/light/language.png");
+    --new: url("/assets/icons/light/new.png");
+    --raw: url("/assets/icons/light/raw.png");
+    --save: url("/assets/icons/light/save.png");
+    --style: url("/assets/icons/light/style.png");
 }
 
 html, body {
@@ -124,11 +161,11 @@ select:hover {
 }
 
 #language {
-    background-image: url("/assets/icons/arrow-down.png"), url("/assets/icons/language.png");
+    background-image: var(--arrow-down), var(--language);
 }
 
 #style {
-    background-image: url("/assets/icons/arrow-down.png"), url("/assets/icons/style.png");
+    background-image: var(--arrow-down), var(--style);
 }
 
 
@@ -171,31 +208,31 @@ select:hover {
 }
 
 #github {
-    background-image: url(/assets/icons/github.svg);
+    background-image: var(--github);
 }
 
 #new {
-    background-image: url(/assets/icons/new.png);
+    background-image: var(--new);
 }
 
 #edit {
-    background-image: url(/assets/icons/edit.png);
+    background-image: var(--edit);
 }
 
 #save {
-    background-image: url(/assets/icons/save.png);
+    background-image: var(--save);
 }
 
 #delete {
-    background-image: url(/assets/icons/delete.png);
+    background-image: var(--delete);
 }
 
 #copy {
-    background-image: url(/assets/icons/copy.png);
+    background-image: var(--copy);
 }
 
 #raw {
-    background-image: url(/assets/icons/raw.png);
+    background-image: var(--raw);
 }
 
 .nav-button.loading {
