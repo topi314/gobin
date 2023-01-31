@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>gobin - Error</title>
+    <title>gobin - error</title>
     <link rel="stylesheet" href="/assets/style.css">
 
     <link rel="icon" href="/assets/favicon.png">
@@ -11,30 +11,41 @@
 </head>
 
 <body>
-<nav>
-    <a id="title" class="nav-container" href="/">gobin</a>
-    <div class="nav-container">
-        <a title="GitHub" id="github" class="nav-button" href="https://github.com/TopiSenpai/gobin" target="_blank"></a>
-        <button title="Save" id="save" class="nav-button" disabled="disabled"></button>
-        <a title="New" id="new" class="nav-button" href="/" target="_blank"></a>
-        <button title="Edit" id="edit" class="nav-button" disabled="disabled"></button>
-        <button title="Delete" id="delete" class="nav-button" disabled="disabled"></button>
-        <button title="Copy" id="copy" class="nav-button" disabled="disabled"></button>
-        <button title="Raw" id="raw" class="nav-button" disabled="disabled"></button>
-    </div>
-</nav>
+{{ template "nav.gohtml" . }}
 <main class="error">
     <h1>Oops!</h1>
     <div>
         <h2>Something went wrong:</h2>
         <p>{{ . }}</p>
         <h3>
-        Try again later.
-        <br/>
-        Or create an issue on <a href="https://github.com/TopiSenpai/gobin/issues/new">GitHub</a>
+            Try again later.
+            <br/>
+            Or create an issue on <a href="https://github.com/TopiSenpai/gobin/issues/new">GitHub</a>
         </h3>
     </div>
-
 </main>
+<script>
+    const matches = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    updateFaviconStyle(matches);
+    setStyle(localStorage.getItem("stylePreference") || (matches ? "atom-one-dark.min.css" : "atom-one-light.min.css"));
+
+    function updateFaviconStyle(matches) {
+        const faviconElement = document.querySelector(`link[rel="icon"]`)
+        if (matches) {
+            faviconElement.href = "/assets/favicon.png";
+            return
+        }
+        faviconElement.href = "/assets/favicon-light.png";
+    }
+
+    function setStyle(style) {
+        localStorage.setItem("stylePreference", style)
+
+        const theme = style.includes("dark") ? "dark" : "light";
+        const rootClassList = document.querySelector(":root").classList;
+        rootClassList.add(theme);
+        rootClassList.remove(theme === "dark" ? "light" : "dark");
+    }
+</script>
 </body>
 </html>

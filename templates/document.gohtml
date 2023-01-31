@@ -25,18 +25,7 @@
 </head>
 <body>
 <div id="error-popup" style="display: none;"></div>
-<nav>
-    <a id="title" class="nav-container" href="/">gobin</a>
-    <div class="nav-container">
-        <a title="GitHub" id="github" class="nav-button" href="https://github.com/TopiSenpai/gobin" target="_blank"></a>
-        <button title="Save" id="save" class="nav-button"></button>
-        <a title="New" id="new" class="nav-button" href="/" target="_blank"></a>
-        <button title="Edit" id="edit" class="nav-button"></button>
-        <button title="Delete" id="delete" class="nav-button"></button>
-        <button title="Copy" id="copy" class="nav-button"></button>
-        <button title="Raw" id="raw" class="nav-button"></button>
-    </div>
-</nav>
+{{ template "nav.gohtml" . }}
 <main>
     <div class="code-nav">
         <select id="language">
