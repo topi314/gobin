@@ -44,6 +44,18 @@ window.addEventListener("popstate", (event) => {
     updatePageButtons(event.state);
 });
 
+document.querySelector("#code-edit").addEventListener("keydown", (event) => {
+    if (event.key !== "Tab" || event.shiftKey) {
+        return;
+    }
+    event.preventDefault();
+
+    const start = event.target.selectionStart;
+    const end = event.target.selectionEnd;
+    event.target.value = event.target.value.substring(0, start) + "\t" + event.target.value.substring(end);
+    event.target.selectionStart = event.target.selectionEnd = start + 1;
+})
+
 document.addEventListener("keydown", (event) => {
     if (!event.ctrlKey) return;
 

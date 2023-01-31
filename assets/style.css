@@ -259,7 +259,8 @@ select:hover {
     resize: none;
     padding: 0.5rem;
     border-radius: 4px;
-    tab-size: 4;
+    -moz-tab-size : 4;
+    tab-size : 4;
     white-space: pre;
     width: 100%;
     border: none;
