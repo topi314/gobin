@@ -1,28 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="utf-8">
-    <title>gobin</title>
-    <meta name="description" content="gobin is a simple pastebin written in Go.">
-
-    <link rel="stylesheet" type="text/css" href="/assets/style.css">
-    <link rel="stylesheet" type="text/css" title="Highlight.js Style" href="">
-
-    <link rel="icon" href="/assets/favicon.png">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-
-    <meta property="og:title" content="gobin">
-    <meta property="og:description" content="gobin is a simple pastebin written in Go.">
-    <meta property="og:url" content="https://{{ .Host }}">
-    <meta property="og:type" content="website">
-
-    <meta name="twitter:card" content="summary">
-    <meta name="twitter:creator" content="@TopiSenpai">
-    <meta name="twitter:url" content="https://{{ .Host }}">
-    <meta name="twitter:title" content="gobin">
-    <meta name="twitter:description" content="gobin is a simple pastebin written in Go.">
-</head>
+{{ template "head.gohtml" . }}
 <body>
 <div id="error-popup" style="display: none;"></div>
 {{ template "nav.gohtml" . }}
@@ -44,8 +20,9 @@
     <pre id="code" {{ if eq .ID "" }}style="display: none;"{{ end }}><code id="code-show">{{ .Content }}</code></pre>
     <textarea id="code-edit" spellcheck="false" {{ if ne .ID "" }}style="display: none;"{{ end }}></textarea>
 </main>
-<script src="/assets/highlight.min.js"></script>
-<script src="/assets/highlightjs-line-numbers.min.js"></script>
-<script src="/assets/script.js"></script>
+<script src="/assets/theme.js" defer></script>
+<script src="/assets/highlight.min.js" defer></script>
+<script src="/assets/script.js" defer></script>
+<script src="/assets/highlightjs-line-numbers.min.js" defer></script>
 </body>
 </html>

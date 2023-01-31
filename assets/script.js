@@ -12,10 +12,6 @@ hljs.listLanguages().forEach((language) => {
     languageElement.appendChild(option);
 });
 
-window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (event) => {
-    updateFaviconStyle(event.matches);
-});
-
 document.addEventListener("DOMContentLoaded", () => {
     const key = window.location.pathname === "/" ? "" : window.location.pathname.slice(1);
     let newState;
@@ -30,9 +26,6 @@ document.addEventListener("DOMContentLoaded", () => {
         url = "/";
     }
 
-    const matches = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    updateFaviconStyle(matches);
-    setStyle(localStorage.getItem("stylePreference") || (matches ? "atom-one-dark.min.css" : "atom-one-light.min.css"));
     updatePage(newState);
     updatePageButtons(newState);
 
@@ -310,26 +303,6 @@ function updatePage(state) {
         codeEditElement.value = content;
         codeEditElement.style.display = "block";
     }
-}
-
-function updateFaviconStyle(matches) {
-    const faviconElement = document.querySelector(`link[rel="icon"]`)
-    if (matches) {
-        faviconElement.href = "/assets/favicon.png";
-        return
-    }
-    faviconElement.href = "/assets/favicon-light.png";
-}
-
-function setStyle(style) {
-    localStorage.setItem("stylePreference", style)
-    document.querySelector(`link[title="Highlight.js Style"]`).href = `/assets/styles/${style}`;
-    document.querySelector("#style").value = style;
-
-    const theme = style.includes("dark") ? "dark" : "light";
-    const rootClassList = document.querySelector(":root").classList;
-    rootClassList.add(theme);
-    rootClassList.remove(theme === "dark" ? "light" : "dark");
 }
 
 function highlightCode(state) {

@@ -1,15 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="utf-8">
-    <title>gobin - error</title>
-    <link rel="stylesheet" href="/assets/style.css">
-
-    <link rel="icon" href="/assets/favicon.png">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-</head>
-
+{{ template "head.gohtml" . }}
 <body>
 {{ template "nav.gohtml" . }}
 <main class="error">
@@ -24,28 +13,6 @@
         </h3>
     </div>
 </main>
-<script>
-    const matches = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    updateFaviconStyle(matches);
-    setStyle(localStorage.getItem("stylePreference") || (matches ? "atom-one-dark.min.css" : "atom-one-light.min.css"));
-
-    function updateFaviconStyle(matches) {
-        const faviconElement = document.querySelector(`link[rel="icon"]`)
-        if (matches) {
-            faviconElement.href = "/assets/favicon.png";
-            return
-        }
-        faviconElement.href = "/assets/favicon-light.png";
-    }
-
-    function setStyle(style) {
-        localStorage.setItem("stylePreference", style)
-
-        const theme = style.includes("dark") ? "dark" : "light";
-        const rootClassList = document.querySelector(":root").classList;
-        rootClassList.add(theme);
-        rootClassList.remove(theme === "dark" ? "light" : "dark");
-    }
-</script>
+<script src="/assets/theme.js" async></script>
 </body>
 </html>
