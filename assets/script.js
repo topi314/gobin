@@ -15,9 +15,7 @@ hljs.listLanguages().forEach((language) => {
 document.addEventListener("DOMContentLoaded", () => {
     const key = window.location.pathname === "/" ? "" : window.location.pathname.slice(1);
     const params = new URLSearchParams(window.location.search);
-    console.log(params);
     if (params.has("token")) {
-        console.log("setting token");
         setUpdateToken(key, params.get("token"));
     }
 

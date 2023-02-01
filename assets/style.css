@@ -387,7 +387,7 @@ select:hover {
     margin: 0;
 }
 
-#code-show {
+#code-view {
     border-radius: 1rem;
     padding: 0.5rem;
     width: 0;
