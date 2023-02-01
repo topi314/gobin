@@ -14,10 +14,17 @@ hljs.listLanguages().forEach((language) => {
 
 document.addEventListener("DOMContentLoaded", () => {
     const key = window.location.pathname === "/" ? "" : window.location.pathname.slice(1);
+    const params = new URLSearchParams(window.location.search);
+    console.log(params);
+    if (params.has("token")) {
+        console.log("setting token");
+        setUpdateToken(key, params.get("token"));
+    }
+
     let newState;
     let url;
     if (key) {
-        const content = document.querySelector("#code-show").innerText
+        const content = document.querySelector("#code-view").innerText
         const language = document.querySelector("#language").value;
         newState = {key: key, mode: "view", content: content, language: language};
         url = `/${key}`;
@@ -26,15 +33,15 @@ document.addEventListener("DOMContentLoaded", () => {
         url = "/";
     }
 
+    updateCode(newState);
     updatePage(newState);
-    updatePageButtons(newState);
 
     window.history.replaceState(newState, "", url);
 });
 
 window.addEventListener("popstate", (event) => {
+    updateCode(event.state);
     updatePage(event.state);
-    updatePageButtons(event.state);
 });
 
 document.querySelector("#code-edit").addEventListener("keydown", (event) => {
@@ -70,8 +77,6 @@ document.addEventListener("keydown", (event) => {
         case "d":
             event.preventDefault();
             if (document.querySelector("#delete").disabled) return;
-            const deleteConfirm = confirm("Are you sure you want to delete this document? This action cannot be undone.")
-            if (!deleteConfirm) return;
             document.querySelector("#delete").click();
             break;
     }
@@ -81,7 +86,7 @@ document.querySelector("#code-edit").addEventListener("keyup", (event) => {
     const {key, language} = getState();
     const newState = {key: key, mode: "edit", content: event.target.value, language: language};
     window.history.replaceState(newState, "", `/${key}`);
-    updatePageButtons(newState);
+    updatePage(newState);
 })
 
 document.querySelector("#edit").addEventListener("click", async () => {
@@ -98,8 +103,8 @@ document.querySelector("#edit").addEventListener("click", async () => {
         url = `/${key}`;
     }
 
+    updateCode(newState);
     updatePage(newState);
-    updatePageButtons(newState);
 
     window.history.pushState(newState, "", url);
 })
@@ -143,6 +148,7 @@ document.querySelector("#save").addEventListener("click", async () => {
 
     const newState = {key: body.key, mode: "view", content: body.data, language: body.language};
     setUpdateToken(body.key, body.update_token);
+    updateCode(newState);
     updatePage(newState);
     window.history.pushState(newState, "", `/${body.key}`);
 });
@@ -155,9 +161,12 @@ document.querySelector("#delete").addEventListener("click", async () => {
     if (updateToken === "") {
         return;
     }
-    let deleteButton = document.querySelector("#delete");
-    deleteButton.classList.add("loading");
 
+    const deleteConfirm = window.confirm("Are you sure you want to delete this document? This action cannot be undone.")
+    if (!deleteConfirm) return;
+
+    const deleteButton = document.querySelector("#delete");
+    deleteButton.classList.add("loading");
     let response = await fetch(`/documents/${key}`, {
         method: "DELETE", headers: {
             Authorization: updateToken
@@ -165,14 +174,15 @@ document.querySelector("#delete").addEventListener("click", async () => {
     });
     deleteButton.classList.remove("loading");
 
-    const body = await response.json();
     if (!response.ok) {
+        const body = await response.json();
         showErrorPopup(body.message || response.statusText)
         console.error("error deleting document:", response);
         return;
     }
     deleteUpdateToken();
     const newState = {key: "", mode: "edit", content: "", language: ""};
+    updateCode(newState);
     updatePage(newState);
     window.history.pushState(newState, "", "/");
 })
@@ -185,13 +195,58 @@ document.querySelector("#copy").addEventListener("click", async () => {
     await navigator.clipboard.writeText(content);
 })
 
-document.querySelector("#raw").addEventListener("click", async () => {
+document.querySelector("#raw").addEventListener("click", () => {
     if (document.querySelector("#raw").disabled) return;
 
     const {key} = getState();
     if (!key) return;
     window.open(`/raw/${key}`, "_blank").focus();
 })
+
+document.querySelector("#share").addEventListener("click", async () => {
+    if (document.querySelector("#share").disabled) return;
+
+    const {key} = getState();
+    const updateToken = getUpdateToken(key);
+    if (updateToken === "") {
+        await navigator.clipboard.writeText(window.location.href);
+        return;
+    }
+
+    document.querySelector("#share-permissions").checked = false;
+    document.querySelector("#share-url").value = window.location.href;
+    document.querySelector("#share-dialog").showModal();
+});
+
+document.querySelector("#share-dialog-close").addEventListener("click", () => {
+    document.querySelector("#share-dialog").close();
+});
+
+document.querySelector("#share-permissions").addEventListener("change", (event) => {
+    const {key} = getState();
+    const updateToken = getUpdateToken(key);
+    if (updateToken === "") {
+        return;
+    }
+
+    const shareUrl = document.querySelector("#share-url");
+    if (event.target.checked) {
+        shareUrl.value = `${window.location.href}?token=${updateToken}`;
+        return;
+    }
+    shareUrl.value = window.location.href;
+});
+
+document.querySelector("#share-url").addEventListener("click", () => {
+    document.querySelector("#share-url").select();
+});
+
+document.querySelector("#share-copy").addEventListener("click", async () => {
+    const shareUrl = document.querySelector("#share-url");
+    await navigator.clipboard.writeText(shareUrl.value);
+    document.querySelector("#share-dialog").close();
+});
+
 
 document.querySelector("#language").addEventListener("change", (event) => {
     const {key, mode, content} = getState();
@@ -244,36 +299,30 @@ function deleteUpdateToken() {
     localStorage.setItem("documents", JSON.stringify(parsedDocuments));
 }
 
-function updatePageButtons(state) {
-    const {key, mode, content} = state;
-    const updateToken = getUpdateToken(key);
+function updateCode(state) {
+    const {mode, content} = state;
 
-    if (mode === "edit" && content && (!key || key && updateToken)) {
-        document.querySelector("#save").disabled = false;
-    } else {
-        document.querySelector("#save").disabled = true;
-    }
+    const codeElement = document.querySelector("#code");
+    const codeEditElement = document.querySelector("#code-edit");
+    const codeViewElement = document.querySelector("#code-view");
 
-    if (updateToken) {
-        document.querySelector("#delete").disabled = false;
-        document.querySelector("#edit").disabled = false;
-    } else {
-        document.querySelector("#delete").disabled = true;
-        document.querySelector("#edit").disabled = true;
+    if (mode === "view") {
+        codeEditElement.style.display = "none";
+        codeEditElement.value = "";
+        codeViewElement.innerText = content;
+        codeElement.style.display = "block";
+        highlightCode(state);
+        return;
     }
-
-    if (key && mode === "view") {
-        document.querySelector("#copy").disabled = false;
-        document.querySelector("#raw").disabled = false;
-    } else if (key) {
-        document.querySelector("#copy").disabled = true;
-        document.querySelector("#raw").disabled = true;
-    }
+    codeEditElement.value = content;
+    codeEditElement.style.display = "block";
+    codeViewElement.innerText = "";
+    codeElement.style.display = "none";
 }
 
 function updatePage(state) {
     const {key, mode, content} = state;
-
+    const updateToken = getUpdateToken(key);
     // update page title
     if (key) {
         document.title = `gobin - ${key}`;
@@ -281,28 +330,33 @@ function updatePage(state) {
         document.title = "gobin";
     }
 
+    const saveButton = document.querySelector("#save");
+    const editButton = document.querySelector("#edit");
+    const deleteButton = document.querySelector("#delete");
+    const copyButton = document.querySelector("#copy");
+    const rawButton = document.querySelector("#raw");
+    const shareButton = document.querySelector("#share");
     if (mode === "view") {
-        document.querySelector("#delete").disabled = false;
-        document.querySelector("#save").disabled = true;
-        document.querySelector("#edit").disabled = false;
-        document.querySelector("#copy").disabled = false;
-        document.querySelector("#raw").disabled = false;
-        document.querySelector("#code-edit").style.display = "none";
-        document.querySelector("#code-show").innerText = content;
-        document.querySelector("#code").style.display = "block";
-        highlightCode(state);
-    } else if (mode === "edit") {
-        document.querySelector("#delete").disabled = true;
-        document.querySelector("#save").disabled = true;
-        document.querySelector("#edit").disabled = true;
-        document.querySelector("#copy").disabled = true;
-        document.querySelector("#raw").disabled = true;
-        document.querySelector("#code-show").innerText = "";
-        document.querySelector("#code").style.display = "none";
-        const codeEditElement = document.querySelector("#code-edit");
-        codeEditElement.value = content;
-        codeEditElement.style.display = "block";
+        saveButton.disabled = true;
+        saveButton.style.display = "none";
+        editButton.disabled = false;
+        editButton.style.display = "block";
+        if (updateToken) {
+            deleteButton.disabled = false;
+        }
+        copyButton.disabled = false;
+        rawButton.disabled = false;
+        shareButton.disabled = false;
+        return
     }
+    saveButton.disabled = content === "";
+    saveButton.style.display = "block";
+    editButton.disabled = true;
+    editButton.style.display = "none";
+    deleteButton.disabled = true;
+    copyButton.disabled = true;
+    rawButton.disabled = true;
+    shareButton.disabled = true;
 }
 
 function highlightCode(state) {
@@ -323,9 +377,9 @@ function highlightCode(state) {
         state.language = result.language;
     }
 
-    const codeShowElement = document.querySelector("#code-show");
-    codeShowElement.innerHTML = result.value;
-    codeShowElement.className = "hljs language-" + result.language;
+    const codeViewElement = document.querySelector("#code-view");
+    codeViewElement.innerHTML = result.value;
+    codeViewElement.className = "hljs language-" + result.language;
 
     document.querySelector("#language").value = result.language;
 

@@ -1,6 +1,26 @@
 {{ template "head.gohtml" . }}
 <body>
 <div id="error-popup" style="display: none;"></div>
+<dialog id="share-dialog">
+    <div>
+        <h2>Share</h2>
+        <button id="share-dialog-close"></button>
+    </div>
+
+    <p>Share this URL with your friends and let them optionally edit the document.</p>
+
+    <label for="share-permissions">Edit Document</label>
+    <input id="share-permissions" type="checkbox" />
+
+    <br />
+    <br />
+
+    <label id="share-url-label" for="share-url">
+        <input id="share-url" type="text" readonly="readonly" />
+        <button id="share-copy">Copy</button>
+    </label>
+
+</dialog>
 {{ template "header.gohtml" . }}
 <main>
     <div class="settings">
@@ -17,7 +37,7 @@
             {{ end }}
         </select>
     </div>
-    <pre id="code" {{ if eq .ID "" }}style="display: none;"{{ end }}><code id="code-show">{{ .Content }}</code></pre>
+    <pre id="code" {{ if eq .ID "" }}style="display: none;"{{ end }}><code id="code-view">{{ .Content }}</code></pre>
     <textarea id="code-edit" spellcheck="false" {{ if ne .ID "" }}style="display: none;"{{ end }}></textarea>
 </main>
 <script src="/assets/theme.js" defer></script>

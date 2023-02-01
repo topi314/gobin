@@ -25,6 +25,8 @@
     --raw: url("/assets/icons/dark/raw.png");
     --save: url("/assets/icons/dark/save.png");
     --style: url("/assets/icons/dark/style.png");
+    --share: url("/assets/icons/dark/share.png");
+    --close: url("/assets/icons/dark/close.png");
 }
 
 .light {
@@ -48,6 +50,8 @@
     --raw: url("/assets/icons/light/raw.png");
     --save: url("/assets/icons/light/save.png");
     --style: url("/assets/icons/light/style.png");
+    --share: url("/assets/icons/light/share.png");
+    --close: url("/assets/icons/light/close.png");
 }
 
 html, body {
@@ -87,6 +91,68 @@ html, body {
     transition: all 0.5s ease;
 }
 
+#share-dialog {
+    color: var(--text-primary);
+    border: none;
+    border-radius: 1rem;
+    padding: 1rem;
+
+    background-color: var(--bg-secondary);
+}
+
+dialog::backdrop {
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+#share-dialog div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#share-dialog div h2 {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin: 0;
+}
+
+#share-dialog-close {
+    background-image: var(--close);
+}
+
+#share-url-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+#share-url-label input {
+    width: 100%;
+    padding: 0.5rem;
+    border: none;
+    border-radius: 1rem;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: monospace;
+    font-size: 1rem;
+}
+
+#share-url-label button {
+    padding: 0.5rem;
+    border: none;
+    border-radius: 1rem;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: monospace;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+#share-url-label button:hover {
+    opacity: 0.7;
+}
+
 body {
     display: grid;
     grid-template-rows: auto 1fr;
@@ -103,7 +169,6 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 1rem;
     height: 4rem;
 }
 
@@ -120,7 +185,7 @@ header {
     user-select: none;
 }
 
-.hamb{
+.hamb {
     cursor: pointer;
     float: right;
     padding: 1rem;
@@ -140,7 +205,7 @@ header {
 }
 
 .hamb span::before,
-.hamb span::after{
+.hamb span::after {
     content: '';
     position: absolute;
     height: 100%;
@@ -148,10 +213,12 @@ header {
     transition: all .2s ease-out;
     background-color: var(--text-primary);
 }
-.hamb span::before{
+
+.hamb span::before {
     top: 6px;
 }
-.hamb span::after{
+
+.hamb span::after {
     top: -6px;
 }
 
@@ -160,13 +227,16 @@ header {
     padding-top: 1rem;
     padding-bottom: 1rem;
 }
+
 #nav-btn:checked ~ .hamb span {
     background: transparent;
 }
+
 #nav-btn:checked ~ .hamb span::before {
     transform: rotate(-45deg);
     top: 0;
 }
+
 #nav-btn:checked ~ .hamb span::after {
     transform: rotate(45deg);
     top: 0;
@@ -182,14 +252,13 @@ nav {
     padding: 0 1rem 0 1rem;
     height: 0;
     border-top: 1px solid var(--bg-primary);
-    border-bottom: 1px solid var(--bg-primary);
     overflow-x: auto;
     overflow-y: hidden;
     background-color: var(--bg-secondary);
     transition: height 0.2s ease-out, padding-top 0.2s ease-out;
 }
 
-nav > * {
+#share-dialog-close, nav > * {
     flex-shrink: 0;
     border: none;
     border-radius: 1rem;
@@ -202,7 +271,7 @@ nav > * {
     cursor: pointer;
 }
 
-nav > *:hover {
+#share-dialog-close:hover, nav > *:hover {
     opacity: 0.7;
 }
 
@@ -238,6 +307,7 @@ main {
     display: flex;
     justify-content: flex-start;
     gap: 1rem;
+    height: 3rem;
     padding-bottom: 1rem;
     border-bottom: 1px solid var(--bg-secondary);
     overflow-x: auto;
@@ -249,19 +319,17 @@ main {
 
 select {
     appearance: none;
-    margin: 0;
-    height: 2rem;
     padding: 0.5rem 1.5rem 0.5rem 0.5rem;
     font-family: inherit;
     user-select: none;
     min-width: 8rem;
 
-    background-color: var(--bg-secondary);
     color: var(--text-primary);
     border: none;
     border-radius: 1rem;
     cursor: pointer;
 
+    background-color: var(--bg-secondary);
     background-repeat: no-repeat;
     background-position: right 0.5rem center, left 0.5rem center;
     background-size: 1rem;
@@ -307,6 +375,10 @@ select:hover {
     background-image: var(--raw);
 }
 
+#share {
+    background-image: var(--share);
+}
+
 .loading {
     background-image: url(/assets/icons/loading.gif) !important;
 }
@@ -331,34 +403,40 @@ select:hover {
     resize: none;
     padding: 0.5rem;
     border-radius: 1rem;
-    -moz-tab-size : 4;
-    tab-size : 4;
+    -moz-tab-size: 4;
+    tab-size: 4;
     white-space: pre;
     width: 100%;
     border: none;
     outline: none;
 }
 
-@media (min-width: 30rem) {
-    nav{
+@media (min-width: 26rem) {
+    nav {
         display: inline-flex;
         width: fit-content;
         height: 4rem;
 
-        padding: 1rem;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+        padding-left: 0;
         position: relative;
         top: unset;
         background-color: transparent;
     }
-    .hamb{
+
+    .hamb {
         display: none;
     }
+
     select {
         padding: 0.5rem 1.5rem 0.5rem 2rem;
     }
+
     #language {
         background-image: var(--arrow-down), var(--language);
     }
+
     #style {
         background-image: var(--arrow-down), var(--style);
     }

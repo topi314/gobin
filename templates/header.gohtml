@@ -1,16 +1,16 @@
 <header>
-    <a id="title" href="/">gobin</a>
+    <a title="gobin" id="title" href="/">gobin</a>
 
     <input id="nav-btn" type="checkbox" />
     <label class="hamb" for="nav-btn"><span></span></label>
 
     <nav>
-        <a title="GitHub" id="github" href="https://github.com/TopiSenpai/gobin" target="_blank"></a>
-        <button title="Save" id="save" disabled="disabled"></button>
         <a title="New" id="new"  href="/" target="_blank"></a>
-        <button title="Edit" id="edit" disabled="disabled"></button>
+        <button title="Save" id="save" disabled="disabled" {{ if ne .Content "" }}style="display: none"{{ end }}></button>
+        <button title="Edit" id="edit" disabled="disabled" {{ if eq .Content "" }}style="display: none"{{ end }}></button>
         <button title="Delete" id="delete" disabled="disabled"></button>
         <button title="Copy" id="copy" disabled="disabled"></button>
         <button title="Raw" id="raw" disabled="disabled"></button>
+        <button title="Share" id="share" disabled="disabled"></button>
     </nav>
 </header>
