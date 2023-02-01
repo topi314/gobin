@@ -17,6 +17,7 @@ var (
 	ErrDocumentNotFound = errors.New("document not found")
 	ErrUnauthorized     = errors.New("unauthorized")
 	ErrEmptyBody        = errors.New("empty request body")
+	ErrContentTooLarge  = errors.New("content too large")
 )
 
 type Variables struct {
@@ -145,6 +146,11 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 
 	content := s.readBody(w, r)
 	if content == nil {
+		return
+	}
+
+	if s.cfg.MaxContentLength > 0 && len(content) > s.cfg.MaxContentLength {
+		s.Error(w, r, ErrContentTooLarge, http.StatusBadRequest)
 		return
 	}
 
