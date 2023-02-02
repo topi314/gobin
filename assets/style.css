@@ -167,7 +167,7 @@ body {
 header {
     background: var(--bg-secondary);
     display: flex;
-    justify-content: space-between;
+    row-gap: 1rem;
     align-items: center;
     height: 4rem;
 }
@@ -187,7 +187,7 @@ header {
 
 .hamb {
     cursor: pointer;
-    float: right;
+    margin-left: auto;
     padding: 1rem;
     font-size: 2rem;
     font-weight: bold;
@@ -223,6 +223,7 @@ header {
 }
 
 #nav-btn:checked ~ nav {
+    overflow-x: auto;
     height: 4rem;
     padding-top: 1rem;
     padding-bottom: 1rem;
@@ -252,13 +253,12 @@ nav {
     padding: 0 1rem 0 1rem;
     height: 0;
     border-top: 1px solid var(--bg-primary);
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: hidden;
     background-color: var(--bg-secondary);
     transition: height 0.2s ease-out, padding-top 0.2s ease-out;
 }
 
-#share-dialog-close, nav > * {
+.button, button {
     flex-shrink: 0;
     border: none;
     border-radius: 1rem;
@@ -271,11 +271,11 @@ nav {
     cursor: pointer;
 }
 
-#share-dialog-close:hover, nav > *:hover {
+.button:hover, button:hover {
     opacity: 0.7;
 }
 
-nav > *:disabled {
+.button:disabled, button:disabled {
     cursor: not-allowed;
     opacity: 0.2;
 }
@@ -410,9 +410,10 @@ select:hover {
     outline: none;
 }
 
-@media (min-width: 26rem) {
+@media (min-width: 30rem) {
     nav {
         display: inline-flex;
+        margin-left: auto;
         width: fit-content;
         height: 4rem;
         border: none;
