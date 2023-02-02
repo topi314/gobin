@@ -399,6 +399,7 @@ select:hover {
 #code-edit {
     color: var(--text-primary);
     background-color: transparent;
+    flex-grow: 1;
     resize: none;
     padding: 0.5rem;
     border-radius: 1rem;
