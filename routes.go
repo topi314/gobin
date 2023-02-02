@@ -149,7 +149,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.cfg.MaxContentLength > 0 && len(content) > s.cfg.MaxContentLength {
+	if s.cfg.MaxContentLength > 0 && len([]rune(string(content))) > s.cfg.MaxContentLength {
 		s.Error(w, r, ErrContentTooLarge, http.StatusBadRequest)
 		return
 	}
