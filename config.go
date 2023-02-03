@@ -9,12 +9,12 @@ import (
 )
 
 type Config struct {
-	DevMode           bool           `json:"dev_mode"`
-	ListenAddr        string         `json:"listen_addr"`
-	Database          DatabaseConfig `json:"database"`
-	MaxDocumentLength int            `json:"max_document_length"`
-	ExpireAfter       time.Duration  `json:"expire_after"`
-	CleanupInterval   time.Duration  `json:"clean_up_interval"`
+	DevMode         bool           `json:"dev_mode"`
+	ListenAddr      string         `json:"listen_addr"`
+	Database        DatabaseConfig `json:"database"`
+	MaxDocumentSize int            `json:"max_document_size"`
+	ExpireAfter     time.Duration  `json:"expire_after"`
+	CleanupInterval time.Duration  `json:"clean_up_interval"`
 }
 
 func (c *Config) UnmarshalJSON(data []byte) error {

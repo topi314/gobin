@@ -152,8 +152,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.exceedsMaxDocumentSize(content) {
-		s.Error(w, r, ErrContentTooLarge(s.cfg.MaxDocumentLength), http.StatusBadRequest)
+	if s.exceedsMaxDocumentSize(w, r, content) {
 		return
 	}
 
@@ -185,8 +184,7 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.exceedsMaxDocumentSize(content) {
-		s.Error(w, r, ErrContentTooLarge(s.cfg.MaxDocumentLength), http.StatusBadRequest)
+	if s.exceedsMaxDocumentSize(w, r, content) {
 		return
 	}
 
@@ -303,6 +301,10 @@ func (s *Server) json(w http.ResponseWriter, r *http.Request, v any, status int)
 	}
 }
 
-func (s *Server) exceedsMaxDocumentSize(content string) bool {
-	return s.cfg.MaxDocumentLength > 0 && len([]rune(content)) > s.cfg.MaxDocumentLength
+func (s *Server) exceedsMaxDocumentSize(w http.ResponseWriter, r *http.Request, content string) bool {
+	if s.cfg.MaxDocumentSize > 0 && len([]rune(content)) > s.cfg.MaxDocumentSize {
+		s.Error(w, r, ErrContentTooLarge(s.cfg.MaxDocumentSize), http.StatusBadRequest)
+		return true
+	}
+	return false
 }
