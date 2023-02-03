@@ -22,7 +22,7 @@ func main() {
 
 	var client *github.Client
 	if *githubToken != "" {
-		github.NewTokenClient(context.Background(), *githubToken)
+		client = github.NewTokenClient(context.Background(), *githubToken)
 	} else {
 		client = github.NewClient(nil)
 	}
