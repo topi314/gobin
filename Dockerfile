@@ -8,7 +8,7 @@ RUN cd tools && go mod download
 
 COPY tools/ tools/
 
-RUN go run .
+RUN cd tools && go run .
 
 COPY go.mod go.sum ./
 
