@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -17,7 +18,9 @@ var (
 	ErrDocumentNotFound = errors.New("document not found")
 	ErrUnauthorized     = errors.New("unauthorized")
 	ErrEmptyBody        = errors.New("empty request body")
-	ErrContentTooLarge  = errors.New("content too large")
+	ErrContentTooLarge  = func(maxLength int) error {
+		return errors.New("content too large (max " + strconv.Itoa(maxLength) + " characters)")
+	}
 )
 
 type Variables struct {
@@ -149,8 +152,8 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.cfg.MaxContentLength > 0 && len([]rune(string(content))) > s.cfg.MaxContentLength {
-		s.Error(w, r, ErrContentTooLarge, http.StatusBadRequest)
+	if s.cfg.MaxDocumentLength > 0 && len([]rune(string(content))) > s.cfg.MaxDocumentLength {
+		s.Error(w, r, ErrContentTooLarge(s.cfg.MaxDocumentLength), http.StatusBadRequest)
 		return
 	}
 
@@ -179,6 +182,11 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 
 	content := s.readBody(w, r)
 	if content == nil {
+		return
+	}
+
+	if s.cfg.MaxDocumentLength > 0 && len([]rune(string(content))) > s.cfg.MaxDocumentLength {
+		s.Error(w, r, ErrContentTooLarge(s.cfg.MaxDocumentLength), http.StatusBadRequest)
 		return
 	}
 
