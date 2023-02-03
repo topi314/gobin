@@ -4,10 +4,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -19,7 +19,7 @@ var (
 	ErrUnauthorized     = errors.New("unauthorized")
 	ErrEmptyBody        = errors.New("empty request body")
 	ErrContentTooLarge  = func(maxLength int) error {
-		return errors.New("content too large (max " + strconv.Itoa(maxLength) + " characters)")
+		return fmt.Errorf("content too large, must be less than %d chars", maxLength)
 	}
 )
 
@@ -148,16 +148,16 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 	language := r.Header.Get("Language")
 
 	content := s.readBody(w, r)
-	if content == nil {
+	if content == "" {
 		return
 	}
 
-	if s.cfg.MaxDocumentLength > 0 && len([]rune(string(content))) > s.cfg.MaxDocumentLength {
+	if s.exceedsMaxDocumentSize(content) {
 		s.Error(w, r, ErrContentTooLarge(s.cfg.MaxDocumentLength), http.StatusBadRequest)
 		return
 	}
 
-	document, err := s.db.CreateDocument(r.Context(), string(content), language)
+	document, err := s.db.CreateDocument(r.Context(), content, language)
 	if err != nil {
 		s.Error(w, r, err, http.StatusInternalServerError)
 		return
@@ -181,16 +181,16 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 	}
 
 	content := s.readBody(w, r)
-	if content == nil {
+	if content == "" {
 		return
 	}
 
-	if s.cfg.MaxDocumentLength > 0 && len([]rune(string(content))) > s.cfg.MaxDocumentLength {
+	if s.exceedsMaxDocumentSize(content) {
 		s.Error(w, r, ErrContentTooLarge(s.cfg.MaxDocumentLength), http.StatusBadRequest)
 		return
 	}
 
-	document, err := s.db.UpdateDocument(r.Context(), documentID, updateToken, string(content), language)
+	document, err := s.db.UpdateDocument(r.Context(), documentID, updateToken, content, language)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
@@ -250,18 +250,18 @@ func (s *Server) getUpdateToken(w http.ResponseWriter, r *http.Request) string {
 	return updateToken
 }
 
-func (s *Server) readBody(w http.ResponseWriter, r *http.Request) []byte {
+func (s *Server) readBody(w http.ResponseWriter, r *http.Request) string {
 	content, err := io.ReadAll(r.Body)
 	if err != nil {
 		s.Error(w, r, err, http.StatusInternalServerError)
-		return nil
+		return ""
 	}
 
 	if len(content) == 0 {
 		s.Error(w, r, ErrEmptyBody, http.StatusBadRequest)
-		return nil
+		return ""
 	}
-	return content
+	return string(content)
 }
 
 func (s *Server) Redirect(w http.ResponseWriter, r *http.Request) {
@@ -301,4 +301,8 @@ func (s *Server) json(w http.ResponseWriter, r *http.Request, v any, status int)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
 		log.Printf("Error while encoding JSON %s: %s\n", r.URL, err)
 	}
+}
+
+func (s *Server) exceedsMaxDocumentSize(content string) bool {
+	return s.cfg.MaxDocumentLength > 0 && len([]rune(content)) > s.cfg.MaxDocumentLength
 }
