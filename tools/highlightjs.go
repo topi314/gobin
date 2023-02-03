@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/google/go-github/v50/github"
 )
@@ -22,7 +23,7 @@ func downloadHighlightJS(client *github.Client) error {
 
 	prefix := zipReader.File[0].Name
 	for _, file := range highlightJSFiles {
-		println("Copying: ", prefix+file)
+		log.Println("Copying: ", prefix+file)
 		if err = copyToAssets(zipReader, prefix, "build/", file); err != nil {
 			return fmt.Errorf("failed to copy file: %w", err)
 		}

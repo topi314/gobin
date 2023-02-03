@@ -1,3 +1,6 @@
 .idea/
 config.json
 gobin.db
+assets/highlight.min.js
+assets/highlightjs-line-numbers.min.js
+assets/styles/

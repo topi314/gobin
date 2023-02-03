@@ -5,3 +5,6 @@ LICENSE
 Dockerfile
 config.json
 config.json.example
+assets/highlight.min.js
+assets/highlightjs-line-numbers.min.js
+assets/styles/

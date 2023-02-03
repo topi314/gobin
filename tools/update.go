@@ -4,8 +4,10 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"flag"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -15,21 +17,28 @@ import (
 )
 
 func main() {
-	println("Downloading latest version...")
+	githubToken := flag.String("github-token", "", "GitHub token (required)")
+	flag.Parse()
+	log.Println("Downloading latest version...")
 
-	client := github.NewClient(nil)
+	var client *github.Client
+	if *githubToken != "" {
+		client = github.NewTokenClient(context.Background(), *githubToken)
+	} else {
+		client = github.NewClient(nil)
+	}
 
 	if err := downloadHighlightJS(client); err != nil {
-		println("Failed to download HighlightJS:", err.Error())
+		log.Panicln("Failed to download HighlightJS:", err.Error())
 		return
 	}
 
 	if err := downloadHighlightJSLineNumbers(client); err != nil {
-		println("Failed to download HighlightJS Line Numbers:", err.Error())
+		log.Panicln("Failed to download HighlightJS Line Numbers:", err.Error())
 		return
 	}
 
-	println("Done")
+	log.Println("Done")
 }
 
 func downloadLatestTagZipball(client *github.Client, owner string, repo string) (*zip.Reader, error) {
@@ -37,9 +46,9 @@ func downloadLatestTagZipball(client *github.Client, owner string, repo string) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest tag: %w", err)
 	}
-	println("Latest", owner+"/"+repo, "version:", latestTag.GetName())
+	log.Println("Latest", owner+"/"+repo, "version:", latestTag.GetName())
 
-	println(owner+"/"+repo, "Zipball URL:", latestTag.GetZipballURL())
+	log.Println(owner+"/"+repo, "Zipball URL:", latestTag.GetZipballURL())
 
 	zipReader, err := downloadZip(latestTag.GetZipballURL())
 	if err != nil {
@@ -99,7 +108,7 @@ func copyToAssets(zipReader *zip.Reader, prefix string, buildPrefix string, file
 	}
 	defer zipFile.Close()
 
-	assetsFile, err := os.OpenFile("assets/"+strings.TrimPrefix(filename, buildPrefix), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	assetsFile, err := os.OpenFile("../assets/"+strings.TrimPrefix(filename, buildPrefix), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open assets file: %w", err)
 	}
