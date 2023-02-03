@@ -1,5 +1,7 @@
 FROM golang:1.19-alpine AS build
 
+ARG GITHUB_TOKEN
+
 WORKDIR /build
 
 COPY tools/go.mod tools/go.sum tools/
