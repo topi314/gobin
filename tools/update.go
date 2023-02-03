@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,9 +16,16 @@ import (
 )
 
 func main() {
+	githubToken := flag.String("github-token", "", "GitHub token (required)")
+	flag.Parse()
 	println("Downloading latest version...")
 
-	client := github.NewClient(nil)
+	var client *github.Client
+	if *githubToken != "" {
+		github.NewTokenClient(context.Background(), *githubToken)
+	} else {
+		client = github.NewClient(nil)
+	}
 
 	if err := downloadHighlightJS(client); err != nil {
 		println("Failed to download HighlightJS:", err.Error())
