@@ -14,7 +14,7 @@ type Config struct {
 	Database        DatabaseConfig `json:"database"`
 	MaxDocumentSize int            `json:"max_document_size"`
 	ExpireAfter     time.Duration  `json:"expire_after"`
-	CleanupInterval time.Duration  `json:"clean_up_interval"`
+	CleanupInterval time.Duration  `json:"cleanup_interval"`
 }
 
 func (c *Config) UnmarshalJSON(data []byte) error {
