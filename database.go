@@ -64,12 +64,11 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 }
 
 type Document struct {
-	ID          string    `db:"id"`
-	Content     string    `db:"content"`
-	Language    string    `db:"language"`
-	UpdateToken string    `db:"update_token"`
-	CreatedAt   time.Time `db:"created_at"`
-	UpdatedAt   time.Time `db:"updated_at"`
+	ID        string    `db:"id"`
+	Content   string    `db:"content"`
+	Language  string    `db:"language"`
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
 }
 
 type Database struct {
@@ -97,14 +96,13 @@ func (d *Database) createDocument(ctx context.Context, content string, language 
 	}
 	now := time.Now()
 	doc := Document{
-		ID:          randomString(8),
-		Content:     content,
-		Language:    language,
-		UpdateToken: randomString(32),
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:        randomString(8),
+		Content:   content,
+		Language:  language,
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
-	_, err := d.NamedExecContext(ctx, "INSERT INTO documents (id, content, language, update_token, created_at, updated_at) VALUES (:id, :content, :language, :update_token, :created_at, :updated_at)", doc)
+	_, err := d.NamedExecContext(ctx, "INSERT INTO documents (id, content, language, created_at, updated_at) VALUES (:id, :content, :language, :created_at, :updated_at)", doc)
 
 	if err != nil {
 		var (
@@ -121,15 +119,14 @@ func (d *Database) createDocument(ctx context.Context, content string, language 
 	return doc, err
 }
 
-func (d *Database) UpdateDocument(ctx context.Context, id string, updateToken string, content string, language string) (Document, error) {
+func (d *Database) UpdateDocument(ctx context.Context, id string, content string, language string) (Document, error) {
 	doc := Document{
-		ID:          id,
-		Content:     content,
-		Language:    language,
-		UpdateToken: updateToken,
-		UpdatedAt:   time.Now(),
+		ID:        id,
+		Content:   content,
+		Language:  language,
+		UpdatedAt: time.Now(),
 	}
-	res, err := d.NamedExecContext(ctx, "UPDATE documents SET content = :content, language = :language, updated_at = :updated_at WHERE id = :id AND update_token = :update_token", doc)
+	res, err := d.NamedExecContext(ctx, "UPDATE documents SET content = :content, language = :language, updated_at = :updated_at WHERE id = :id", doc)
 	if err != nil {
 		return Document{}, err
 	}
@@ -144,8 +141,8 @@ func (d *Database) UpdateDocument(ctx context.Context, id string, updateToken st
 	return doc, nil
 }
 
-func (d *Database) DeleteDocument(ctx context.Context, id string, updateToken string) error {
-	res, err := d.ExecContext(ctx, "DELETE FROM documents WHERE id = $1 AND update_token = $2", id, updateToken)
+func (d *Database) DeleteDocument(ctx context.Context, id string) error {
+	res, err := d.ExecContext(ctx, "DELETE FROM documents WHERE id = $1", id)
 	if err != nil {
 		return err
 	}

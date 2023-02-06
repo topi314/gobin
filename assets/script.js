@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const key = window.location.pathname === "/" ? "" : window.location.pathname.slice(1);
     const params = new URLSearchParams(window.location.search);
     if (params.has("token")) {
-        setUpdateToken(key, params.get("token"));
+        setDocumentToken(key, params.get("token"));
     }
 
     let newState;
@@ -93,7 +93,7 @@ document.querySelector("#edit").addEventListener("click", async () => {
     const {key, content, language} = getState();
     let newState;
     let url;
-    if (getUpdateToken(key) === "") {
+    if (getDocumentToken(key) === "") {
         newState = {key: "", mode: "edit", content: content, language: language};
         url = "/";
     } else {
@@ -112,17 +112,17 @@ document.querySelector("#save").addEventListener("click", async () => {
 
     const {key, mode, content, language} = getState()
     if (mode !== "edit") return;
-    const updateToken = getUpdateToken(key);
+    const token = getDocumentToken(key);
     const saveButton = document.querySelector("#save");
     saveButton.classList.add("loading");
 
     let response;
-    if (key && updateToken) {
+    if (key && token) {
         response = await fetch(`/documents/${key}`, {
             method: "PATCH",
             body: content,
             headers: {
-                Authorization: updateToken,
+                Authorization: `Bearer ${token}`,
                 Language: language
             }
         });
@@ -145,7 +145,7 @@ document.querySelector("#save").addEventListener("click", async () => {
     }
 
     const newState = {key: body.key, mode: "view", content: body.data, language: body.language};
-    setUpdateToken(body.key, body.update_token);
+    setDocumentToken(body.key, body.token);
     updateCode(newState);
     updatePage(newState);
     window.history.pushState(newState, "", `/${body.key}`);
@@ -155,8 +155,8 @@ document.querySelector("#delete").addEventListener("click", async () => {
     if (document.querySelector("#delete").disabled) return;
 
     const {key} = getState();
-    const updateToken = getUpdateToken(key);
-    if (updateToken === "") {
+    const token = getDocumentToken(key);
+    if (token === "") {
         return;
     }
 
@@ -166,8 +166,9 @@ document.querySelector("#delete").addEventListener("click", async () => {
     const deleteButton = document.querySelector("#delete");
     deleteButton.classList.add("loading");
     let response = await fetch(`/documents/${key}`, {
-        method: "DELETE", headers: {
-            Authorization: updateToken
+        method: "DELETE",
+        headers: {
+            Authorization: `Bearer ${token}`
         }
     });
     deleteButton.classList.remove("loading");
@@ -178,7 +179,7 @@ document.querySelector("#delete").addEventListener("click", async () => {
         console.error("error deleting document:", response);
         return;
     }
-    deleteUpdateToken();
+    deleteToken();
     const newState = {key: "", mode: "edit", content: "", language: ""};
     updateCode(newState);
     updatePage(newState);
@@ -205,14 +206,16 @@ document.querySelector("#share").addEventListener("click", async () => {
     if (document.querySelector("#share").disabled) return;
 
     const {key} = getState();
-    const updateToken = getUpdateToken(key);
-    if (updateToken === "") {
+    const token = getDocumentToken(key);
+    if (!token) {
         await navigator.clipboard.writeText(window.location.href);
         return;
     }
 
-    document.querySelector("#share-permissions").checked = false;
-    document.querySelector("#share-url").value = window.location.href;
+    document.querySelector("#share-permissions-write").checked = false;
+    document.querySelector("#share-permissions-delete").checked = false;
+    document.querySelector("#share-permissions-share").checked = false;
+
     document.querySelector("#share-dialog").showModal();
 });
 
@@ -220,28 +223,46 @@ document.querySelector("#share-dialog-close").addEventListener("click", () => {
     document.querySelector("#share-dialog").close();
 });
 
-document.querySelector("#share-permissions").addEventListener("change", (event) => {
-    const {key} = getState();
-    const updateToken = getUpdateToken(key);
-    if (updateToken === "") {
-        return;
-    }
-
-    const shareUrl = document.querySelector("#share-url");
-    if (event.target.checked) {
-        shareUrl.value = `${window.location.href}?token=${updateToken}`;
-        return;
-    }
-    shareUrl.value = window.location.href;
-});
-
-document.querySelector("#share-url").addEventListener("click", () => {
-    document.querySelector("#share-url").select();
-});
-
 document.querySelector("#share-copy").addEventListener("click", async () => {
-    const shareUrl = document.querySelector("#share-url");
-    await navigator.clipboard.writeText(shareUrl.value);
+    const permissions = [];
+    if (document.querySelector("#share-permissions-write").checked) {
+        permissions.push("write");
+    }
+    if (document.querySelector("#share-permissions-delete").checked) {
+        permissions.push("delete");
+    }
+    if (document.querySelector("#share-permissions-share").checked) {
+        permissions.push("share");
+    }
+
+    if (permissions.length === 0) {
+        await navigator.clipboard.writeText(window.location.href);
+        document.querySelector("#share-dialog").close();
+        return;
+    }
+
+    const {key} = getState();
+    const token = getDocumentToken(key);
+
+    const response = await fetch(`/documents/${key}/share`, {
+        method: "POST",
+        body: JSON.stringify({permissions: permissions}),
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+        }
+    });
+
+    if (!response.ok) {
+        const body = await response.json();
+        showErrorPopup(body.message || response.statusText)
+        console.error("error sharing document:", response);
+        return;
+    }
+
+    const body = await response.json()
+    const shareUrl = window.location.href + "?token=" + body.token;
+    await navigator.clipboard.writeText(shareUrl);
     document.querySelector("#share-dialog").close();
 });
 
@@ -269,26 +290,26 @@ function getState() {
     return window.history.state;
 }
 
-function getUpdateToken(key) {
+function getDocumentToken(key) {
     const documents = localStorage.getItem("documents")
     if (!documents) return ""
-    const updateToken = JSON.parse(documents)[key]
-    if (!updateToken) return ""
+    const token = JSON.parse(documents)[key]
+    if (!token) return ""
 
-    return updateToken
+    return token
 }
 
-function setUpdateToken(key, updateToken) {
+function setDocumentToken(key, token) {
     let documents = localStorage.getItem("documents")
     if (!documents) {
         documents = "{}"
     }
     const parsedDocuments = JSON.parse(documents)
-    parsedDocuments[key] = updateToken
+    parsedDocuments[key] = token
     localStorage.setItem("documents", JSON.stringify(parsedDocuments))
 }
 
-function deleteUpdateToken() {
+function deleteToken() {
     const {key} = getState();
     const documents = localStorage.getItem("documents");
     if (!documents) return;
@@ -320,7 +341,7 @@ function updateCode(state) {
 
 function updatePage(state) {
     const {key, mode, content} = state;
-    const updateToken = getUpdateToken(key);
+    const token = getDocumentToken(key);
     // update page title
     if (key) {
         document.title = `gobin - ${key}`;
@@ -339,9 +360,7 @@ function updatePage(state) {
         saveButton.style.display = "none";
         editButton.disabled = false;
         editButton.style.display = "block";
-        if (updateToken) {
-            deleteButton.disabled = false;
-        }
+        deleteButton.disabled = !token;
         copyButton.disabled = false;
         rawButton.disabled = false;
         shareButton.disabled = false;

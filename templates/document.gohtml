@@ -9,17 +9,24 @@
 
     <p>Share this URL with your friends and let them optionally edit the document.</p>
 
-    <label for="share-permissions">Edit Document</label>
-    <input id="share-permissions" type="checkbox"/>
+    <span>Permissions</span>
+    <br/>
+
+    <label for="share-permissions-write">Write</label>
+    <input id="share-permissions-write" type="checkbox">
+    <br/>
+
+    <label for="share-permissions-delete">Delete</label>
+    <input id="share-permissions-delete" type="checkbox">
+    <br/>
+
+    <label for="share-permissions-share">Share</label>
+    <input id="share-permissions-share" type="checkbox">
 
     <br/>
     <br/>
 
-    <label id="share-url-label" for="share-url">
-        <input id="share-url" type="text" readonly="readonly"/>
-        <button id="share-copy">Copy</button>
-    </label>
-
+    <button id="share-copy">Copy</button>
 </dialog>
 {{ template "header.gohtml" . }}
 <main>

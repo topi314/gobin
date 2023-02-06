@@ -15,6 +15,7 @@ type Config struct {
 	MaxDocumentSize int            `json:"max_document_size"`
 	ExpireAfter     time.Duration  `json:"expire_after"`
 	CleanupInterval time.Duration  `json:"cleanup_interval"`
+	JWTSecret       string         `json:"jwt_secret"`
 }
 
 func (c *Config) UnmarshalJSON(data []byte) error {
@@ -44,7 +45,7 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("\n ListenAddr: %s,\n Database: %s,\n ExpireAfter: %s,\n CleanupInterval: %s\n", c.ListenAddr, c.Database, c.ExpireAfter, c.CleanupInterval)
+	return fmt.Sprintf("\n DevMode: %t,\n ListenAddr: %s,\n Database: %s,\n ExpireAfter: %s,\n CleanupInterval: %s,\n JWT Secret: %s\n", c.DevMode, c.ListenAddr, c.Database, c.ExpireAfter, c.CleanupInterval, strings.Repeat("*", len(c.JWTSecret)))
 }
 
 type DatabaseConfig struct {

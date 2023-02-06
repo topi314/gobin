@@ -9,6 +9,8 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/go-jose/go-jose/v3"
 )
 
 var (
@@ -22,9 +24,10 @@ var (
 type ExecuteTemplateFunc func(wr io.Writer, name string, data any) error
 
 type Server struct {
-	cfg  Config
-	db   *Database
-	tmpl ExecuteTemplateFunc
+	cfg    Config
+	db     *Database
+	signer jose.Signer
+	tmpl   ExecuteTemplateFunc
 }
 
 func main() {
@@ -47,6 +50,15 @@ func main() {
 	}
 	defer db.Close()
 
+	key := jose.SigningKey{
+		Algorithm: jose.HS512,
+		Key:       []byte(cfg.JWTSecret),
+	}
+	signer, err := jose.NewSigner(key, nil)
+	if err != nil {
+		log.Fatalln("Error while creating signer:", err)
+	}
+
 	var tmplFunc ExecuteTemplateFunc
 	if cfg.DevMode {
 		log.Println("Development mode enabled")
@@ -66,9 +78,10 @@ func main() {
 	}
 
 	s := &Server{
-		cfg:  cfg,
-		db:   db,
-		tmpl: tmplFunc,
+		cfg:    cfg,
+		db:     db,
+		signer: signer,
+		tmpl:   tmplFunc,
 	}
 
 	log.Println("Gobin listening on:", cfg.ListenAddr)

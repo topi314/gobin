@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"golang.org/x/exp/slices"
 )
 
 var (
@@ -35,10 +36,18 @@ type Variables struct {
 }
 
 type DocumentResponse struct {
-	Key         string `json:"key"`
-	Data        string `json:"data"`
-	Language    string `json:"language"`
-	UpdateToken string `json:"update_token,omitempty"`
+	Key      string `json:"key"`
+	Data     string `json:"data"`
+	Language string `json:"language"`
+	Token    string `json:"token,omitempty"`
+}
+
+type ShareRequest struct {
+	Permissions []Permission `json:"permissions"`
+}
+
+type ShareResponse struct {
+	Token string `json:"token"`
 }
 
 type ErrorResponse struct {
@@ -51,16 +60,18 @@ func (s *Server) Routes() http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
+	r.Use(s.JWTMiddleware)
 
 	r.Mount("/assets", s.Assets())
 	r.Get("/raw/{documentID}", s.GetRawDocument)
 	r.Head("/raw/{documentID}", s.GetRawDocument)
 
 	r.Post("/documents", s.PostDocument)
-	r.Head("/documents/{documentID}", s.GetDocument)
 	r.Get("/documents/{documentID}", s.GetDocument)
 	r.Patch("/documents/{documentID}", s.PatchDocument)
 	r.Delete("/documents/{documentID}", s.DeleteDocument)
+
+	r.Post("/documents/{documentID}/share", s.PostDocumentShare)
 
 	r.Get("/{documentID}", s.GetPrettyDocument)
 	r.Head("/{documentID}", s.GetPrettyDocument)
@@ -116,19 +127,25 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
-	document := s.getDocument(w, r)
-	if document == nil {
+	document, ok := s.getDocument(w, r)
+	if !ok {
 		return
 	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(document.Content))
+	if r.Method == http.MethodHead {
+		return
+	}
+
+	if _, err := w.Write([]byte(document.Content)); err != nil {
+		log.Println("Error while writing response:", err)
+	}
 }
 
 func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
-	document := s.getDocument(w, r)
-	if document == nil {
+	document, ok := s.getDocument(w, r)
+	if !ok {
 		return
 	}
 
@@ -146,7 +163,6 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 	language := r.Header.Get("Language")
-
 	content := s.readBody(w, r)
 	if content == "" {
 		return
@@ -162,23 +178,38 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	token, err := s.NewToken(document.ID, []Permission{PermissionWrite, PermissionDelete, PermissionShare})
+	if err != nil {
+		s.Error(w, r, err, http.StatusInternalServerError)
+		return
+	}
+
 	s.JSON(w, r, DocumentResponse{
-		Key:         document.ID,
-		Data:        document.Content,
-		Language:    document.Language,
-		UpdateToken: document.UpdateToken,
+		Key:      document.ID,
+		Data:     document.Content,
+		Language: document.Language,
+		Token:    token,
 	})
 }
 
 func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
-	documentID := chi.URLParam(r, "documentID")
-	language := r.Header.Get("Language")
-
-	updateToken := s.getUpdateToken(w, r)
-	if updateToken == "" {
+	document, ok := s.getDocument(w, r)
+	if !ok {
+		println("not ok")
 		return
 	}
 
+	claims := s.GetClaims(r)
+
+	fmt.Printf("%+v\n", claims)
+
+	if claims.Subject != document.ID || !slices.Contains(claims.Permissions, PermissionWrite) {
+		println("not allowed")
+		s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+		return
+	}
+
+	language := r.Header.Get("Language")
 	content := s.readBody(w, r)
 	if content == "" {
 		return
@@ -188,64 +219,103 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	document, err := s.db.UpdateDocument(r.Context(), documentID, updateToken, content, language)
+	var err error
+	document, err = s.db.UpdateDocument(r.Context(), document.ID, content, language)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
-			return
-		}
-		s.Error(w, r, err, http.StatusInternalServerError)
+		s.DBError(w, r, err)
 		return
 	}
 
 	s.JSON(w, r, DocumentResponse{
-		Key:         document.ID,
-		Data:        document.Content,
-		Language:    document.Language,
-		UpdateToken: document.UpdateToken,
+		Key:      document.ID,
+		Data:     document.Content,
+		Language: document.Language,
 	})
 }
 
 func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
-	documentID := chi.URLParam(r, "documentID")
-	updateToken := r.Header.Get("Authorization")
+	document, ok := s.getDocument(w, r)
+	if !ok {
+		return
+	}
 
-	if err := s.db.DeleteDocument(r.Context(), documentID, updateToken); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
-			return
-		}
-		s.Error(w, r, err, http.StatusInternalServerError)
+	claims := s.GetClaims(r)
+	if claims.Subject != document.ID || slices.Contains(claims.Permissions, PermissionDelete) {
+		s.NotFound(w, r)
+		return
+	}
+
+	if err := s.db.DeleteDocument(r.Context(), document.ID); err != nil {
+		s.DBError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *Server) getDocument(w http.ResponseWriter, r *http.Request) *Document {
+func (s *Server) PostDocumentShare(w http.ResponseWriter, r *http.Request) {
+	document, ok := s.getDocument(w, r)
+	if !ok {
+		return
+	}
+
+	var shareRequest ShareRequest
+	if err := json.NewDecoder(r.Body).Decode(&shareRequest); err != nil {
+		s.Error(w, r, err, http.StatusBadRequest)
+		return
+	}
+
+	if len(shareRequest.Permissions) == 0 {
+		s.Error(w, r, ErrNoPermissions, http.StatusBadRequest)
+		return
+	}
+
+	for _, permission := range shareRequest.Permissions {
+		if !permission.IsValid() {
+			s.Error(w, r, ErrUnknownPermission(permission), http.StatusBadRequest)
+			return
+		}
+	}
+
+	claims := s.GetClaims(r)
+	if claims.Subject != document.ID || !slices.Contains(claims.Permissions, PermissionShare) {
+		s.NotFound(w, r)
+		return
+	}
+
+	for _, permission := range shareRequest.Permissions {
+		if !slices.Contains(claims.Permissions, permission) {
+			s.Error(w, r, ErrPermissionDenied(permission), http.StatusForbidden)
+			return
+		}
+	}
+
+	token, err := s.NewToken(document.ID, shareRequest.Permissions)
+	if err != nil {
+		s.Error(w, r, err, http.StatusInternalServerError)
+		return
+	}
+
+	s.JSON(w, r, ShareResponse{
+		Token: token,
+	})
+}
+
+func (s *Server) getDocument(w http.ResponseWriter, r *http.Request) (Document, bool) {
 	documentID := chi.URLParam(r, "documentID")
 	if documentID == "" {
-		return &Document{}
+		println("no document id")
+		s.NotFound(w, r)
+		return Document{}, false
 	}
 
 	document, err := s.db.GetDocument(r.Context(), documentID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
-			return nil
-		}
-		s.Error(w, r, err, http.StatusInternalServerError)
-		return nil
+		println("db error")
+		s.DBError(w, r, err)
+		return Document{}, false
 	}
-	return &document
-}
 
-func (s *Server) getUpdateToken(w http.ResponseWriter, r *http.Request) string {
-	updateToken := r.Header.Get("Authorization")
-	if updateToken == "" {
-		s.Unauthorized(w, r)
-		return ""
-	}
-	return updateToken
+	return document, true
 }
 
 func (s *Server) readBody(w http.ResponseWriter, r *http.Request) string {
@@ -267,7 +337,11 @@ func (s *Server) Redirect(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) Unauthorized(w http.ResponseWriter, r *http.Request) {
-	s.Error(w, r, errors.New("unauthorized"), http.StatusUnauthorized)
+	s.Error(w, r, ErrUnauthorized, http.StatusUnauthorized)
+}
+
+func (s *Server) NotFound(w http.ResponseWriter, r *http.Request) {
+	s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
 }
 
 func (s *Server) PrettyError(w http.ResponseWriter, r *http.Request, err error, status int) {
@@ -276,6 +350,14 @@ func (s *Server) PrettyError(w http.ResponseWriter, r *http.Request, err error, 
 	if tmplErr := s.tmpl(w, "error.gohtml", err.Error()); tmplErr != nil {
 		log.Println("Error while executing template:", tmplErr)
 	}
+}
+
+func (s *Server) DBError(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, sql.ErrNoRows) {
+		s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+		return
+	}
+	s.Error(w, r, err, http.StatusInternalServerError)
 }
 
 func (s *Server) Error(w http.ResponseWriter, r *http.Request, err error, status int) {
