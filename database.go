@@ -65,11 +65,10 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 
 type Document struct {
 	ID          string    `db:"id"`
+	Version     time.Time `db:"version"`
 	Content     string    `db:"content"`
 	Language    string    `db:"language"`
 	UpdateToken string    `db:"update_token"`
-	CreatedAt   time.Time `db:"created_at"`
-	UpdatedAt   time.Time `db:"updated_at"`
 }
 
 type Database struct {
@@ -87,6 +86,39 @@ func (d *Database) GetDocument(ctx context.Context, id string) (Document, error)
 	return doc, err
 }
 
+func (d *Database) GetDocumentVersions(ctx context.Context, id string, withContent bool) ([]Document, error) {
+	var docs []Document
+	var sqlString string
+	if withContent {
+		sqlString = "SELECT id, version, content, language FROM documents where id = $1 ORDER BY version DESC"
+	} else {
+		sqlString = "SELECT id, version FROM documents where id = $1 ORDER BY version DESC"
+	}
+	err := d.SelectContext(ctx, &docs, sqlString, id)
+	return docs, err
+}
+
+func (d *Database) GetDocumentByVersion(ctx context.Context, id string, version time.Time) (Document, error) {
+	var doc Document
+	err := d.GetContext(ctx, &doc, "SELECT * FROM documents WHERE id = $1 AND version = $2", id, version)
+	return doc, err
+}
+
+func (d *Database) DeleteDocumentByVersion(ctx context.Context, version time.Time) error {
+	res, err := d.ExecContext(ctx, "DELETE FROM documents WHERE version = $1", version)
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 func (d *Database) CreateDocument(ctx context.Context, content string, language string) (Document, error) {
 	return d.createDocument(ctx, content, language, 0)
 }
@@ -101,10 +133,9 @@ func (d *Database) createDocument(ctx context.Context, content string, language 
 		Content:     content,
 		Language:    language,
 		UpdateToken: randomString(32),
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		Version:     now,
 	}
-	_, err := d.NamedExecContext(ctx, "INSERT INTO documents (id, content, language, update_token, created_at, updated_at) VALUES (:id, :content, :language, :update_token, :created_at, :updated_at)", doc)
+	_, err := d.NamedExecContext(ctx, "INSERT INTO documents (id, version, content, language, update_token) VALUES (:id, :version, :content, :language, :update_token)", doc)
 
 	if err != nil {
 		var (
@@ -124,12 +155,13 @@ func (d *Database) createDocument(ctx context.Context, content string, language 
 func (d *Database) UpdateDocument(ctx context.Context, id string, updateToken string, content string, language string) (Document, error) {
 	doc := Document{
 		ID:          id,
+		Version:     time.Now(),
 		Content:     content,
 		Language:    language,
 		UpdateToken: updateToken,
-		UpdatedAt:   time.Now(),
 	}
-	res, err := d.NamedExecContext(ctx, "UPDATE documents SET content = :content, language = :language, updated_at = :updated_at WHERE id = :id AND update_token = :update_token", doc)
+	// TODO:this should do an insert with a new version now
+	res, err := d.NamedExecContext(ctx, "INSERT INTO documents (id, version, content, language, update_token) VALUES (:id, :version, :content, :language, :update_token)", doc)
 	if err != nil {
 		return Document{}, err
 	}

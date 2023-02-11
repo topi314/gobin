@@ -24,11 +24,10 @@ var (
 )
 
 type Variables struct {
-	ID        string
-	Content   string
-	Language  string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID       string
+	Version  time.Time
+	Content  string
+	Language string
 
 	Host   string
 	Styles []Style
@@ -36,9 +35,10 @@ type Variables struct {
 
 type DocumentResponse struct {
 	Key         string `json:"key"`
-	Data        string `json:"data"`
+	Data        string `json:"data,omitempty"`
 	Language    string `json:"language"`
 	UpdateToken string `json:"update_token,omitempty"`
+	Version     int64  `json:"version"`
 }
 
 type ErrorResponse struct {
@@ -65,6 +65,8 @@ func (s *Server) Routes() http.Handler {
 	r.Get("/{documentID}", s.GetPrettyDocument)
 	r.Head("/{documentID}", s.GetPrettyDocument)
 
+	r.Get("/document/{documentID}/versions", s.DocumentVersions)
+
 	r.Get("/", s.GetPrettyDocument)
 	r.Head("/", s.GetPrettyDocument)
 
@@ -78,6 +80,27 @@ func (s *Server) Assets() http.Handler {
 		return http.FileServer(http.Dir("."))
 	}
 	return http.FileServer(http.FS(assets))
+}
+
+func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
+	documentID := chi.URLParam(r, "documentID")
+	withContent := r.URL.Query().Get("withContent") == "true"
+
+	versions, err := s.db.GetDocumentVersions(r.Context(), documentID, withContent)
+	if err != nil {
+		s.Error(w, r, err, http.StatusInternalServerError)
+		return
+	}
+	var response []DocumentResponse
+	for _, version := range versions {
+		response = append(response, DocumentResponse{
+			Key:      version.ID,
+			Version:  version.Version.Unix(),
+			Data:     version.Content,
+			Language: version.Language,
+		})
+	}
+	s.JSON(w, r, response)
 }
 
 func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
@@ -102,13 +125,12 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	}
 
 	vars := Variables{
-		ID:        document.ID,
-		Content:   document.Content,
-		Language:  document.Language,
-		CreatedAt: document.CreatedAt,
-		UpdatedAt: document.UpdatedAt,
-		Host:      r.Host,
-		Styles:    Styles,
+		ID:       document.ID,
+		Content:  document.Content,
+		Language: document.Language,
+		Version:  document.Version,
+		Host:     r.Host,
+		Styles:   Styles,
 	}
 	if err := s.tmpl(w, "document.gohtml", vars); err != nil {
 		log.Println("Error while executing template:", err)
