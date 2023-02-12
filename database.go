@@ -5,6 +5,9 @@ import (
 	"database/sql"
 	_ "embed"
 	"errors"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5/tracelog"
 	"log"
 	"math/rand"
 	"time"
@@ -35,7 +38,20 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 	switch cfg.Database.Type {
 	case "postgres":
 		driverName = "pgx"
-		dataSourceName = cfg.Database.PostgresDataSourceName()
+		pgCfg, err := pgx.ParseConfig(cfg.Database.PostgresDataSourceName())
+		if err != nil {
+			return nil, err
+		}
+
+		if cfg.DevMode {
+			pgCfg.Tracer = &tracelog.TraceLog{
+				Logger: tracelog.LoggerFunc(func(ctx context.Context, level tracelog.LogLevel, msg string, data map[string]any) {
+					log.Println(msg, data)
+				}),
+				LogLevel: tracelog.LogLevelDebug,
+			}
+			dataSourceName = stdlib.RegisterConnConfig(pgCfg)
+		}
 	case "sqlite":
 		driverName = "sqlite"
 		dataSourceName = cfg.Database.Path
@@ -64,11 +80,11 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 }
 
 type Document struct {
-	ID          string    `db:"id"`
-	Version     time.Time `db:"version"`
-	Content     string    `db:"content"`
-	Language    string    `db:"language"`
-	UpdateToken string    `db:"update_token"`
+	ID          string `db:"id"`
+	Version     int64  `db:"version"`
+	Content     string `db:"content"`
+	Language    string `db:"language"`
+	UpdateToken string `db:"update_token"`
 }
 
 type Database struct {
@@ -98,14 +114,14 @@ func (d *Database) GetDocumentVersions(ctx context.Context, id string, withConte
 	return docs, err
 }
 
-func (d *Database) GetDocumentByVersion(ctx context.Context, id string, version time.Time) (Document, error) {
+func (d *Database) GetDocumentByVersion(ctx context.Context, id string, version int64) (Document, error) {
 	var doc Document
 	err := d.GetContext(ctx, &doc, "SELECT * FROM documents WHERE id = $1 AND version = $2", id, version)
 	return doc, err
 }
 
-func (d *Database) DeleteDocumentByVersion(ctx context.Context, version time.Time) error {
-	res, err := d.ExecContext(ctx, "DELETE FROM documents WHERE version = $1", version)
+func (d *Database) DeleteDocumentByVersion(ctx context.Context, version int64, documentID string) error {
+	res, err := d.ExecContext(ctx, "DELETE FROM documents WHERE version = $1 AND id = $2", version, documentID)
 	if err != nil {
 		return err
 	}
@@ -127,7 +143,7 @@ func (d *Database) createDocument(ctx context.Context, content string, language 
 	if try >= 10 {
 		return Document{}, errors.New("failed to create document because of duplicate key after 10 tries")
 	}
-	now := time.Now()
+	now := time.Now().Unix()
 	doc := Document{
 		ID:          randomString(8),
 		Content:     content,
@@ -155,7 +171,7 @@ func (d *Database) createDocument(ctx context.Context, content string, language 
 func (d *Database) UpdateDocument(ctx context.Context, id string, updateToken string, content string, language string) (Document, error) {
 	doc := Document{
 		ID:          id,
-		Version:     time.Now(),
+		Version:     time.Now().Unix(),
 		Content:     content,
 		Language:    language,
 		UpdateToken: updateToken,

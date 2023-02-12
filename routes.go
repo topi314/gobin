@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -25,7 +26,7 @@ var (
 
 type Variables struct {
 	ID       string
-	Version  time.Time
+	Version  int64
 	Content  string
 	Language string
 
@@ -55,12 +56,14 @@ func (s *Server) Routes() http.Handler {
 	r.Mount("/assets", s.Assets())
 	r.Get("/raw/{documentID}", s.GetRawDocument)
 	r.Head("/raw/{documentID}", s.GetRawDocument)
+	r.Get("/raw/{documentID}/versions/{version}", s.GetRawDocumentVersion)
 
 	r.Post("/documents", s.PostDocument)
 	r.Head("/documents/{documentID}", s.GetDocument)
 	r.Get("/documents/{documentID}", s.GetDocument)
 	r.Patch("/documents/{documentID}", s.PatchDocument)
 	r.Delete("/documents/{documentID}", s.DeleteDocument)
+	r.Delete("/documents/{documentID}/versions/{version}", s.DeleteDocumentByVersion)
 
 	r.Get("/{documentID}", s.GetPrettyDocument)
 	r.Head("/{documentID}", s.GetPrettyDocument)
@@ -95,12 +98,71 @@ func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
 	for _, version := range versions {
 		response = append(response, DocumentResponse{
 			Key:      version.ID,
-			Version:  version.Version.Unix(),
+			Version:  version.Version,
 			Data:     version.Content,
 			Language: version.Language,
 		})
 	}
 	s.JSON(w, r, response)
+}
+
+func (s *Server) DeleteDocumentByVersion(w http.ResponseWriter, r *http.Request) {
+	documentID, version := sanitizeDocumentWithVersion(r, s, w)
+	if documentID == "" {
+		return
+	}
+
+	if err := s.db.DeleteDocumentByVersion(r.Context(), version, documentID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+			return
+		}
+		s.Error(w, r, err, http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) GetRawDocumentVersion(w http.ResponseWriter, r *http.Request) {
+	documentID, version := sanitizeDocumentWithVersion(r, s, w)
+	if documentID == "" {
+		return
+	}
+	document, err := s.db.GetDocumentByVersion(r.Context(), documentID, version)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+			return
+		}
+		s.Error(w, r, err, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(document.Content))
+}
+
+func sanitizeDocumentWithVersion(r *http.Request, s *Server, w http.ResponseWriter) (string, int64) {
+	documentID := chi.URLParam(r, "documentID")
+	if documentID == "" {
+		s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+		return "", -1
+	}
+
+	version := chi.URLParam(r, "version")
+	if version == "" {
+		s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+		return "", -1
+	}
+
+	int64Version, err := strconv.ParseInt(version, 10, 64)
+	if err != nil {
+		s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+		return "", -1
+	}
+	return documentID, int64Version
 }
 
 func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {

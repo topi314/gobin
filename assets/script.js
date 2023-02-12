@@ -59,26 +59,25 @@ document.addEventListener("keydown", (event) => {
 
     switch (event.key) {
         case "s":
-            event.preventDefault();
-            if (document.querySelector("#save").disabled) return;
-            document.querySelector("#save").click();
+            doKeyboardAction(event, "save")
             break;
         case "n":
-            event.preventDefault();
-            document.querySelector("#new").click();
+            doKeyboardAction(event, "new")
             break;
         case "e":
-            event.preventDefault();
-            if (document.querySelector("#edit").disabled) return;
-            document.querySelector("#edit").click();
+            doKeyboardAction(event, "edit")
             break;
         case "d":
-            event.preventDefault();
-            if (document.querySelector("#delete").disabled) return;
-            document.querySelector("#delete").click();
+            doKeyboardAction(event, "delete")
             break;
     }
 })
+
+const doKeyboardAction = (event, elementName) => {
+    event.preventDefault();
+    if (document.querySelector(`#${elementName}`).disabled) return;
+    document.querySelector(`#${elementName}`).click();
+}
 
 document.querySelector("#code-edit").addEventListener("keyup", (event) => {
     const {key, language} = getState();
@@ -109,7 +108,6 @@ document.querySelector("#edit").addEventListener("click", async () => {
 
 document.querySelector("#save").addEventListener("click", async () => {
     if (document.querySelector("#save").disabled) return;
-
     const {key, mode, content, language} = getState()
     if (mode !== "edit") return;
     const updateToken = getUpdateToken(key);
@@ -144,7 +142,7 @@ document.querySelector("#save").addEventListener("click", async () => {
         return;
     }
 
-    const newState = {key: body.key, mode: "view", content: body.data, language: body.language};
+    const newState = { key: body.key, mode: "view", content: body.data, language: body.language };
     setUpdateToken(body.key, body.update_token);
     updateCode(newState);
     updatePage(newState);
