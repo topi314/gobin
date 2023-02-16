@@ -96,13 +96,13 @@ func (d *Database) Close() error {
 	return d.Close()
 }
 
-func (d *Database) GetDocument(ctx context.Context, id string) (Document, error) {
+func (d *Database) GetDocument(ctx context.Context, documentID string) (Document, error) {
 	var doc Document
-	err := d.GetContext(ctx, &doc, "SELECT * FROM documents WHERE id = $1", id)
+	err := d.GetContext(ctx, &doc, "SELECT * FROM documents WHERE id = $1", documentID)
 	return doc, err
 }
 
-func (d *Database) GetDocumentVersions(ctx context.Context, id string, withContent bool) ([]Document, error) {
+func (d *Database) GetDocumentVersions(ctx context.Context, documentID string, withContent bool) ([]Document, error) {
 	var docs []Document
 	var sqlString string
 	if withContent {
@@ -110,13 +110,13 @@ func (d *Database) GetDocumentVersions(ctx context.Context, id string, withConte
 	} else {
 		sqlString = "SELECT id, version FROM documents where id = $1 ORDER BY version DESC"
 	}
-	err := d.SelectContext(ctx, &docs, sqlString, id)
+	err := d.SelectContext(ctx, &docs, sqlString, documentID)
 	return docs, err
 }
 
-func (d *Database) GetDocumentByVersion(ctx context.Context, id string, version int64) (Document, error) {
+func (d *Database) GetDocumentByVersion(ctx context.Context, documentID string, version int64) (Document, error) {
 	var doc Document
-	err := d.GetContext(ctx, &doc, "SELECT * FROM documents WHERE id = $1 AND version = $2", id, version)
+	err := d.GetContext(ctx, &doc, "SELECT * FROM documents WHERE id = $1 AND version = $2", documentID, version)
 	return doc, err
 }
 
@@ -168,15 +168,14 @@ func (d *Database) createDocument(ctx context.Context, content string, language 
 	return doc, err
 }
 
-func (d *Database) UpdateDocument(ctx context.Context, id string, updateToken string, content string, language string) (Document, error) {
+func (d *Database) UpdateDocument(ctx context.Context, documentID string, updateToken string, content string, language string) (Document, error) {
 	doc := Document{
-		ID:          id,
+		ID:          documentID,
 		Version:     time.Now().Unix(),
 		Content:     content,
 		Language:    language,
 		UpdateToken: updateToken,
 	}
-	// TODO:this should do an insert with a new version now
 	res, err := d.NamedExecContext(ctx, "INSERT INTO documents (id, version, content, language, update_token) VALUES (:id, :version, :content, :language, :update_token)", doc)
 	if err != nil {
 		return Document{}, err
@@ -192,8 +191,8 @@ func (d *Database) UpdateDocument(ctx context.Context, id string, updateToken st
 	return doc, nil
 }
 
-func (d *Database) DeleteDocument(ctx context.Context, id string, updateToken string) error {
-	res, err := d.ExecContext(ctx, "DELETE FROM documents WHERE id = $1 AND update_token = $2", id, updateToken)
+func (d *Database) DeleteDocument(ctx context.Context, documentID string, updateToken string) error {
+	res, err := d.ExecContext(ctx, "DELETE FROM documents WHERE id = $1 AND update_token = $2", documentID, updateToken)
 	if err != nil {
 		return err
 	}

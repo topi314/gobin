@@ -63,12 +63,12 @@ func (s *Server) Routes() http.Handler {
 	r.Get("/documents/{documentID}", s.GetDocument)
 	r.Patch("/documents/{documentID}", s.PatchDocument)
 	r.Delete("/documents/{documentID}", s.DeleteDocument)
-	r.Delete("/documents/{documentID}/versions/{version}", s.DeleteDocumentByVersion)
+	r.Delete("/documents/{documentID}/versions/{version}", s.DeleteDocumentVersion)
 
 	r.Get("/{documentID}", s.GetPrettyDocument)
 	r.Head("/{documentID}", s.GetPrettyDocument)
 
-	r.Get("/document/{documentID}/versions", s.DocumentVersions)
+	r.Get("/documents/{documentID}/versions", s.DocumentVersions)
 
 	r.Get("/", s.GetPrettyDocument)
 	r.Head("/", s.GetPrettyDocument)
@@ -106,8 +106,8 @@ func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
 	s.JSON(w, r, response)
 }
 
-func (s *Server) DeleteDocumentByVersion(w http.ResponseWriter, r *http.Request) {
-	documentID, version := sanitizeDocumentWithVersion(r, s, w)
+func (s *Server) DeleteDocumentVersion(w http.ResponseWriter, r *http.Request) {
+	documentID, version := parseDocumentVersion(r, s, w)
 	if documentID == "" {
 		return
 	}
@@ -124,7 +124,7 @@ func (s *Server) DeleteDocumentByVersion(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) GetRawDocumentVersion(w http.ResponseWriter, r *http.Request) {
-	documentID, version := sanitizeDocumentWithVersion(r, s, w)
+	documentID, version := parseDocumentVersion(r, s, w)
 	if documentID == "" {
 		return
 	}
@@ -144,7 +144,7 @@ func (s *Server) GetRawDocumentVersion(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(document.Content))
 }
 
-func sanitizeDocumentWithVersion(r *http.Request, s *Server, w http.ResponseWriter) (string, int64) {
+func parseDocumentVersion(r *http.Request, s *Server, w http.ResponseWriter) (string, int64) {
 	documentID := chi.URLParam(r, "documentID")
 	if documentID == "" {
 		s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)

@@ -56,21 +56,8 @@ document.querySelector("#code-edit").addEventListener("keydown", (event) => {
 
 document.addEventListener("keydown", (event) => {
     if (!event.ctrlKey) return;
-
-    switch (event.key) {
-        case "s":
-            doKeyboardAction(event, "save")
-            break;
-        case "n":
-            doKeyboardAction(event, "new")
-            break;
-        case "e":
-            doKeyboardAction(event, "edit")
-            break;
-        case "d":
-            doKeyboardAction(event, "delete")
-            break;
-    }
+    if (event.key !== "s" && event.key !== "n" && event.key !== "e" && event.key !== "d") return;
+    doKeyboardAction(event, event.key);
 })
 
 const doKeyboardAction = (event, elementName) => {
