@@ -360,13 +360,43 @@ function highlightCode(state) {
         state.language = result.language;
     }
 
-    const codeViewElement = document.querySelector("#code-view");
-    codeViewElement.innerHTML = result.value;
-    codeViewElement.className = "hljs language-" + result.language;
+    applyCodeLines(result)
 
+    document.querySelector("#code-view").innerHTML = result.value;
     document.querySelector("#language").value = result.language;
+}
 
-    if (result.value) {
-        hljs.initLineNumbersOnLoad({singleLine: true});
-    }
+function applyCodeLines(result) {
+    const htmlLines = result.value.split('\n')
+    let spanStack = []
+    result.value = htmlLines.map((content, index) => {
+        let startSpanIndex, endSpanIndex
+        let needle = 0
+        content = spanStack.join('') + content
+        spanStack = []
+        do {
+            const remainingContent = content.slice(needle)
+            startSpanIndex = remainingContent.indexOf('<span')
+            endSpanIndex = remainingContent.indexOf('</span')
+            if (startSpanIndex === -1 && endSpanIndex === -1) {
+                break
+            }
+            if (endSpanIndex === -1 || (startSpanIndex !== -1 && startSpanIndex < endSpanIndex)) {
+                const nextSpan = /<span .+?>/.exec(remainingContent)
+                if (nextSpan === null) {
+                    // never: but ensure no exception is raised if it happens some day.
+                    break
+                }
+                spanStack.push(nextSpan[0])
+                needle += startSpanIndex + nextSpan[0].length
+            } else {
+                spanStack.pop()
+                needle += endSpanIndex + 1
+            }
+        } while (true)
+        if (spanStack.length > 0) {
+            content += Array(spanStack.length).fill('</span>').join('')
+        }
+        return `<div class="line">${content}\n</div>`
+    }).join('')
 }

@@ -387,13 +387,31 @@ select:hover {
 }
 
 #code-view {
-    flex-grow: 1;
     border-radius: 1rem;
     width: 0;
     height: 0;
     min-width: 100%;
     min-height: 100%;
     overflow: auto;
+    padding: 1em;
+    display: block;
+}
+
+#code-view > div {
+    counter-increment: line-counter;
+}
+
+#code-view > div::before {
+    content: counter(line-counter);
+    display: inline-block;
+    width: 2rem;
+    text-align: right;
+    margin-right: 1rem;
+    color: var(--text-secondary);
+}
+
+#code-view:first-child {
+    counter-reset: line-counter;
 }
 
 #code-edit {
