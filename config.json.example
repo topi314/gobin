@@ -1,11 +1,12 @@
 {
   "dev_mode": false,
   "listen_addr": ":80",
-  "expire_after": "0",
-  "cleanup_interval": "1m",
   "database": {
     // type can be "sqlite" or "postgres"
     "type": "postgres",
+    "expire_after": "0",
+    "cleanup_interval": "1m",
+    "debug": false,
 
     // "path" is only used for SQLite
     "path": "gobin.db",
