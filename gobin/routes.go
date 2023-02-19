@@ -86,6 +86,9 @@ func (s *Server) Routes() http.Handler {
 	r.Get("/{documentID}", s.GetPrettyDocument)
 	r.Head("/{documentID}", s.GetPrettyDocument)
 
+	r.Get("/", s.GetPrettyDocument)
+	r.Head("/", s.GetPrettyDocument)
+
 	r.NotFound(s.RedirectRoot)
 
 	return r
