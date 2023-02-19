@@ -17,6 +17,7 @@ import (
 
 var (
 	ErrDocumentNotFound = errors.New("document not found")
+	ErrUnauthorized     = errors.New("unauthorized")
 	ErrEmptyBody        = errors.New("empty request body")
 	ErrContentTooLarge  = func(maxLength int) error {
 		return fmt.Errorf("content too large, must be less than %d chars", maxLength)
@@ -55,14 +56,18 @@ func (s *Server) Routes() http.Handler {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Heartbeat("/ping"))
 
-	r.Mount("/assets", s.Assets())
+	r.Mount("/assets", http.FileServer(s.assets))
 	r.Route("/raw/{documentID}", func(r chi.Router) {
 		r.Get("/", s.GetRawDocument)
 		r.Head("/", s.GetRawDocument)
-		r.Get("/versions/{version}", s.GetRawDocumentVersion)
+		r.Route("/versions/{version}", func(r chi.Router) {
+			r.Get("/", s.GetRawDocumentVersion)
+			r.Head("/", s.GetRawDocumentVersion)
+		})
 	})
 	r.Route("/documents", func(r chi.Router) {
 		r.Post("/", s.PostDocument)
+
 		r.Route("/{documentID}", func(r chi.Router) {
 			r.Get("/", s.GetDocument)
 			r.Patch("/", s.PatchDocument)
@@ -70,21 +75,20 @@ func (s *Server) Routes() http.Handler {
 
 			r.Route("/versions", func(r chi.Router) {
 				r.Get("/", s.DocumentVersions)
-				r.Get("/{version}", s.DocumentVersion)
-				r.Delete("/{version}", s.DeleteDocumentVersion)
+
+				r.Route("/{version}", func(r chi.Router) {
+					r.Get("/", s.GetDocumentVersion)
+					r.Delete("/", s.DeleteDocumentVersion)
+				})
 			})
 		})
 	})
 	r.Get("/{documentID}", s.GetPrettyDocument)
 	r.Head("/{documentID}", s.GetPrettyDocument)
 
-	r.NotFound(s.Redirect)
+	r.NotFound(s.RedirectRoot)
 
 	return r
-}
-
-func (s *Server) Assets() http.Handler {
-	return http.FileServer(s.assets)
 }
 
 func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
@@ -108,7 +112,7 @@ func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
 	s.JSON(w, r, response)
 }
 
-func (s *Server) DocumentVersion(w http.ResponseWriter, r *http.Request) {
+func (s *Server) GetDocumentVersion(w http.ResponseWriter, r *http.Request) {
 	documentID, version := parseDocumentVersion(r, s, w)
 	if documentID == "" {
 		return
@@ -155,7 +159,6 @@ func (s *Server) GetRawDocumentVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	document, err := s.db.GetDocumentByVersion(r.Context(), documentID, version)
-
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
@@ -167,18 +170,17 @@ func (s *Server) GetRawDocumentVersion(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
+
+	if r.Method == http.MethodHead {
+		return
+	}
 	_, _ = w.Write([]byte(document.Content))
 }
 
 func parseDocumentVersion(r *http.Request, s *Server, w http.ResponseWriter) (string, int64) {
 	documentID := chi.URLParam(r, "documentID")
-	if documentID == "" {
-		s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
-		return "", -1
-	}
-
 	version := chi.URLParam(r, "version")
-	if version == "" {
+	if documentID == "" || version == "" {
 		s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
 		return "", -1
 	}
@@ -199,7 +201,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		document, err = s.db.GetDocument(r.Context(), documentID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				s.Redirect(w, r)
+				s.RedirectRoot(w, r)
 				return
 			}
 			s.PrettyError(w, r, err, http.StatusInternalServerError)
@@ -222,6 +224,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.tmpl(w, "document.gohtml", vars); err != nil {
 		log.Println("Error while executing template:", err)
+		s.PrettyError(w, r, err, http.StatusInternalServerError)
 	}
 }
 
@@ -233,6 +236,10 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
+
+	if r.Method == http.MethodHead {
+		return
+	}
 	_, _ = w.Write([]byte(document.Content))
 }
 
@@ -375,12 +382,12 @@ func (s *Server) readBody(w http.ResponseWriter, r *http.Request) string {
 	return string(content)
 }
 
-func (s *Server) Redirect(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/", http.StatusFound)
+func (s *Server) RedirectRoot(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func (s *Server) Unauthorized(w http.ResponseWriter, r *http.Request) {
-	s.Error(w, r, errors.New("unauthorized"), http.StatusUnauthorized)
+	s.Error(w, r, ErrUnauthorized, http.StatusUnauthorized)
 }
 
 func (s *Server) PrettyError(w http.ResponseWriter, r *http.Request, err error, status int) {
