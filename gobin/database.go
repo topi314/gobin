@@ -1,16 +1,17 @@
-package main
+package gobin
 
 import (
 	"context"
 	"database/sql"
 	_ "embed"
 	"errors"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/stdlib"
-	"github.com/jackc/pgx/v5/tracelog"
 	"log"
 	"math/rand"
 	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5/tracelog"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -19,18 +20,13 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-var (
-	//go:embed schema.sql
-	schema string
-
-	chars = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
-)
+var chars = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
+func NewDB(ctx context.Context, cfg Config, schema string) (*DB, error) {
 	var (
 		driverName     string
 		dataSourceName string
@@ -69,8 +65,8 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 	}
 
 	cleanupContext, cancel := context.WithCancel(context.Background())
-	db := &Database{
-		DB:            dbx,
+	db := &DB{
+		dbx:           dbx,
 		cleanupCancel: cancel,
 	}
 
@@ -87,22 +83,22 @@ type Document struct {
 	UpdateToken string `db:"update_token"`
 }
 
-type Database struct {
-	*sqlx.DB
+type DB struct {
+	dbx           *sqlx.DB
 	cleanupCancel context.CancelFunc
 }
 
-func (d *Database) Close() error {
+func (d *DB) Close() error {
 	return d.Close()
 }
 
-func (d *Database) GetDocument(ctx context.Context, documentID string) (Document, error) {
+func (d *DB) GetDocument(ctx context.Context, documentID string) (Document, error) {
 	var doc Document
-	err := d.GetContext(ctx, &doc, "SELECT * FROM documents WHERE id = $1", documentID)
+	err := d.dbx.GetContext(ctx, &doc, "SELECT * FROM documents WHERE id = $1", documentID)
 	return doc, err
 }
 
-func (d *Database) GetDocumentVersions(ctx context.Context, documentID string, withContent bool) ([]Document, error) {
+func (d *DB) GetDocumentVersions(ctx context.Context, documentID string, withContent bool) ([]Document, error) {
 	var docs []Document
 	var sqlString string
 	if withContent {
@@ -110,18 +106,18 @@ func (d *Database) GetDocumentVersions(ctx context.Context, documentID string, w
 	} else {
 		sqlString = "SELECT id, version FROM documents where id = $1 ORDER BY version DESC"
 	}
-	err := d.SelectContext(ctx, &docs, sqlString, documentID)
+	err := d.dbx.SelectContext(ctx, &docs, sqlString, documentID)
 	return docs, err
 }
 
-func (d *Database) GetDocumentByVersion(ctx context.Context, documentID string, version int64) (Document, error) {
+func (d *DB) GetDocumentByVersion(ctx context.Context, documentID string, version int64) (Document, error) {
 	var doc Document
-	err := d.GetContext(ctx, &doc, "SELECT * FROM documents WHERE id = $1 AND version = $2", documentID, version)
+	err := d.dbx.GetContext(ctx, &doc, "SELECT * FROM documents WHERE id = $1 AND version = $2", documentID, version)
 	return doc, err
 }
 
-func (d *Database) DeleteDocumentByVersion(ctx context.Context, version int64, documentID string) error {
-	res, err := d.ExecContext(ctx, "DELETE FROM documents WHERE version = $1 AND id = $2", version, documentID)
+func (d *DB) DeleteDocumentByVersion(ctx context.Context, version int64, documentID string) error {
+	res, err := d.dbx.ExecContext(ctx, "DELETE FROM documents WHERE version = $1 AND id = $2", version, documentID)
 	if err != nil {
 		return err
 	}
@@ -135,11 +131,11 @@ func (d *Database) DeleteDocumentByVersion(ctx context.Context, version int64, d
 	return nil
 }
 
-func (d *Database) CreateDocument(ctx context.Context, content string, language string) (Document, error) {
+func (d *DB) CreateDocument(ctx context.Context, content string, language string) (Document, error) {
 	return d.createDocument(ctx, content, language, 0)
 }
 
-func (d *Database) createDocument(ctx context.Context, content string, language string, try int) (Document, error) {
+func (d *DB) createDocument(ctx context.Context, content string, language string, try int) (Document, error) {
 	if try >= 10 {
 		return Document{}, errors.New("failed to create document because of duplicate key after 10 tries")
 	}
@@ -151,7 +147,7 @@ func (d *Database) createDocument(ctx context.Context, content string, language 
 		UpdateToken: randomString(32),
 		Version:     now,
 	}
-	_, err := d.NamedExecContext(ctx, "INSERT INTO documents (id, version, content, language, update_token) VALUES (:id, :version, :content, :language, :update_token)", doc)
+	_, err := d.dbx.NamedExecContext(ctx, "INSERT INTO documents (id, version, content, language, update_token) VALUES (:id, :version, :content, :language, :update_token)", doc)
 
 	if err != nil {
 		var (
@@ -168,7 +164,7 @@ func (d *Database) createDocument(ctx context.Context, content string, language 
 	return doc, err
 }
 
-func (d *Database) UpdateDocument(ctx context.Context, documentID string, updateToken string, content string, language string) (Document, error) {
+func (d *DB) UpdateDocument(ctx context.Context, documentID string, updateToken string, content string, language string) (Document, error) {
 	doc := Document{
 		ID:          documentID,
 		Version:     time.Now().Unix(),
@@ -176,7 +172,7 @@ func (d *Database) UpdateDocument(ctx context.Context, documentID string, update
 		Language:    language,
 		UpdateToken: updateToken,
 	}
-	res, err := d.NamedExecContext(ctx, "INSERT INTO documents (id, version, content, language, update_token) VALUES (:id, :version, :content, :language, :update_token)", doc)
+	res, err := d.dbx.NamedExecContext(ctx, "INSERT INTO documents (id, version, content, language, update_token) VALUES (:id, :version, :content, :language, :update_token)", doc)
 	if err != nil {
 		return Document{}, err
 	}
@@ -191,8 +187,8 @@ func (d *Database) UpdateDocument(ctx context.Context, documentID string, update
 	return doc, nil
 }
 
-func (d *Database) DeleteDocument(ctx context.Context, documentID string, updateToken string) error {
-	res, err := d.ExecContext(ctx, "DELETE FROM documents WHERE id = $1 AND update_token = $2", documentID, updateToken)
+func (d *DB) DeleteDocument(ctx context.Context, documentID string, updateToken string) error {
+	res, err := d.dbx.ExecContext(ctx, "DELETE FROM documents WHERE id = $1 AND update_token = $2", documentID, updateToken)
 	if err != nil {
 		return err
 	}
@@ -207,12 +203,12 @@ func (d *Database) DeleteDocument(ctx context.Context, documentID string, update
 	return nil
 }
 
-func (d *Database) DeleteExpiredDocuments(ctx context.Context, expireAfter time.Duration) error {
-	_, err := d.ExecContext(ctx, "DELETE FROM documents WHERE updated_at < $1", time.Now().Add(expireAfter))
+func (d *DB) DeleteExpiredDocuments(ctx context.Context, expireAfter time.Duration) error {
+	_, err := d.dbx.ExecContext(ctx, "DELETE FROM documents WHERE version < $1", time.Now().Add(expireAfter))
 	return err
 }
 
-func (d *Database) cleanup(ctx context.Context, cleanUpInterval time.Duration, expireAfter time.Duration) {
+func (d *DB) cleanup(ctx context.Context, cleanUpInterval time.Duration, expireAfter time.Duration) {
 	if expireAfter <= 0 {
 		return
 	}

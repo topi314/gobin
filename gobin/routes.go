@@ -1,4 +1,4 @@
-package main
+package gobin
 
 import (
 	"database/sql"
@@ -17,34 +17,33 @@ import (
 
 var (
 	ErrDocumentNotFound = errors.New("document not found")
-	ErrUnauthorized     = errors.New("unauthorized")
 	ErrEmptyBody        = errors.New("empty request body")
 	ErrContentTooLarge  = func(maxLength int) error {
 		return fmt.Errorf("content too large, must be less than %d chars", maxLength)
 	}
 )
 
-type Variables struct {
-	ID       string
-	Version  int64
-	Content  string
-	Language string
+type (
+	TemplateVariables struct {
+		ID       string
+		Version  int64
+		Content  string
+		Language string
 
-	Host   string
-	Styles []Style
-}
-
-type DocumentResponse struct {
-	Key         string `json:"key"`
-	Data        string `json:"data,omitempty"`
-	Language    string `json:"language"`
-	UpdateToken string `json:"update_token,omitempty"`
-	Version     int64  `json:"version"`
-}
-
-type ErrorResponse struct {
-	Message string `json:"message"`
-}
+		Host   string
+		Styles []Style
+	}
+	DocumentResponse struct {
+		Key         string `json:"key"`
+		Version     int64  `json:"version"`
+		Data        string `json:"data,omitempty"`
+		Language    string `json:"language"`
+		UpdateToken string `json:"update_token,omitempty"`
+	}
+	ErrorResponse struct {
+		Message string `json:"message"`
+	}
+)
 
 func (s *Server) Routes() http.Handler {
 	r := chi.NewRouter()
@@ -54,24 +53,27 @@ func (s *Server) Routes() http.Handler {
 	r.Use(middleware.Timeout(30 * time.Second))
 
 	r.Mount("/assets", s.Assets())
-	r.Get("/raw/{documentID}", s.GetRawDocument)
-	r.Head("/raw/{documentID}", s.GetRawDocument)
-	r.Get("/raw/{documentID}/versions/{version}", s.GetRawDocumentVersion)
+	r.Route("/raw/{documentID}", func(r chi.Router) {
+		r.Get("/", s.GetRawDocument)
+		r.Head("/", s.GetRawDocument)
+		r.Get("/versions/{version}", s.GetRawDocumentVersion)
+	})
+	r.Route("/documents", func(r chi.Router) {
+		r.Post("/", s.PostDocument)
+		r.Route("/{documentID}", func(r chi.Router) {
+			r.Get("/", s.GetDocument)
+			r.Patch("/", s.PatchDocument)
+			r.Delete("/", s.DeleteDocument)
 
-	r.Post("/documents", s.PostDocument)
-	r.Head("/documents/{documentID}", s.GetDocument)
-	r.Get("/documents/{documentID}", s.GetDocument)
-	r.Patch("/documents/{documentID}", s.PatchDocument)
-	r.Delete("/documents/{documentID}", s.DeleteDocument)
-	r.Delete("/documents/{documentID}/versions/{version}", s.DeleteDocumentVersion)
-
+			r.Route("/versions", func(r chi.Router) {
+				r.Get("/", s.DocumentVersions)
+				r.Get("/{version}", s.DocumentVersion)
+				r.Delete("/{version}", s.DeleteDocumentVersion)
+			})
+		})
+	})
 	r.Get("/{documentID}", s.GetPrettyDocument)
 	r.Head("/{documentID}", s.GetPrettyDocument)
-
-	r.Get("/documents/{documentID}/versions", s.DocumentVersions)
-
-	r.Get("/", s.GetPrettyDocument)
-	r.Head("/", s.GetPrettyDocument)
 
 	r.NotFound(s.Redirect)
 
@@ -79,10 +81,7 @@ func (s *Server) Routes() http.Handler {
 }
 
 func (s *Server) Assets() http.Handler {
-	if s.cfg.DevMode {
-		return http.FileServer(http.Dir("."))
-	}
-	return http.FileServer(http.FS(assets))
+	return http.FileServer(s.assets)
 }
 
 func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
@@ -104,6 +103,30 @@ func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	s.JSON(w, r, response)
+}
+
+func (s *Server) DocumentVersion(w http.ResponseWriter, r *http.Request) {
+	documentID, version := parseDocumentVersion(r, s, w)
+	if documentID == "" {
+		return
+	}
+
+	document, err := s.db.GetDocumentByVersion(r.Context(), documentID, version)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+			return
+		}
+		s.Error(w, r, err, http.StatusInternalServerError)
+		return
+	}
+
+	s.JSON(w, r, DocumentResponse{
+		Key:      document.ID,
+		Version:  document.Version,
+		Data:     document.Content,
+		Language: document.Language,
+	})
 }
 
 func (s *Server) DeleteDocumentVersion(w http.ResponseWriter, r *http.Request) {
@@ -186,7 +209,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	vars := Variables{
+	vars := TemplateVariables{
 		ID:       document.ID,
 		Content:  document.Content,
 		Language: document.Language,
@@ -223,6 +246,7 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 
 	s.JSON(w, r, DocumentResponse{
 		Key:      document.ID,
+		Version:  document.Version,
 		Data:     document.Content,
 		Language: document.Language,
 	})
@@ -248,6 +272,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 
 	s.JSON(w, r, DocumentResponse{
 		Key:         document.ID,
+		Version:     document.Version,
 		Data:        document.Content,
 		Language:    document.Language,
 		UpdateToken: document.UpdateToken,
@@ -284,6 +309,7 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 
 	s.JSON(w, r, DocumentResponse{
 		Key:         document.ID,
+		Version:     document.Version,
 		Data:        document.Content,
 		Language:    document.Language,
 		UpdateToken: document.UpdateToken,

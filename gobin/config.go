@@ -1,4 +1,4 @@
-package main
+package gobin
 
 import (
 	"encoding/json"
@@ -44,7 +44,7 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("\n ListenAddr: %s,\n Database: %s,\n ExpireAfter: %s,\n CleanupInterval: %s\n", c.ListenAddr, c.Database, c.ExpireAfter, c.CleanupInterval)
+	return fmt.Sprintf("\n ListenAddr: %s,\n DB: %s,\n ExpireAfter: %s,\n CleanupInterval: %s\n", c.ListenAddr, c.Database, c.ExpireAfter, c.CleanupInterval)
 }
 
 type DatabaseConfig struct {
@@ -66,7 +66,7 @@ func (c DatabaseConfig) String() string {
 	str := fmt.Sprintf("\n  Type: %s,\n  ", c.Type)
 	switch c.Type {
 	case "postgres":
-		str += fmt.Sprintf("Host: %s,\n  Port: %d,\n  Username: %s,\n  Password: %s,\n  Database: %s,\n  SSLMode: %s", c.Host, c.Port, c.Username, strings.Repeat("*", len(c.Password)), c.Database, c.SSLMode)
+		str += fmt.Sprintf("Host: %s,\n  Port: %d,\n  Username: %s,\n  Password: %s,\n  DB: %s,\n  SSLMode: %s", c.Host, c.Port, c.Username, strings.Repeat("*", len(c.Password)), c.Database, c.SSLMode)
 	case "sqlite":
 		str += fmt.Sprintf("Path: %s", c.Path)
 	default:
