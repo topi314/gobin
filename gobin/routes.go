@@ -50,44 +50,47 @@ func (s *Server) Routes() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
 	r.Use(middleware.RequestID)
-	r.Use(middleware.Logger)
 	r.Use(middleware.Timeout(30 * time.Second))
 	r.Use(middleware.Compress(5))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Heartbeat("/ping"))
 
 	r.Mount("/assets", http.FileServer(s.assets))
-	r.Route("/raw/{documentID}", func(r chi.Router) {
-		r.Get("/", s.GetRawDocument)
-		r.Head("/", s.GetRawDocument)
-		r.Route("/versions/{version}", func(r chi.Router) {
-			r.Get("/", s.GetRawDocumentVersion)
-			r.Head("/", s.GetRawDocumentVersion)
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.Logger)
+		r.Route("/raw/{documentID}", func(r chi.Router) {
+			r.Get("/", s.GetRawDocument)
+			r.Head("/", s.GetRawDocument)
+			r.Route("/versions/{version}", func(r chi.Router) {
+				r.Get("/", s.GetRawDocumentVersion)
+				r.Head("/", s.GetRawDocumentVersion)
+			})
 		})
-	})
-	r.Route("/documents", func(r chi.Router) {
-		r.Post("/", s.PostDocument)
+		r.Route("/documents", func(r chi.Router) {
+			r.Post("/", s.PostDocument)
 
-		r.Route("/{documentID}", func(r chi.Router) {
-			r.Get("/", s.GetDocument)
-			r.Patch("/", s.PatchDocument)
-			r.Delete("/", s.DeleteDocument)
+			r.Route("/{documentID}", func(r chi.Router) {
+				r.Get("/", s.GetDocument)
+				r.Patch("/", s.PatchDocument)
+				r.Delete("/", s.DeleteDocument)
 
-			r.Route("/versions", func(r chi.Router) {
-				r.Get("/", s.DocumentVersions)
+				r.Route("/versions", func(r chi.Router) {
+					r.Get("/", s.DocumentVersions)
 
-				r.Route("/{version}", func(r chi.Router) {
-					r.Get("/", s.GetDocumentVersion)
-					r.Delete("/", s.DeleteDocumentVersion)
+					r.Route("/{version}", func(r chi.Router) {
+						r.Get("/", s.GetDocumentVersion)
+						r.Delete("/", s.DeleteDocumentVersion)
+					})
 				})
 			})
 		})
-	})
-	r.Get("/{documentID}", s.GetPrettyDocument)
-	r.Head("/{documentID}", s.GetPrettyDocument)
+		r.Get("/{documentID}", s.GetPrettyDocument)
+		r.Head("/{documentID}", s.GetPrettyDocument)
 
-	r.Get("/", s.GetPrettyDocument)
-	r.Head("/", s.GetPrettyDocument)
+		r.Get("/", s.GetPrettyDocument)
+		r.Head("/", s.GetPrettyDocument)
+
+	})
 
 	r.NotFound(s.RedirectRoot)
 
