@@ -46,8 +46,8 @@ func NewDB(ctx context.Context, cfg DatabaseConfig, schema string) (*DB, error) 
 				}),
 				LogLevel: tracelog.LogLevelDebug,
 			}
-			dataSourceName = stdlib.RegisterConnConfig(pgCfg)
 		}
+		dataSourceName = stdlib.RegisterConnConfig(pgCfg)
 	case "sqlite":
 		driverName = "sqlite"
 		dataSourceName = cfg.Path
