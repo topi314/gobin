@@ -227,7 +227,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.tmpl(w, "document.gohtml", vars); err != nil {
 		log.Println("Error while executing template:", err)
-		s.PrettyError(w, r, err, http.StatusInternalServerError)
+		// s.PrettyError(w, r, err, http.StatusInternalServerError)
 	}
 }
 

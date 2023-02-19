@@ -44,14 +44,13 @@ func main() {
 	defer db.Close()
 
 	var (
-		tmpl     = template.New("")
 		tmplFunc gobin.ExecuteTemplateFunc
 		assets   http.FileSystem
 	)
 	if cfg.DevMode {
 		log.Println("Development mode enabled")
 		tmplFunc = func(wr io.Writer, name string, data any) error {
-			tmpl, err = tmpl.ParseGlob("templates/*")
+			tmpl, err := template.New("").ParseGlob("templates/*")
 			if err != nil {
 				return err
 			}
@@ -59,7 +58,7 @@ func main() {
 		}
 		assets = http.Dir(".")
 	} else {
-		tmpl, err = tmpl.ParseFS(Templates, "templates/*")
+		tmpl, err := template.New("").ParseFS(Templates, "templates/*")
 		if err != nil {
 			log.Fatalln("Error while parsing templates:", err)
 		}
