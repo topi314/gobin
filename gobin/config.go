@@ -13,12 +13,32 @@ type Config struct {
 	ListenAddr      string         `json:"listen_addr"`
 	Database        DatabaseConfig `json:"database"`
 	MaxDocumentSize int            `json:"max_document_size"`
-	ExpireAfter     time.Duration  `json:"expire_after"`
-	CleanupInterval time.Duration  `json:"cleanup_interval"`
 }
 
-func (c *Config) UnmarshalJSON(data []byte) error {
-	type config Config
+func (c Config) String() string {
+	return fmt.Sprintf("\n DevMode: %t\n ListenAddr: %s\n DB: %s\n MaxDocumentSize: %d", c.DevMode, c.ListenAddr, c.Database, c.MaxDocumentSize)
+}
+
+type DatabaseConfig struct {
+	Type            string        `json:"type"`
+	Debug           bool          `json:"debug"`
+	ExpireAfter     time.Duration `json:"expire_after"`
+	CleanupInterval time.Duration `json:"cleanup_interval"`
+
+	// SQLite
+	Path string `json:"path"`
+
+	// PostgreSQL
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Database string `json:"database"`
+	SSLMode  string `json:"ssl_mode"`
+}
+
+func (c *DatabaseConfig) UnmarshalJSON(data []byte) error {
+	type config DatabaseConfig
 	v := struct {
 		ExpireAfter     string `json:"expire_after"`
 		CleanupInterval string `json:"cleanup_interval"`
@@ -43,30 +63,11 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (c Config) String() string {
-	return fmt.Sprintf("\n ListenAddr: %s,\n DB: %s,\n ExpireAfter: %s,\n CleanupInterval: %s\n", c.ListenAddr, c.Database, c.ExpireAfter, c.CleanupInterval)
-}
-
-type DatabaseConfig struct {
-	Type string `json:"type"`
-
-	// SQLite
-	Path string `json:"path"`
-
-	// PostgreSQL
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Database string `json:"database"`
-	SSLMode  string `json:"ssl_mode"`
-}
-
 func (c DatabaseConfig) String() string {
-	str := fmt.Sprintf("\n  Type: %s,\n  ", c.Type)
+	str := fmt.Sprintf("\n  Type: %s\n  Debug: %t\n  ExpireAfter: %s\n  CleanupInterval: %s\n  ", c.Type, c.Debug, c.ExpireAfter, c.CleanupInterval)
 	switch c.Type {
 	case "postgres":
-		str += fmt.Sprintf("Host: %s,\n  Port: %d,\n  Username: %s,\n  Password: %s,\n  DB: %s,\n  SSLMode: %s", c.Host, c.Port, c.Username, strings.Repeat("*", len(c.Password)), c.Database, c.SSLMode)
+		str += fmt.Sprintf("Host: %s\n  Port: %d\n  Username: %s\n  Password: %s\n  Database: %s\n  SSLMode: %s", c.Host, c.Port, c.Username, strings.Repeat("*", len(c.Password)), c.Database, c.SSLMode)
 	case "sqlite":
 		str += fmt.Sprintf("Path: %s", c.Path)
 	default:

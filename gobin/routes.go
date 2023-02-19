@@ -92,7 +92,7 @@ func (s *Server) Routes() http.Handler {
 
 	})
 
-	r.NotFound(s.RedirectRoot)
+	r.NotFound(s.redirectRoot)
 
 	return r
 }
@@ -103,7 +103,7 @@ func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
 
 	versions, err := s.db.GetDocumentVersions(r.Context(), documentID, withContent)
 	if err != nil {
-		s.Error(w, r, err, http.StatusInternalServerError)
+		s.error(w, r, err, http.StatusInternalServerError)
 		return
 	}
 	var response []DocumentResponse
@@ -115,7 +115,7 @@ func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
 			Language: version.Language,
 		})
 	}
-	s.JSON(w, r, response)
+	s.ok(w, r, response)
 }
 
 func (s *Server) GetDocumentVersion(w http.ResponseWriter, r *http.Request) {
@@ -127,14 +127,14 @@ func (s *Server) GetDocumentVersion(w http.ResponseWriter, r *http.Request) {
 	document, err := s.db.GetDocumentByVersion(r.Context(), documentID, version)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+			s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
 			return
 		}
-		s.Error(w, r, err, http.StatusInternalServerError)
+		s.error(w, r, err, http.StatusInternalServerError)
 		return
 	}
 
-	s.JSON(w, r, DocumentResponse{
+	s.ok(w, r, DocumentResponse{
 		Key:      document.ID,
 		Version:  document.Version,
 		Data:     document.Content,
@@ -150,10 +150,10 @@ func (s *Server) DeleteDocumentVersion(w http.ResponseWriter, r *http.Request) {
 
 	if err := s.db.DeleteDocumentByVersion(r.Context(), version, documentID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+			s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
 			return
 		}
-		s.Error(w, r, err, http.StatusInternalServerError)
+		s.error(w, r, err, http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -167,10 +167,10 @@ func (s *Server) GetRawDocumentVersion(w http.ResponseWriter, r *http.Request) {
 	document, err := s.db.GetDocumentByVersion(r.Context(), documentID, version)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+			s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
 			return
 		}
-		s.Error(w, r, err, http.StatusInternalServerError)
+		s.error(w, r, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -187,13 +187,13 @@ func parseDocumentVersion(r *http.Request, s *Server, w http.ResponseWriter) (st
 	documentID := chi.URLParam(r, "documentID")
 	version := chi.URLParam(r, "version")
 	if documentID == "" || version == "" {
-		s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+		s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
 		return "", -1
 	}
 
 	int64Version, err := strconv.ParseInt(version, 10, 64)
 	if err != nil {
-		s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+		s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
 		return "", -1
 	}
 	return documentID, int64Version
@@ -207,10 +207,10 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		document, err = s.db.GetDocument(r.Context(), documentID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				s.RedirectRoot(w, r)
+				s.redirectRoot(w, r)
 				return
 			}
-			s.PrettyError(w, r, err, http.StatusInternalServerError)
+			s.prettyError(w, r, err, http.StatusInternalServerError)
 			return
 		}
 	}
@@ -229,8 +229,8 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		Styles:   Styles,
 	}
 	if err := s.tmpl(w, "document.gohtml", vars); err != nil {
-		log.Println("Error while executing template:", err)
-		// s.PrettyError(w, r, err, http.StatusInternalServerError)
+		log.Println("error while executing template:", err)
+		// s.prettyError(w, r, err, http.StatusInternalServerError)
 	}
 }
 
@@ -260,7 +260,7 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.JSON(w, r, DocumentResponse{
+	s.ok(w, r, DocumentResponse{
 		Key:      document.ID,
 		Version:  document.Version,
 		Data:     document.Content,
@@ -276,17 +276,17 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.exceedsMaxDocumentSize(w, r, content) {
+	if s.checkDocumentSize(w, r, content) {
 		return
 	}
 
 	document, err := s.db.CreateDocument(r.Context(), content, language)
 	if err != nil {
-		s.Error(w, r, err, http.StatusInternalServerError)
+		s.error(w, r, err, http.StatusInternalServerError)
 		return
 	}
 
-	s.JSON(w, r, DocumentResponse{
+	s.ok(w, r, DocumentResponse{
 		Key:         document.ID,
 		Version:     document.Version,
 		Data:        document.Content,
@@ -309,21 +309,21 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.exceedsMaxDocumentSize(w, r, content) {
+	if s.checkDocumentSize(w, r, content) {
 		return
 	}
 
 	document, err := s.db.UpdateDocument(r.Context(), documentID, updateToken, content, language)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+			s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
 			return
 		}
-		s.Error(w, r, err, http.StatusInternalServerError)
+		s.error(w, r, err, http.StatusInternalServerError)
 		return
 	}
 
-	s.JSON(w, r, DocumentResponse{
+	s.ok(w, r, DocumentResponse{
 		Key:         document.ID,
 		Version:     document.Version,
 		Data:        document.Content,
@@ -338,10 +338,10 @@ func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
 
 	if err := s.db.DeleteDocument(r.Context(), documentID, updateToken); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+			s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
 			return
 		}
-		s.Error(w, r, err, http.StatusInternalServerError)
+		s.error(w, r, err, http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -356,19 +356,27 @@ func (s *Server) getDocument(w http.ResponseWriter, r *http.Request) *Document {
 	document, err := s.db.GetDocument(r.Context(), documentID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			s.Error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+			s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
 			return nil
 		}
-		s.Error(w, r, err, http.StatusInternalServerError)
+		s.error(w, r, err, http.StatusInternalServerError)
 		return nil
 	}
 	return &document
 }
 
+func (s *Server) checkDocumentSize(w http.ResponseWriter, r *http.Request, content string) bool {
+	if s.cfg.MaxDocumentSize > 0 && len([]rune(content)) > s.cfg.MaxDocumentSize {
+		s.error(w, r, ErrContentTooLarge(s.cfg.MaxDocumentSize), http.StatusBadRequest)
+		return true
+	}
+	return false
+}
+
 func (s *Server) getUpdateToken(w http.ResponseWriter, r *http.Request) string {
 	updateToken := r.Header.Get("Authorization")
 	if updateToken == "" {
-		s.Unauthorized(w, r)
+		s.unauthorized(w, r)
 		return ""
 	}
 	return updateToken
@@ -377,41 +385,41 @@ func (s *Server) getUpdateToken(w http.ResponseWriter, r *http.Request) string {
 func (s *Server) readBody(w http.ResponseWriter, r *http.Request) string {
 	content, err := io.ReadAll(r.Body)
 	if err != nil {
-		s.Error(w, r, err, http.StatusInternalServerError)
+		s.error(w, r, err, http.StatusInternalServerError)
 		return ""
 	}
 
 	if len(content) == 0 {
-		s.Error(w, r, ErrEmptyBody, http.StatusBadRequest)
+		s.error(w, r, ErrEmptyBody, http.StatusBadRequest)
 		return ""
 	}
 	return string(content)
 }
 
-func (s *Server) RedirectRoot(w http.ResponseWriter, r *http.Request) {
+func (s *Server) redirectRoot(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-func (s *Server) Unauthorized(w http.ResponseWriter, r *http.Request) {
-	s.Error(w, r, ErrUnauthorized, http.StatusUnauthorized)
+func (s *Server) unauthorized(w http.ResponseWriter, r *http.Request) {
+	s.error(w, r, ErrUnauthorized, http.StatusUnauthorized)
 }
 
-func (s *Server) PrettyError(w http.ResponseWriter, r *http.Request, err error, status int) {
-	log.Printf("Error while handling request %s: %s\n", r.URL, err)
+func (s *Server) prettyError(w http.ResponseWriter, r *http.Request, err error, status int) {
+	log.Printf("error while handling request %s: %s\n", r.URL, err)
 	w.WriteHeader(status)
 	if tmplErr := s.tmpl(w, "error.gohtml", err.Error()); tmplErr != nil {
-		log.Println("Error while executing template:", tmplErr)
+		log.Println("error while executing template:", tmplErr)
 	}
 }
 
-func (s *Server) Error(w http.ResponseWriter, r *http.Request, err error, status int) {
-	log.Printf("Error while handling request %s: %s\n", r.URL, err)
+func (s *Server) error(w http.ResponseWriter, r *http.Request, err error, status int) {
+	log.Printf("error while handling request %s: %s\n", r.URL, err)
 	s.json(w, r, ErrorResponse{
 		Message: err.Error(),
 	}, status)
 }
 
-func (s *Server) JSON(w http.ResponseWriter, r *http.Request, v any) {
+func (s *Server) ok(w http.ResponseWriter, r *http.Request, v any) {
 	s.json(w, r, v, http.StatusOK)
 }
 
@@ -423,14 +431,6 @@ func (s *Server) json(w http.ResponseWriter, r *http.Request, v any, status int)
 	}
 
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		log.Printf("Error while encoding JSON %s: %s\n", r.URL, err)
+		log.Printf("error while encoding ok %s: %s\n", r.URL, err)
 	}
-}
-
-func (s *Server) exceedsMaxDocumentSize(w http.ResponseWriter, r *http.Request, content string) bool {
-	if s.cfg.MaxDocumentSize > 0 && len([]rune(content)) > s.cfg.MaxDocumentSize {
-		s.Error(w, r, ErrContentTooLarge(s.cfg.MaxDocumentSize), http.StatusBadRequest)
-		return true
-	}
-	return false
 }

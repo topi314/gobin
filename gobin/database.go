@@ -26,20 +26,20 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-func NewDB(ctx context.Context, cfg Config, schema string) (*DB, error) {
+func NewDB(ctx context.Context, cfg DatabaseConfig, schema string) (*DB, error) {
 	var (
 		driverName     string
 		dataSourceName string
 	)
-	switch cfg.Database.Type {
+	switch cfg.Type {
 	case "postgres":
 		driverName = "pgx"
-		pgCfg, err := pgx.ParseConfig(cfg.Database.PostgresDataSourceName())
+		pgCfg, err := pgx.ParseConfig(cfg.PostgresDataSourceName())
 		if err != nil {
 			return nil, err
 		}
 
-		if cfg.DevMode {
+		if cfg.Debug {
 			pgCfg.Tracer = &tracelog.TraceLog{
 				Logger: tracelog.LoggerFunc(func(ctx context.Context, level tracelog.LogLevel, msg string, data map[string]any) {
 					log.Println(msg, data)
@@ -50,7 +50,7 @@ func NewDB(ctx context.Context, cfg Config, schema string) (*DB, error) {
 		}
 	case "sqlite":
 		driverName = "sqlite"
-		dataSourceName = cfg.Database.Path
+		dataSourceName = cfg.Path
 	default:
 		return nil, errors.New("invalid database type, must be one of: postgres, sqlite")
 	}

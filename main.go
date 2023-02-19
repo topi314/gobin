@@ -37,7 +37,7 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	db, err := gobin.NewDB(ctx, cfg, Schema)
+	db, err := gobin.NewDB(ctx, cfg.Database, Schema)
 	if err != nil {
 		log.Fatalln("Error while connecting to database:", err)
 	}
