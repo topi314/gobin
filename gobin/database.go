@@ -94,7 +94,13 @@ func (d *DB) Close() error {
 
 func (d *DB) GetDocument(ctx context.Context, documentID string) (Document, error) {
 	var doc Document
-	err := d.dbx.GetContext(ctx, &doc, "SELECT * FROM documents WHERE id = $1", documentID)
+	err := d.dbx.GetContext(ctx, &doc, "SELECT * FROM documents WHERE id = $1 ORDER BY version DESC LIMIT 1", documentID)
+	return doc, err
+}
+
+func (d *DB) GetDocumentVersion(ctx context.Context, documentID string, version int64) (Document, error) {
+	var doc Document
+	err := d.dbx.GetContext(ctx, &doc, "SELECT * FROM documents WHERE id = $1 AND version = $2", documentID, version)
 	return doc, err
 }
 
@@ -108,12 +114,6 @@ func (d *DB) GetDocumentVersions(ctx context.Context, documentID string, withCon
 	}
 	err := d.dbx.SelectContext(ctx, &docs, sqlString, documentID)
 	return docs, err
-}
-
-func (d *DB) GetDocumentByVersion(ctx context.Context, documentID string, version int64) (Document, error) {
-	var doc Document
-	err := d.dbx.GetContext(ctx, &doc, "SELECT * FROM documents WHERE id = $1 AND version = $2", documentID, version)
-	return doc, err
 }
 
 func (d *DB) DeleteDocumentByVersion(ctx context.Context, version int64, documentID string) error {

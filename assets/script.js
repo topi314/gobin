@@ -14,26 +14,21 @@ hljs.listLanguages().forEach((language) => {
 
 document.addEventListener("DOMContentLoaded", () => {
     const key = window.location.pathname === "/" ? "" : window.location.pathname.slice(1);
+    const version = window.location.hash === "" ? 0 : parseInt(window.location.hash.slice(1));
     const params = new URLSearchParams(window.location.search);
     if (params.has("token")) {
         setUpdateToken(key, params.get("token"));
     }
 
-    let newState;
-    let url;
+    let content = "", language = "";
     if (key) {
-        const content = document.querySelector("#code-view").innerText
-        const language = document.querySelector("#language").value;
-        newState = {key: key, mode: "view", content: content, language: language};
-        url = `/${key}`;
-    } else {
-        newState = {key: "", mode: "edit", content: "", language: ""};
-        url = "/";
+        content = document.querySelector("#code-view").innerText
+        language = document.querySelector("#language").value;
     }
-
+    const {newState, url} = createState(key, version, key ? "view" : "edit", content, language);
+    console.log(newState);
     updateCode(newState);
     updatePage(newState);
-
     window.history.replaceState(newState, "", url);
 });
 
@@ -52,11 +47,17 @@ document.querySelector("#code-edit").addEventListener("keydown", (event) => {
     const end = event.target.selectionEnd;
     event.target.value = event.target.value.substring(0, start) + "\t" + event.target.value.substring(end);
     event.target.selectionStart = event.target.selectionEnd = start + 1;
+});
+
+document.querySelector("#code-edit").addEventListener("paste", (event) => {
+    const {key, language} = getState();
+    const newState = {key: key, mode: "edit", content: event.clipboardData.getData("text/plain"), language: language};
+    updatePage(newState);
+    window.history.replaceState(newState, "", `/${key}`);
 })
 
 document.addEventListener("keydown", (event) => {
-    if (!event.ctrlKey) return;
-    if (event.key !== "s" && event.key !== "n" && event.key !== "e" && event.key !== "d") return;
+    if (!event.ctrlKey || !["s", "n", "e", "d"].includes(event.key)) return;
     doKeyboardAction(event, event.key);
 })
 
@@ -69,8 +70,8 @@ const doKeyboardAction = (event, elementName) => {
 document.querySelector("#code-edit").addEventListener("keyup", (event) => {
     const {key, language} = getState();
     const newState = {key: key, mode: "edit", content: event.target.value, language: language};
-    window.history.replaceState(newState, "", `/${key}`);
     updatePage(newState);
+    window.history.replaceState(newState, "", `/${key}`);
 })
 
 document.querySelector("#edit").addEventListener("click", async () => {
@@ -129,7 +130,7 @@ document.querySelector("#save").addEventListener("click", async () => {
         return;
     }
 
-    const newState = { key: body.key, mode: "view", content: body.data, language: body.language };
+    const newState = {key: body.key, mode: "view", content: body.data, language: body.language};
     setUpdateToken(body.key, body.update_token);
     updateCode(newState);
     updatePage(newState);
@@ -242,6 +243,27 @@ document.querySelector("#style").addEventListener("change", (event) => {
     setStyle(event.target.value);
 });
 
+document.querySelector("#versions").addEventListener("click", async (event) => {
+    if (event.target && event.target.matches("input[type='radio']")) {
+        const {key} = getState();
+        const version = event.target.value;
+        const response = await fetch(`/documents/${key}/versions/${version}`, {
+            method: "GET"
+        });
+
+        const body = await response.json();
+        if (!response.ok) {
+            showErrorPopup(body.message || response.statusText);
+            console.error("error fetching document version:", response);
+            return;
+        }
+
+        const {newState, url} = createState(key, version, "view", body.data, body.language);
+        updateCode(newState);
+        window.history.pushState(newState, "", url);
+    }
+})
+
 function showErrorPopup(message) {
     const popup = document.getElementById("error-popup");
     popup.style.display = "block";
@@ -252,6 +274,10 @@ function showErrorPopup(message) {
 
 function getState() {
     return window.history.state;
+}
+
+function createState(key, version, mode, content, language) {
+    return {newState: {key, version, mode, content, language}, url: `/${key}${version ? `#${version}` : ""}`};
 }
 
 function getUpdateToken(key) {

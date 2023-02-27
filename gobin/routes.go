@@ -31,8 +31,15 @@ type (
 		Content  string
 		Language string
 
+		Versions []DocumentVersion
+
 		Host   string
 		Styles []Style
+	}
+	DocumentVersion struct {
+		Version int64
+		Label   string
+		Time    string
 	}
 	DocumentResponse struct {
 		Key         string `json:"key"`
@@ -50,7 +57,7 @@ func (s *Server) Routes() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
 	r.Use(middleware.RequestID)
-	r.Use(middleware.Timeout(30 * time.Second))
+	//r.Use(middleware.Timeout(30 * time.Second))
 	r.Use(middleware.Compress(5))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Heartbeat("/ping"))
@@ -124,7 +131,7 @@ func (s *Server) GetDocumentVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	document, err := s.db.GetDocumentByVersion(r.Context(), documentID, version)
+	document, err := s.db.GetDocumentVersion(r.Context(), documentID, version)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
@@ -164,7 +171,7 @@ func (s *Server) GetRawDocumentVersion(w http.ResponseWriter, r *http.Request) {
 	if documentID == "" {
 		return
 	}
-	document, err := s.db.GetDocumentByVersion(r.Context(), documentID, version)
+	document, err := s.db.GetDocumentVersion(r.Context(), documentID, version)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
@@ -201,15 +208,26 @@ func parseDocumentVersion(r *http.Request, s *Server, w http.ResponseWriter) (st
 
 func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	documentID := chi.URLParam(r, "documentID")
-	var document Document
+
+
+	var (
+		document  Document
+		documents []Document
+		err       error
+	)
 	if documentID != "" {
-		var err error
 		document, err = s.db.GetDocument(r.Context(), documentID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				s.redirectRoot(w, r)
 				return
 			}
+			s.prettyError(w, r, err, http.StatusInternalServerError)
+			return
+		}
+
+		documents, err = s.db.GetDocumentVersions(r.Context(), documentID, false)
+		if err != nil {
 			s.prettyError(w, r, err, http.StatusInternalServerError)
 			return
 		}
@@ -220,18 +238,50 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	versions := make([]DocumentVersion, 0, len(documents))
+	now := time.Now()
+	for _, documentVersion := range documents {
+		label, timeStr := formatVersion(now, documentVersion.Version)
+		versions = append(versions, DocumentVersion{
+			Version: documentVersion.Version,
+			Label:   label,
+			Time:    timeStr,
+		})
+	}
+
 	vars := TemplateVariables{
 		ID:       document.ID,
+		Version:  document.Version,
 		Content:  document.Content,
 		Language: document.Language,
-		Version:  document.Version,
+		Versions: versions,
 		Host:     r.Host,
 		Styles:   Styles,
 	}
-	if err := s.tmpl(w, "document.gohtml", vars); err != nil {
+	if err = s.tmpl(w, "document.gohtml", vars); err != nil {
 		log.Println("error while executing template:", err)
-		// s.prettyError(w, r, err, http.StatusInternalServerError)
 	}
+}
+
+func formatVersion(now time.Time, versionRaw int64) (string, string) {
+	version := time.Unix(versionRaw, 0)
+	timeStr := version.Format("02/01/2006 15:04:05")
+	if version.Year() < now.Year() {
+		return fmt.Sprintf("%d years ago", now.Year()-version.Year()), timeStr
+	}
+	if version.Month() < now.Month() {
+		return fmt.Sprintf("%d months ago", now.Month()-version.Month()), timeStr
+	}
+	if version.Day() < now.Day() {
+		return fmt.Sprintf("%d days ago", now.Day()-version.Day()), timeStr
+	}
+	if version.Hour() < now.Hour() {
+		return fmt.Sprintf("%d hours ago", now.Hour()-version.Hour()), timeStr
+	}
+	if version.Minute() < now.Minute() {
+		return fmt.Sprintf("%d minutes ago", now.Minute()-version.Minute()), timeStr
+	}
+	return fmt.Sprintf("%d seconds ago", now.Second()-version.Second()), timeStr
 }
 
 func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {

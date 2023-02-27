@@ -27,6 +27,7 @@
     --style: url("/assets/icons/dark/style.png");
     --share: url("/assets/icons/dark/share.png");
     --close: url("/assets/icons/dark/close.png");
+    --versions: url("/assets/icons/dark/versions.png");
 }
 
 .light {
@@ -52,6 +53,7 @@
     --style: url("/assets/icons/light/style.png");
     --share: url("/assets/icons/light/share.png");
     --close: url("/assets/icons/light/close.png");
+    --versions: url("/assets/icons/light/versions.png");
 }
 
 html {
@@ -304,15 +306,64 @@ main {
 
 .settings {
     display: flex;
-    justify-content: flex-start;
+    justify-content: space-between;
     gap: 1rem;
-    padding: 1rem;
-    border-bottom: 1px solid var(--bg-secondary);
     overflow-x: auto;
+    border-bottom: 1px solid var(--bg-secondary);
+    padding: 1rem;
 }
 
 .settings > * {
     flex-shrink: 0;
+}
+
+#versions {
+    position: fixed;
+    display: flex;
+    right: 1rem;
+    flex-direction: column;
+    border-left: 1px solid var(--bg-secondary);
+    margin: 0;
+    padding: 0 1rem 0 1rem;
+    height: 0;
+    overflow: hidden;
+    background-color: var(--bg-secondary);
+    transition: height 0.2s ease-out, padding-top 0.2s ease-out;
+}
+
+#version {
+    padding: 1rem;
+    cursor: pointer;
+    border-radius: 2rem;
+}
+
+#versions-btn {
+    display: none;
+}
+
+#versions-btn ~ label {
+    display: inline-block;
+    flex-shrink: 0;
+    border: none;
+    border-radius: 1rem;
+    width: 2rem;
+    height: 2rem;
+    background-image: var(--versions);
+    background-color: var(--bg-secondary);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 1rem;
+    cursor: pointer;
+}
+
+#versions-btn:checked ~ label {
+    opacity: 0.7;
+}
+
+#versions-btn:checked ~ #versions {
+    height: 10rem;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
 }
 
 select {
