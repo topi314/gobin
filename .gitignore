@@ -1,5 +1,6 @@
 .idea/
 config.json
+.gobin
 gobin.db
 assets/highlight.min.js
 assets/styles/*
