@@ -18,6 +18,7 @@ import (
 var (
 	ErrDocumentNotFound = errors.New("document not found")
 	ErrUnauthorized     = errors.New("unauthorized")
+	ErrRateLimit        = errors.New("rate limit exceeded")
 	ErrEmptyBody        = errors.New("empty request body")
 	ErrContentTooLarge  = func(maxLength int) error {
 		return fmt.Errorf("content too large, must be less than %d chars", maxLength)
@@ -68,7 +69,7 @@ func (s *Server) Routes() http.Handler {
 	r.Get("/documents/{documentID}", s.GetDocument)
 	r.Group(func(r chi.Router) {
 		if s.cfg.RateLimit != nil && s.cfg.RateLimit.Requests > 0 && s.cfg.RateLimit.Duration > 0 {
-			r.Use(httprate.Limit(s.cfg.RateLimit.Requests, s.cfg.RateLimit.Duration, httprate.WithKeyFuncs(httprate.KeyByIP, httprate.KeyByEndpoint)))
+			r.Use(httprate.Limit(s.cfg.RateLimit.Requests, s.cfg.RateLimit.Duration, httprate.WithLimitHandler(s.RateLimit), httprate.WithKeyFuncs(httprate.KeyByIP, httprate.KeyByEndpoint)))
 		}
 
 		r.Post("/documents", s.PostDocument)
@@ -281,7 +282,11 @@ func (s *Server) Redirect(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) Unauthorized(w http.ResponseWriter, r *http.Request) {
-	s.Error(w, r, errors.New("unauthorized"), http.StatusUnauthorized)
+	s.Error(w, r, ErrUnauthorized, http.StatusUnauthorized)
+}
+
+func (s *Server) RateLimit(w http.ResponseWriter, r *http.Request) {
+	s.Error(w, r, ErrRateLimit, http.StatusTooManyRequests)
 }
 
 func (s *Server) PrettyError(w http.ResponseWriter, r *http.Request, err error, status int) {
