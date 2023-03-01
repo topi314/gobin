@@ -1,5 +1,6 @@
 {
   "dev_mode": false,
+  "debug": false,
   "listen_addr": ":80",
   "expire_after": "0",
   "cleanup_interval": "1m",
@@ -17,5 +18,10 @@
     "password": "gobin",
     "database": "gobin",
     "ssl_mode": "disable"
-  }
+  },
+  "max_document_size": 0,
+  "rate_limit": {
+      "requests": 10,
+      "duration": "1m"
+    }
 }

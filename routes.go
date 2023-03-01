@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/httprate"
 )
 
 var (
@@ -48,19 +49,32 @@ type ErrorResponse struct {
 func (s *Server) Routes() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
+	r.Use(middleware.RequestID)
+	r.Use(middleware.Timeout(30 * time.Second))
+	r.Use(middleware.Compress(5))
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(30 * time.Second))
+	r.Use(middleware.Heartbeat("/ping"))
+
+	if s.cfg.Debug {
+		r.Mount("/debug", middleware.Profiler())
+	}
 
 	r.Mount("/assets", s.Assets())
+
 	r.Get("/raw/{documentID}", s.GetRawDocument)
 	r.Head("/raw/{documentID}", s.GetRawDocument)
 
-	r.Post("/documents", s.PostDocument)
-	r.Head("/documents/{documentID}", s.GetDocument)
 	r.Get("/documents/{documentID}", s.GetDocument)
-	r.Patch("/documents/{documentID}", s.PatchDocument)
-	r.Delete("/documents/{documentID}", s.DeleteDocument)
+	r.Group(func(r chi.Router) {
+		if s.cfg.RateLimit != nil && s.cfg.RateLimit.Requests > 0 && s.cfg.RateLimit.Duration > 0 {
+			r.Use(httprate.Limit(s.cfg.RateLimit.Requests, s.cfg.RateLimit.Duration, httprate.WithKeyFuncs(httprate.KeyByIP, httprate.KeyByEndpoint)))
+		}
+
+		r.Post("/documents", s.PostDocument)
+		r.Patch("/documents/{documentID}", s.PatchDocument)
+		r.Delete("/documents/{documentID}", s.DeleteDocument)
+	})
 
 	r.Get("/{documentID}", s.GetPrettyDocument)
 	r.Head("/{documentID}", s.GetPrettyDocument)
