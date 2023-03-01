@@ -21,7 +21,7 @@
   },
   "max_document_size": 0,
   "rate_limit": {
-      "requests": 10,
-      "duration": "1m"
-    }
+    "requests": 10,
+    "duration": "1m"
+  }
 }

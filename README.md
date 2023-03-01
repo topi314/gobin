@@ -9,16 +9,44 @@
 
 gobin is a simple lightweight haste-server alternative written in Go, HTML, JS and CSS. It is aimed to be easy to use and deploy. You can find an instance running at [xgob.in](https://xgob.in).
 
+<details>
+<summary>Table of Contents</summary>
+
+- [Features](#features)
+- [Installation](#installation)
+    - [Docker](#docker)
+        - [Docker Compose](#docker-compose)
+    - [Manual](#manual)
+        - [Requirements](#requirements)
+        - [Build](#build)
+        - [Run](#run)
+- [Configuration](#configuration)
+    - [Rate Limit](#rate-limit)
+- [API](#api)
+    - [Create a document](#create-a-document)
+    - [Get a document](#get-a-document)
+    - [Update a document](#update-a-document)
+    - [Delete a document](#delete-a-document)
+    - [Other endpoints](#other-endpoints)
+    - [Errors](#errors)
+- [License](#license)
+- [Contributing](#contributing)
+- [Credits](#credits)
+- [Contact](#contact)
+
+</details>
+
 ## Features
 
 - Easy to deploy and use
-- Built-in ratelimiting
+- Built-in rate-limiting
 - Create, update and delete documents
 - Syntax highlighting
 - Document expiration
 - Supports [PostgreSQL](https://www.postgresql.org/) or [SQLite](https://sqlite.org/)
 - One binary and config file
 - Docker image available
+- ~~Metrics (to be implemented)~~
 
 ## Installation
 
@@ -115,11 +143,11 @@ Create a new `config.json` file with the following content:
   "database": {
     # either "postgres" or "sqlite"
     "type": "postgres",
-    
+
     # path to sqlite database
     # if you run gobin with docker make sure to set it to "/var/lib/gobin/gobin.db"
     "path": "gobin.db",
-    
+
     # postgres connection settings
     "host": "localhost",
     "port": 5432,
@@ -142,16 +170,17 @@ Create a new `config.json` file with the following content:
 
 ### Rate Limit
 
-Following endpoints are ratelimited:
-  - `POST` `/documents`
-  - `PATCH` `/documents/{documentID}`
-  - `DELETE` `/documents/{documentID}`
+Following endpoints are rate-limited:
+
+- `POST` `/documents`
+- `PATCH` `/documents/{key}`
+- `DELETE` `/documents/{key}`
 
 `PATCH` and `DELETE` share the same bucket while `POST` has it's own bucket
 
 ---
 
-## Usage
+## API
 
 ### Create a document
 
@@ -178,6 +207,12 @@ A successful request will return a `200 OK` response with a JSON body containing
   "update_token": "kiczgez33j7qkvqdg9f7ksrd8jk88wba"
 }
 ```
+
+---
+
+### Get a document
+
+To get a document you have to send a `GET` request to `/documents/{key}`.
 
 ---
 
@@ -215,7 +250,31 @@ A successful request will return a `200 OK` response with a JSON body containing
 
 ### Delete a document
 
-To delete a paste you have to send a `DELETE` request to `/documents/{key}` with the `update_token` as `Authorization` header.
+To delete a document you have to send a `DELETE` request to `/documents/{key}` with the `update_token` as `Authorization` header.
+
+---
+
+### Other endpoints
+
+- `GET` `/raw/{key}` - Get the raw content of a document
+- `HEAD` `/raw/{key}` - Get the raw content of a document without the body
+- `GET` `/ping` - Get the status of the server
+- `GET` `/debug` - Proof debug endpoint (only available in debug mode)
+
+---
+
+### Errors
+
+In case of an error gobin will return the following JSON body with the corresponding HTTP status code:
+
+```yaml
+{
+  "message": "document not found", # error message
+  "status": 404, # HTTP status code
+  "path": "/documents/7df3vw", # request path
+  "request_id": "fbe0a365387f/gVAMGuraLW-003490" # request id
+}
+```
 
 ---
 

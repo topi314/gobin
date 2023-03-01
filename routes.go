@@ -44,7 +44,10 @@ type DocumentResponse struct {
 }
 
 type ErrorResponse struct {
-	Message string `json:"message"`
+	Message   string `json:"message"`
+	Status    int    `json:"status"`
+	Path      string `json:"path"`
+	RequestID string `json:"request_id"`
 }
 
 func (s *Server) Routes() http.Handler {
@@ -173,6 +176,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 
 	document, err := s.db.CreateDocument(r.Context(), content, language)
 	if err != nil {
+		log.Println("Error while creating document:", err)
 		s.Error(w, r, err, http.StatusInternalServerError)
 		return
 	}
@@ -289,18 +293,32 @@ func (s *Server) RateLimit(w http.ResponseWriter, r *http.Request) {
 	s.Error(w, r, ErrRateLimit, http.StatusTooManyRequests)
 }
 
+func (s *Server) Log(r *http.Request, logType string, err error) {
+	log.Printf("Error while handling %s(%s) %s: %s\n", logType, middleware.GetReqID(r.Context()), r.RequestURI, err)
+}
+
 func (s *Server) PrettyError(w http.ResponseWriter, r *http.Request, err error, status int) {
-	log.Printf("Error while handling request %s: %s\n", r.URL, err)
+	s.Log(r, "pretty request", err)
 	w.WriteHeader(status)
-	if tmplErr := s.tmpl(w, "error.gohtml", err.Error()); tmplErr != nil {
-		log.Println("Error while executing template:", tmplErr)
+
+	vars := map[string]any{
+		"Error":     err.Error(),
+		"Status":    status,
+		"RequestID": middleware.GetReqID(r.Context()),
+		"Path":      r.URL.Path,
+	}
+	if tmplErr := s.tmpl(w, "error.gohtml", vars); tmplErr != nil {
+		s.Log(r, "template", tmplErr)
 	}
 }
 
 func (s *Server) Error(w http.ResponseWriter, r *http.Request, err error, status int) {
-	log.Printf("Error while handling request %s: %s\n", r.URL, err)
+	s.Log(r, "request", err)
 	s.json(w, r, ErrorResponse{
-		Message: err.Error(),
+		Message:   err.Error(),
+		Status:    status,
+		Path:      r.URL.Path,
+		RequestID: middleware.GetReqID(r.Context()),
 	}, status)
 }
 
@@ -316,7 +334,7 @@ func (s *Server) json(w http.ResponseWriter, r *http.Request, v any, status int)
 	}
 
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		log.Printf("Error while encoding JSON %s: %s\n", r.URL, err)
+		s.Log(r, "json", err)
 	}
 }
 
