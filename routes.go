@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -140,7 +141,11 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
+	if r.Method == http.MethodHead {
+		w.Header().Set("Content-Length", strconv.Itoa(len([]byte(document.Content))))
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 	_, _ = w.Write([]byte(document.Content))
 }
 
