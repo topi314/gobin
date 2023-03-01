@@ -12,6 +12,7 @@ gobin is a simple lightweight haste-server alternative written in Go, HTML, JS a
 ## Features
 
 - Easy to deploy and use
+- Built-in ratelimiting
 - Create, update and delete documents
 - Syntax highlighting
 - Document expiration
@@ -66,6 +67,8 @@ For `config.json` and database see schema [Configuration](#configuration).
 docker-compose up -d
 ```
 
+---
+
 ### Manual
 
 #### Requirements
@@ -93,7 +96,9 @@ go install github.com/TopiSenpai/gobin@latest
 gobin --config=config.json
 ```
 
-#### Configuration
+---
+
+## Configuration
 
 The schema is automatically created when you start gobin and there is no `documents` table in the database.
 
@@ -122,9 +127,29 @@ Create a new `config.json` file with the following content:
     "password": "password",
     "database": "gobin",
     "ssl_mode": "disable"
+  },
+  # max document size in characters
+  "max_document_size": 0,
+  # omit or set values to 0 or "0" to disable rate limit
+  "rate_limit": {
+    # number of requests which can be done in the duration
+    "requests": 10,
+    # the duration of the requests
+    "duration": "1m"
   }
 }
 ```
+
+### Rate Limit
+
+Following endpoints are ratelimited:
+  - `POST` `/documents`
+  - `PATCH` `/documents/{documentID}`
+  - `DELETE` `/documents/{documentID}`
+
+`PATCH` and `DELETE` share the same bucket while `POST` has it's own bucket
+
+---
 
 ## Usage
 
@@ -153,6 +178,8 @@ A successful request will return a `200 OK` response with a JSON body containing
   "update_token": "kiczgez33j7qkvqdg9f7ksrd8jk88wba"
 }
 ```
+
+---
 
 ### Update a document
 
@@ -184,21 +211,31 @@ A successful request will return a `200 OK` response with a JSON body containing
 }
 ```
 
+---
+
 ### Delete a document
 
 To delete a paste you have to send a `DELETE` request to `/documents/{key}` with the `update_token` as `Authorization` header.
+
+---
 
 ## License
 
 gobin is licensed under the [Apache License 2.0](/LICENSE).
 
+---
+
 ## Contributing
 
 Contributions are always welcome! Just open a pull request or discussion and I will take a look at it.
 
+---
+
 ## Credits
 
 - [@Damon](https://github.com/day-mon) for helping me.
+
+---
 
 ## Contact
 
