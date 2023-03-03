@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -64,6 +65,13 @@ func (s *Server) Routes() http.Handler {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Timeout(30 * time.Second))
 	r.Use(middleware.Compress(5))
+	r.Use(middleware.Maybe(
+		middleware.Logger,
+		func(r *http.Request) bool {
+			// Don't log requests for assets
+			return !strings.HasPrefix(r.URL.Path, "/assets")
+		},
+	))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Heartbeat("/ping"))
 
@@ -92,7 +100,6 @@ func (s *Server) Routes() http.Handler {
 
 	r.Mount("/assets", http.FileServer(s.assets))
 	r.Group(func(r chi.Router) {
-		r.Use(middleware.Logger)
 		r.Route("/raw/{documentID}", func(r chi.Router) {
 			r.Get("/", s.GetRawDocument)
 			r.Head("/", s.GetRawDocument)
