@@ -132,7 +132,7 @@ document.querySelector("#save").addEventListener("click", async () => {
         return;
     }
 
-    const {newState, url} = createState(body.key, body.version, "view", body.data, body.language);
+    const {newState, url} = createState(body.key, body.version, "view", content, language);
     setToken(body.key, body.token);
 
     const inputElement = document.createElement("input")
@@ -191,7 +191,7 @@ document.querySelector("#delete").addEventListener("click", async () => {
         return;
     }
     deleteToken();
-    const {newState, url} = createState("", "", "edit", "", "");
+    const {newState, url} = createState("", 0, "edit", "", "");
     updateCode(newState);
     updatePage(newState);
     window.history.pushState(newState, "", url);
