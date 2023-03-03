@@ -1,8 +1,9 @@
 CREATE TABLE IF NOT EXISTS documents
 (
-    id           VARCHAR PRIMARY KEY,
+    id           VARCHAR   NOT NULL,
     version      TIMESTAMP NOT NULL,
     content      TEXT      NOT NULL,
     language     VARCHAR   NOT NULL,
-    update_token VARCHAR   NOT NULL
+    update_token VARCHAR   NOT NULL,
+    PRIMARY KEY (id, version)
 );

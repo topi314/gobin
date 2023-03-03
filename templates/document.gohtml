@@ -24,31 +24,26 @@
 {{ template "header.gohtml" . }}
 <main>
     <div class="settings">
-        <div>
+        <div class="first">
             <select title="Language" id="language">
                 {{ if and (ne .Language "") (ne .Language "auto") }}
                     <option value="{{ .Language }}" selected="selected">{{ .Language }}</option>
                 {{ end }}
                 <option value="auto">auto</option>
             </select>
-
             <select title="Style" id="style">
                 {{ range $index, $value := .Styles }}
                     <option value="{{ $value.URL }}">{{ $value.Name }}</option>
                 {{ end }}
             </select>
         </div>
-
         <div>
             <input id="versions-btn" type="checkbox"/>
             <label title="Versions" for="versions-btn"></label>
-
             <div id="versions">
                 {{ range $version := .Versions }}
-                    <div>
-                        <input id="{{ $version.Version }}" class="version-btn" type="radio" name="version" value="{{ $version.Version }}" {{ if eq $version.Version .Version}}checked="checked"{{ end }}>
-                        <label for="{{ $version.Version }}" class="version" title="{{ $version.Time }}">{{ $version.Label }}</label>
-                    </div>
+                    <input id="version-{{ $version.Version }}" class="version-btn" type="radio" name="version" value="{{ $version.Version }}" {{ if eq $version.Version .Version}}checked="checked"{{ end }}>
+                    <label for="version-{{ $version.Version }}" class="version" title="{{ $version.Time }}">{{ $version.Label }}</label>
                 {{ end }}
             </div>
         </div>

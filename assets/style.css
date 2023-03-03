@@ -319,32 +319,47 @@ main {
     padding: 1rem;
 }
 
-.settings > * {
-    flex-shrink: 0;
+.settings .first {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
 }
 
 #versions {
     position: fixed;
-    display: flex;
+    display: none;
+    row-gap: 0.25rem;
     right: 1rem;
     flex-direction: column;
-    border-left: 1px solid var(--bg-secondary);
-    margin: 0;
-    padding: 0 1rem 0 1rem;
-    height: 0;
-    overflow: hidden;
+    border-radius: 1rem;
+    padding: 0.5rem;
+    max-height: calc(100vh - 8rem);
+    overflow-y: scroll;
     background-color: var(--bg-secondary);
-    transition: height 0.2s ease-out, padding-top 0.2s ease-out;
 }
 
-#version {
-    padding: 1rem;
+.version-btn {
+    display: none;
+}
+
+.version-btn:checked + label {
+    background-color: var(--bg-primary);
+}
+
+.version {
+    padding: 0.5rem;
     cursor: pointer;
-    border-radius: 2rem;
+    user-select: none;
+    border-radius: 1rem;
+}
+
+.version:hover {
+    background-color: var(--bg-primary);
 }
 
 #versions-btn {
     display: none;
+    user-select: none;
 }
 
 #versions-btn ~ label {
@@ -360,6 +375,16 @@ main {
     background-position: center;
     background-size: 1rem;
     cursor: pointer;
+    user-select: none;
+}
+
+#versions-btn ~ label:hover {
+    opacity: 0.7;
+}
+
+#versions-btn:disabled ~ label {
+    cursor: not-allowed;
+    opacity: 0.2;
 }
 
 #versions-btn:checked ~ label {
@@ -367,9 +392,7 @@ main {
 }
 
 #versions-btn:checked ~ #versions {
-    height: 10rem;
-    padding-top: 1rem;
-    padding-bottom: 1rem;
+    display: flex;
 }
 
 select {

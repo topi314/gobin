@@ -25,8 +25,11 @@ gobin is a simple lightweight haste-server alternative written in Go, HTML, JS a
 - [API](#api)
     - [Create a document](#create-a-document)
     - [Get a document](#get-a-document)
+    - [Get a documents versions](#get-a-documents-versions)
+    - [Get a document version](#get-a-document-version)
     - [Update a document](#update-a-document)
     - [Delete a document](#delete-a-document)
+    - [Delete a document version](#delete-a-document-version)
     - [Other endpoints](#other-endpoints)
     - [Errors](#errors)
 - [License](#license)
@@ -204,6 +207,7 @@ A successful request will return a `200 OK` response with a JSON body containing
 ```json
 {
   "key": "hocwr6i6",
+  "version": 1,
   "update_token": "kiczgez33j7qkvqdg9f7ksrd8jk88wba"
 }
 ```
@@ -213,6 +217,55 @@ A successful request will return a `200 OK` response with a JSON body containing
 ### Get a document
 
 To get a document you have to send a `GET` request to `/documents/{key}`.
+
+The response will be a `200 OK` with the document content as `application/json` body. 
+
+```json
+{
+  "key": "hocwr6i6",
+  "version": "1",
+  "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
+  "language": "go"
+}
+```
+
+---
+
+### Get a documents versions
+
+To get a documents versions you have to send a `GET` request to `/documents/{key}/versions?withData={bool}`.
+
+The response will be a `200 OK` with the document content as `application/json` body.
+
+```json
+[
+  {
+    "version": 1,
+    "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
+    "language": "go"
+  },
+  {
+    "version": 2,
+    "data": "package main\n\nfunc main() {\n    println(\"Hello World2!\")\n}",
+    "language": "go"
+  }
+]
+```
+
+### Get a document version
+
+To get a document version you have to send a `GET` request to `/documents/{key}/versions/{version}`.
+
+The response will be a `200 OK` with the document content as `application/json` body.
+
+```json
+{
+  "key": "hocwr6i6",
+  "version": 1,
+  "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
+  "language": "go"
+}
+```
 
 ---
 
@@ -242,7 +295,7 @@ A successful request will return a `200 OK` response with a JSON body containing
 ```json
 {
   "key": "hocwr6i6",
-  "update_token": "kiczgez33j7qkvqdg9f7ksrd8jk88wba"
+  "version": 2
 }
 ```
 
@@ -252,12 +305,24 @@ A successful request will return a `200 OK` response with a JSON body containing
 
 To delete a document you have to send a `DELETE` request to `/documents/{key}` with the `update_token` as `Authorization` header.
 
+A successful request will return a `204 No Content` response with an empty body.
+
+---
+
+### Delete a document version
+
+To delete a document version you have to send a `DELETE` request to `/documents/{key}/versions/{version}` with the `update_token` as `Authorization` header.
+
+A successful request will return a `204 No Content` response with an empty body.
+
 ---
 
 ### Other endpoints
 
 - `GET` `/raw/{key}` - Get the raw content of a document
+- `GET` `/raw/{key}/{version}` - Get the raw content of a document version
 - `HEAD` `/raw/{key}` - Get the raw content of a document without the body
+- `HEAD` `/raw/{key}/{version}` - Get the raw content of a document version without the body
 - `GET` `/ping` - Get the status of the server
 - `GET` `/debug` - Proof debug endpoint (only available in debug mode)
 

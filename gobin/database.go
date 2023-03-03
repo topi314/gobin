@@ -204,7 +204,7 @@ func (d *DB) DeleteDocument(ctx context.Context, documentID string, updateToken 
 }
 
 func (d *DB) DeleteExpiredDocuments(ctx context.Context, expireAfter time.Duration) error {
-	_, err := d.dbx.ExecContext(ctx, "DELETE FROM documents WHERE version < $1", time.Now().Add(expireAfter))
+	_, err := d.dbx.ExecContext(ctx, "DELETE FROM documents WHERE version < $1", time.Now().Add(expireAfter).Unix())
 	return err
 }
 
