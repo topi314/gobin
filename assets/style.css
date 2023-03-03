@@ -290,10 +290,16 @@ main {
 
 .error {
     text-align: center;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .error h1 {
     font-weight: bolder;
+}
+
+.error-details {
+    text-align: start;
 }
 
 .error p {
