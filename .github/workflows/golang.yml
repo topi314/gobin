@@ -40,7 +40,7 @@ jobs:
           CGO_ENABLED=0
           GOOS=${{ matrix.goos }}
           GOARCH=${{ matrix.goarch }}
-          go build -ldflags="-X 'main.version=$(git describe --tags)' -X 'main.commit=$(git rev-parse HEAD)' -X 'main.buildTime=$(date --rfc-3339=seconds)'" -o dist/gobin-${{ matrix.goos }}-${{ matrix.goarch }}${{ env.file_name }} github.com/topisenpai/gobin/cli
+          go build -ldflags="-X 'main.version=$(git describe --tags --always)' -X 'main.commit=$(git rev-parse HEAD)' -X 'main.buildTime=$(date --rfc-3339=seconds)'" -o dist/gobin-${{ matrix.goos }}-${{ matrix.goarch }}${{ env.file_name }} github.com/topisenpai/gobin/cli
 
       - name: Upload
         uses: actions/upload-artifact@v2
