@@ -12,9 +12,6 @@ jobs:
               with:
                 fetch-depth: 0
 
-            - name: Fetch
-              run: git fetch -af
-
             - name: Docker meta
               id: meta
               uses: docker/metadata-action@v4
@@ -50,7 +47,7 @@ jobs:
 
             - name: Prepare Version Info
               run: |
-                echo "VERSION=$(git describe --tags --always)" >> $GITHUB_ENV
+                echo "VERSION=$(git describe --tags)" >> $GITHUB_ENV
                 echo "COMMIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
                 echo "BUILD_TIME=$(date --rfc-3339=seconds)" >> $GITHUB_ENV
 

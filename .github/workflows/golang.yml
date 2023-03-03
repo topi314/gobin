@@ -18,9 +18,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Fetch
-        run: git fetch -af
-
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
@@ -34,15 +31,12 @@ jobs:
       - name: Create Dist Folder
         run: mkdir dist
 
-      - name: Print
-        run: 'echo FILE_NAME: dist/gobin-${{ matrix.goos }}-${{ matrix.goarch }}${{ env.file_name }}'
-
       - name: Build
         run: |
           CGO_ENABLED=0
           GOOS=${{ matrix.goos }}
           GOARCH=${{ matrix.goarch }}
-          go build -ldflags="-X 'main.version=$(git describe --tags --always)' -X 'main.commit=$(git rev-parse HEAD)' -X 'main.buildTime=$(date --rfc-3339=seconds)'" -o dist/gobin-${{ matrix.goos }}-${{ matrix.goarch }}${{ env.file_name }} github.com/topisenpai/gobin/cli
+          go build -ldflags="-X 'main.version=$(git describe --tags)' -X 'main.commit=$(git rev-parse HEAD)' -X 'main.buildTime=$(date --rfc-3339=seconds)'" -o dist/gobin-${{ matrix.goos }}-${{ matrix.goarch }}${{ env.file_name }} github.com/topisenpai/gobin/cli
 
       - name: Upload
         uses: actions/upload-artifact@v3
