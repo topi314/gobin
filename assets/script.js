@@ -217,7 +217,7 @@ document.querySelector("#share").addEventListener("click", async () => {
     if (document.querySelector("#share").disabled) return;
 
     const {key} = getState();
-    const token = getDocumentToken(key);
+    const token = getToken(key);
     if (!token) {
         await navigator.clipboard.writeText(window.location.href);
         return;
@@ -253,7 +253,7 @@ document.querySelector("#share-copy").addEventListener("click", async () => {
     }
 
     const {key} = getState();
-    const token = getDocumentToken(key);
+    const token = getToken(key);
 
     const response = await fetch(`/documents/${key}/share`, {
         method: "POST",

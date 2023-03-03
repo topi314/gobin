@@ -208,7 +208,7 @@ A successful request will return a `200 OK` response with a JSON body containing
 {
   "key": "hocwr6i6",
   "version": 1,
-  "update_token": "kiczgez33j7qkvqdg9f7ksrd8jk88wba"
+  "token": "kiczgez33j7qkvqdg9f7ksrd8jk88wba"
 }
 ```
 
@@ -271,7 +271,7 @@ The response will be a `200 OK` with the document content as `application/json` 
 
 ### Update a document
 
-To update a paste you have to send a `PATCH` request to `/documents/{key}` with the `content` as `plain/text` body and the `update_token` as `Authorization` header.
+To update a paste you have to send a `PATCH` request to `/documents/{key}` with the `content` as `plain/text` body and the `token` as `Authorization` header.
 
 > **Note**
 > You can also specify the code language with the `Language` header.
@@ -303,7 +303,7 @@ A successful request will return a `200 OK` response with a JSON body containing
 
 ### Delete a document
 
-To delete a document you have to send a `DELETE` request to `/documents/{key}` with the `update_token` as `Authorization` header.
+To delete a document you have to send a `DELETE` request to `/documents/{key}` with the `token` as `Authorization` header.
 
 A successful request will return a `204 No Content` response with an empty body.
 
@@ -311,7 +311,7 @@ A successful request will return a `204 No Content` response with an empty body.
 
 ### Delete a document version
 
-To delete a document version you have to send a `DELETE` request to `/documents/{key}/versions/{version}` with the `update_token` as `Authorization` header.
+To delete a document version you have to send a `DELETE` request to `/documents/{key}/versions/{version}` with the `token` as `Authorization` header.
 
 A successful request will return a `204 No Content` response with an empty body.
 

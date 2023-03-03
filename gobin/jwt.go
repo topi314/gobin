@@ -45,7 +45,6 @@ var ClaimsKey = claimsKey{}
 
 func (s *Server) JWTMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		println("JWTMiddleware")
 		tokenString := TokenFromHeader(r)
 
 		var claims Claims
