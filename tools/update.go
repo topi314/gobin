@@ -33,11 +33,6 @@ func main() {
 		return
 	}
 
-	if err := downloadHighlightJSLineNumbers(client); err != nil {
-		log.Panicln("Failed to download HighlightJS Line Numbers:", err.Error())
-		return
-	}
-
 	log.Println("Done")
 }
 

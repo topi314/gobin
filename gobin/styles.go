@@ -1,4 +1,4 @@
-package main
+package gobin
 
 type Style struct {
 	Name string
