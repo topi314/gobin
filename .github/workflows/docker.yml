@@ -43,6 +43,12 @@ jobs:
 #                username: ${{ secrets.GITEA_USER }}
 #                password: ${{ secrets.GITEA_TOKEN }}
 
+            - name: Prepare Version Info
+              run: |
+                echo "VERSION=$(git describe --tags)" >> $GITHUB_ENV
+                echo "COMMIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
+                echo "BUILD_TIME=$(date --rfc-3339=seconds)" >> $GITHUB_ENV
+
             - name: Build and push
               uses: docker/build-push-action@v3
               with:
@@ -53,9 +59,9 @@ jobs:
                   labels: ${{ steps.meta.outputs.labels }}
                   build-args: |
                     GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
-                    VERSION=$(git describe --tags)
-                    COMMIT=$(git rev-parse HEAD)
-                    BUILD_TIME=$(date --rfc-3339=seconds)
+                    VERSION=${{ env.VERSION }}
+                    COMMIT=${{ env.COMMIT }}
+                    BUILD_TIME=${{ env.BUILD_TIME }}
 
     deploy:
       needs:
