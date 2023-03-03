@@ -16,6 +16,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Fetch
+        run: git fetch -a
+
       - name: Set up Go
         uses: actions/setup-go@v3
         with:

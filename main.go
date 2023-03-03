@@ -32,7 +32,7 @@ var (
 )
 
 func main() {
-	log.Println("Gobin version:", version, "(commit:", commit, "build time:", buildTime, ")")
+	log.Printf("Gobin version: %s (commit: %s, build time: %s)", version, commit, buildTime)
 	cfgPath := flag.String("config", "config.json", "path to config.json")
 	flag.Parse()
 
