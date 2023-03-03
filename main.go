@@ -13,6 +13,13 @@ import (
 	"github.com/topisenpai/gobin/gobin"
 )
 
+// These variables are set via the -ldflags option in go build
+var (
+	version   = "unknown"
+	commit    = "unknown"
+	buildTime = "unknown"
+)
+
 var (
 	//go:embed templates
 	Templates embed.FS
@@ -66,7 +73,7 @@ func main() {
 		assets = http.FS(Assets)
 	}
 
-	s := gobin.NewServer(cfg, db, assets, tmplFunc)
+	s := gobin.NewServer(gobin.FormatVersion(version, commit, buildTime), cfg, db, assets, tmplFunc)
 	log.Println("Gobin listening on:", cfg.ListenAddr)
 	s.Start()
 }

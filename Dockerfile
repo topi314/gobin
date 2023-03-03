@@ -1,6 +1,9 @@
 FROM golang:1.19-alpine AS build
 
 ARG GITHUB_TOKEN
+ARG VERSION
+ARG COMMIT
+ARG BUILD_TIME
 
 WORKDIR /build
 
@@ -21,7 +24,7 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 go build -o gobin .
+RUN CGO_ENABLED=0 go build -ldflags="-X 'main.version=$VERSION' -X 'main.commit=$COMMIT' -X 'main.buildTime=$BUILD_TIME'" -o gobin .
 
 FROM alpine
 

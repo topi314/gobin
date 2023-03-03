@@ -51,7 +51,11 @@ jobs:
                   push: true
                   tags: ${{ steps.meta.outputs.tags }}
                   labels: ${{ steps.meta.outputs.labels }}
-                  build-args: GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+                  build-args: |
+                    GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+                    VERSION=$(git describe --tags)
+                    COMMIT=$(git rev-parse HEAD)
+                    BUILD_TIME=$(date --rfc-3339=seconds)
 
     deploy:
       needs:

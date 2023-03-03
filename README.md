@@ -325,6 +325,7 @@ A successful request will return a `204 No Content` response with an empty body.
 - `HEAD` `/raw/{key}/{version}` - Get the raw content of a document version without the body
 - `GET` `/ping` - Get the status of the server
 - `GET` `/debug` - Proof debug endpoint (only available in debug mode)
+- `GET` `/version` - Get the version of the server
 
 ---
 

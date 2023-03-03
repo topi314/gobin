@@ -125,6 +125,7 @@ func (s *Server) Routes() http.Handler {
 				})
 			})
 		})
+		r.Get("/version", s.GetVersion)
 		r.Get("/{documentID}", s.GetPrettyDocument)
 		r.Head("/{documentID}", s.GetPrettyDocument)
 		r.Get("/", s.GetPrettyDocument)
@@ -296,6 +297,10 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	if err = s.tmpl(w, "document.gohtml", vars); err != nil {
 		log.Println("error while executing template:", err)
 	}
+}
+
+func (s *Server) GetVersion(w http.ResponseWriter, _ *http.Request) {
+	_, _ = w.Write([]byte(s.version))
 }
 
 func formatVersion(now time.Time, versionRaw int64) (string, string) {
