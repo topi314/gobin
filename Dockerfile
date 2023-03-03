@@ -21,11 +21,11 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 go build -o gobin .
+RUN CGO_ENABLED=0 go build -o gobin-server github.com/topisenpai/gobin
 
 FROM alpine
 
-COPY --from=build /build/gobin /bin/gobin
+COPY --from=build /build/gobin-server /bin/gobin
 
 EXPOSE 80
 

@@ -132,7 +132,7 @@ document.querySelector("#save").addEventListener("click", async () => {
         return;
     }
 
-    const {newState, url} = createState(body.key, body.version, "view", body.data, body.language);
+    const {newState, url} = createState(body.key, body.version, "view", content, language);
     setUpdateToken(body.key, body.update_token);
 
     const inputElement = document.createElement("input")
@@ -177,7 +177,8 @@ document.querySelector("#delete").addEventListener("click", async () => {
     const deleteButton = document.querySelector("#delete");
     deleteButton.classList.add("loading");
     let response = await fetch(`/documents/${key}`, {
-        method: "DELETE", headers: {
+        method: "DELETE",
+        headers: {
             Authorization: updateToken
         }
     });
@@ -190,7 +191,7 @@ document.querySelector("#delete").addEventListener("click", async () => {
         return;
     }
     deleteUpdateToken();
-    const {newState, url} = createState("", "", "edit", "", "");
+    const {newState, url} = createState("", 0, "edit", "", "");
     updateCode(newState);
     updatePage(newState);
     window.history.pushState(newState, "", url);
