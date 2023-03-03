@@ -347,6 +347,7 @@ function updatePage(state) {
     const copyButton = document.querySelector("#copy");
     const rawButton = document.querySelector("#raw");
     const shareButton = document.querySelector("#share");
+    const versionsButton = document.querySelector("#versions-btn");
     if (mode === "view") {
         saveButton.disabled = true;
         saveButton.style.display = "none";
@@ -358,6 +359,7 @@ function updatePage(state) {
         copyButton.disabled = false;
         rawButton.disabled = false;
         shareButton.disabled = false;
+        versionsButton.disabled = false;
         return
     }
     saveButton.disabled = content === "";
@@ -368,6 +370,7 @@ function updatePage(state) {
     copyButton.disabled = true;
     rawButton.disabled = true;
     shareButton.disabled = true;
+    versionsButton.disabled = true;
 }
 
 function highlightCode(state) {
