@@ -31,12 +31,18 @@ jobs:
       - name: Create Dist Folder
         run: mkdir dist
 
+      - name: Prepare Version Info
+        run: |
+          echo "VERSION=$(git describe --tags)" >> $GITHUB_ENV
+          echo "COMMIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
+          echo "BUILD_TIME=$(date --rfc-3339=seconds)" >> $GITHUB_ENV
+
       - name: Build
         run: |
           CGO_ENABLED=0
           GOOS=${{ matrix.goos }}
           GOARCH=${{ matrix.goarch }}
-          go build -ldflags="-X 'main.version=$(git describe --tags)' -X 'main.commit=$(git rev-parse HEAD)' -X 'main.buildTime=$(date --rfc-3339=seconds)'" -o dist/gobin-${{ matrix.goos }}-${{ matrix.goarch }}${{ env.file_name }} github.com/topisenpai/gobin/cli
+          go build -ldflags="-X 'main.version=${{ env.VERSION }}' -X 'main.commit=${{ env.COMMIT }}' -X 'main.buildTime=${{ env.BUILD_TIME }}'" -o dist/gobin-${{ matrix.goos }}-${{ matrix.goarch }}${{ env.file_name }} github.com/topisenpai/gobin/cli
 
       - name: Upload
         uses: actions/upload-artifact@v3
