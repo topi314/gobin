@@ -22,7 +22,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let content = "", language = "";
     if (key) {
-        content = document.querySelector("#code-view").innerText
+        content = document.querySelector("#code-view").innerText;
         language = document.querySelector("#language").value;
     }
     const {newState, url} = createState(key, version, key ? "view" : "edit", content, language);
@@ -50,9 +50,11 @@ document.querySelector("#code-edit").addEventListener("keydown", (event) => {
 });
 
 document.querySelector("#code-edit").addEventListener("paste", (event) => {
+    event.preventDefault();
     const {key, language} = getState();
-    const newState = {key: key, mode: "edit", content: event.clipboardData.getData("text/plain"), language: language};
+    const newState = {key: key, mode: "edit", content: event.clipboardData.getData("text/plain").trim(), language: language};
     updatePage(newState);
+    document.querySelector("#code-edit").value = newState.content;
     window.history.replaceState(newState, "", `/${key}`);
 })
 
@@ -69,7 +71,7 @@ const doKeyboardAction = (event, elementName) => {
 
 document.querySelector("#code-edit").addEventListener("keyup", (event) => {
     const {key, language} = getState();
-    const newState = {key: key, mode: "edit", content: event.target.value, language: language};
+    const newState = {key: key, mode: "edit", content: event.target.value.trim(), language: language};
     updatePage(newState);
     window.history.replaceState(newState, "", `/${key}`);
 })
@@ -81,10 +83,10 @@ document.querySelector("#edit").addEventListener("click", async () => {
     let newState;
     let url;
     if (getUpdateToken(key) === "") {
-        newState = {key: "", mode: "edit", content: content, language: language};
+        newState = {key: "", mode: "edit", content, language};
         url = "/";
     } else {
-        newState = {key: key, mode: "edit", content: content, language: language};
+        newState = {key, mode: "edit", content, language};
         url = `/${key}`;
     }
 
@@ -234,7 +236,7 @@ document.querySelector("#share-copy").addEventListener("click", async () => {
 
 document.querySelector("#language").addEventListener("change", (event) => {
     const {key, mode, content} = getState();
-    const newState = {key: key, mode: mode, content: content, language: event.target.value};
+    const newState = {key, mode, content, language: event.target.value};
     highlightCode(newState);
     window.history.replaceState(newState, "", window.location.pathname);
 });
@@ -277,7 +279,7 @@ function getState() {
 }
 
 function createState(key, version, mode, content, language) {
-    return {newState: {key, version, mode, content, language}, url: `/${key}${version ? `#${version}` : ""}`};
+    return {newState: {key, version, mode, content: content.trim(), language}, url: `/${key}${version ? `#${version}` : ""}`};
 }
 
 function getUpdateToken(key) {

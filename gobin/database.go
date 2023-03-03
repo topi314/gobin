@@ -89,7 +89,7 @@ type DB struct {
 }
 
 func (d *DB) Close() error {
-	return d.Close()
+	return d.dbx.Close()
 }
 
 func (d *DB) GetDocument(ctx context.Context, documentID string) (Document, error) {

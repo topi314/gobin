@@ -13,11 +13,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/httprate"
 )
 
 var (
 	ErrDocumentNotFound = errors.New("document not found")
 	ErrUnauthorized     = errors.New("unauthorized")
+	ErrRateLimit        = errors.New("rate limit exceeded")
 	ErrEmptyBody        = errors.New("empty request body")
 	ErrContentTooLarge  = func(maxLength int) error {
 		return fmt.Errorf("content too large, must be less than %d chars", maxLength)
@@ -49,7 +51,10 @@ type (
 		UpdateToken string `json:"update_token,omitempty"`
 	}
 	ErrorResponse struct {
-		Message string `json:"message"`
+		Message   string `json:"message"`
+		Status    int    `json:"status"`
+		Path      string `json:"path"`
+		RequestID string `json:"request_id"`
 	}
 )
 
@@ -57,10 +62,33 @@ func (s *Server) Routes() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
 	r.Use(middleware.RequestID)
-	//r.Use(middleware.Timeout(30 * time.Second))
+	r.Use(middleware.Timeout(30 * time.Second))
 	r.Use(middleware.Compress(5))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Heartbeat("/ping"))
+
+	if s.cfg.RateLimit != nil && s.cfg.RateLimit.Requests > 0 && s.cfg.RateLimit.Duration > 0 {
+		rateLimiter := httprate.NewRateLimiter(
+			s.cfg.RateLimit.Requests,
+			s.cfg.RateLimit.Duration,
+			httprate.WithLimitHandler(s.rateLimit),
+			httprate.WithKeyFuncs(
+				httprate.KeyByIP,
+				httprate.KeyByEndpoint,
+			),
+		)
+		r.Use(middleware.Maybe(
+			rateLimiter.Handler,
+			func(r *http.Request) bool {
+				// Only apply rate limiting to POST, PATCH, and DELETE requests
+				return r.Method == http.MethodPost || r.Method == http.MethodPatch || r.Method == http.MethodDelete
+			},
+		))
+	}
+
+	if s.cfg.Debug {
+		r.Mount("/debug", middleware.Profiler())
+	}
 
 	r.Mount("/assets", http.FileServer(s.assets))
 	r.Group(func(r chi.Router) {
@@ -75,15 +103,12 @@ func (s *Server) Routes() http.Handler {
 		})
 		r.Route("/documents", func(r chi.Router) {
 			r.Post("/", s.PostDocument)
-
 			r.Route("/{documentID}", func(r chi.Router) {
 				r.Get("/", s.GetDocument)
 				r.Patch("/", s.PatchDocument)
 				r.Delete("/", s.DeleteDocument)
-
 				r.Route("/versions", func(r chi.Router) {
 					r.Get("/", s.DocumentVersions)
-
 					r.Route("/{version}", func(r chi.Router) {
 						r.Get("/", s.GetDocumentVersion)
 						r.Delete("/", s.DeleteDocumentVersion)
@@ -93,12 +118,9 @@ func (s *Server) Routes() http.Handler {
 		})
 		r.Get("/{documentID}", s.GetPrettyDocument)
 		r.Head("/{documentID}", s.GetPrettyDocument)
-
 		r.Get("/", s.GetPrettyDocument)
 		r.Head("/", s.GetPrettyDocument)
-
 	})
-
 	r.NotFound(s.redirectRoot)
 
 	return r
@@ -110,6 +132,7 @@ func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
 
 	versions, err := s.db.GetDocumentVersions(r.Context(), documentID, withContent)
 	if err != nil {
+		s.Log(r, "get document versions", err)
 		s.error(w, r, err, http.StatusInternalServerError)
 		return
 	}
@@ -137,6 +160,7 @@ func (s *Server) GetDocumentVersion(w http.ResponseWriter, r *http.Request) {
 			s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
 			return
 		}
+		s.Log(r, "get document version", err)
 		s.error(w, r, err, http.StatusInternalServerError)
 		return
 	}
@@ -160,6 +184,7 @@ func (s *Server) DeleteDocumentVersion(w http.ResponseWriter, r *http.Request) {
 			s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
 			return
 		}
+		s.Log(r, "delete document version", err)
 		s.error(w, r, err, http.StatusInternalServerError)
 		return
 	}
@@ -177,14 +202,15 @@ func (s *Server) GetRawDocumentVersion(w http.ResponseWriter, r *http.Request) {
 			s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
 			return
 		}
+		s.Log(r, "get document version", err)
 		s.error(w, r, err, http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
-
 	if r.Method == http.MethodHead {
+		w.Header().Set("Content-Length", strconv.Itoa(len([]byte(document.Content))))
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 	_, _ = w.Write([]byte(document.Content))
@@ -209,7 +235,6 @@ func parseDocumentVersion(r *http.Request, s *Server, w http.ResponseWriter) (st
 func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	documentID := chi.URLParam(r, "documentID")
 
-
 	var (
 		document  Document
 		documents []Document
@@ -222,12 +247,14 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 				s.redirectRoot(w, r)
 				return
 			}
+			s.Log(r, "get pretty document", err)
 			s.prettyError(w, r, err, http.StatusInternalServerError)
 			return
 		}
 
 		documents, err = s.db.GetDocumentVersions(r.Context(), documentID, false)
 		if err != nil {
+			s.Log(r, "get pretty document versions", err)
 			s.prettyError(w, r, err, http.StatusInternalServerError)
 			return
 		}
@@ -291,9 +318,9 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
-
 	if r.Method == http.MethodHead {
+		w.Header().Set("Content-Length", strconv.Itoa(len([]byte(document.Content))))
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 	_, _ = w.Write([]byte(document.Content))
@@ -320,18 +347,18 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 	language := r.Header.Get("Language")
-
 	content := s.readBody(w, r)
 	if content == "" {
 		return
 	}
 
-	if s.checkDocumentSize(w, r, content) {
+	if s.exceedsMaxDocumentSize(w, r, content) {
 		return
 	}
 
 	document, err := s.db.CreateDocument(r.Context(), content, language)
 	if err != nil {
+		s.Log(r, "creating document", err)
 		s.error(w, r, err, http.StatusInternalServerError)
 		return
 	}
@@ -359,7 +386,7 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.checkDocumentSize(w, r, content) {
+	if s.exceedsMaxDocumentSize(w, r, content) {
 		return
 	}
 
@@ -415,14 +442,6 @@ func (s *Server) getDocument(w http.ResponseWriter, r *http.Request) *Document {
 	return &document
 }
 
-func (s *Server) checkDocumentSize(w http.ResponseWriter, r *http.Request, content string) bool {
-	if s.cfg.MaxDocumentSize > 0 && len([]rune(content)) > s.cfg.MaxDocumentSize {
-		s.error(w, r, ErrContentTooLarge(s.cfg.MaxDocumentSize), http.StatusBadRequest)
-		return true
-	}
-	return false
-}
-
 func (s *Server) getUpdateToken(w http.ResponseWriter, r *http.Request) string {
 	updateToken := r.Header.Get("Authorization")
 	if updateToken == "" {
@@ -454,18 +473,36 @@ func (s *Server) unauthorized(w http.ResponseWriter, r *http.Request) {
 	s.error(w, r, ErrUnauthorized, http.StatusUnauthorized)
 }
 
+func (s *Server) rateLimit(w http.ResponseWriter, r *http.Request) {
+	s.error(w, r, ErrRateLimit, http.StatusTooManyRequests)
+}
+
+func (s *Server) Log(r *http.Request, logType string, err error) {
+	log.Printf("Error while handling %s(%s) %s: %s\n", logType, middleware.GetReqID(r.Context()), r.RequestURI, err)
+}
+
 func (s *Server) prettyError(w http.ResponseWriter, r *http.Request, err error, status int) {
-	log.Printf("error while handling request %s: %s\n", r.URL, err)
+	s.Log(r, "pretty request", err)
 	w.WriteHeader(status)
-	if tmplErr := s.tmpl(w, "error.gohtml", err.Error()); tmplErr != nil {
-		log.Println("error while executing template:", tmplErr)
+
+	vars := map[string]any{
+		"Error":     err.Error(),
+		"Status":    status,
+		"RequestID": middleware.GetReqID(r.Context()),
+		"Path":      r.URL.Path,
+	}
+	if tmplErr := s.tmpl(w, "error.gohtml", vars); tmplErr != nil {
+		s.Log(r, "template", tmplErr)
 	}
 }
 
 func (s *Server) error(w http.ResponseWriter, r *http.Request, err error, status int) {
-	log.Printf("error while handling request %s: %s\n", r.URL, err)
+	s.Log(r, "request", err)
 	s.json(w, r, ErrorResponse{
-		Message: err.Error(),
+		Message:   err.Error(),
+		Status:    status,
+		Path:      r.URL.Path,
+		RequestID: middleware.GetReqID(r.Context()),
 	}, status)
 }
 
@@ -481,6 +518,14 @@ func (s *Server) json(w http.ResponseWriter, r *http.Request, v any, status int)
 	}
 
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		log.Printf("error while encoding ok %s: %s\n", r.URL, err)
+		s.Log(r, "json", err)
 	}
+}
+
+func (s *Server) exceedsMaxDocumentSize(w http.ResponseWriter, r *http.Request, content string) bool {
+	if s.cfg.MaxDocumentSize > 0 && len([]rune(content)) > s.cfg.MaxDocumentSize {
+		s.error(w, r, ErrContentTooLarge(s.cfg.MaxDocumentSize), http.StatusBadRequest)
+		return true
+	}
+	return false
 }
