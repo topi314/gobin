@@ -27,6 +27,7 @@
     --style: url("/assets/icons/dark/style.png");
     --share: url("/assets/icons/dark/share.png");
     --close: url("/assets/icons/dark/close.png");
+    --versions: url("/assets/icons/dark/versions.png");
 }
 
 .light {
@@ -52,6 +53,7 @@
     --style: url("/assets/icons/light/style.png");
     --share: url("/assets/icons/light/share.png");
     --close: url("/assets/icons/light/close.png");
+    --versions: url("/assets/icons/light/versions.png");
 }
 
 html {
@@ -260,10 +262,16 @@ main {
 
 .error {
     text-align: center;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .error h1 {
     font-weight: bolder;
+}
+
+.error-details {
+    text-align: start;
 }
 
 .error p {
@@ -276,15 +284,87 @@ main {
 
 .settings {
     display: flex;
-    justify-content: flex-start;
+    justify-content: space-between;
     gap: 1rem;
-    padding: 1rem;
-    border-bottom: 1px solid var(--bg-secondary);
     overflow-x: auto;
+    border-bottom: 1px solid var(--bg-secondary);
+    padding: 1rem;
 }
 
-.settings > * {
+.settings .first {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+}
+
+#versions {
+    position: fixed;
+    display: none;
+    row-gap: 0.25rem;
+    right: 1rem;
+    flex-direction: column;
+    border-radius: 1rem;
+    padding: 0.5rem;
+    max-height: calc(100vh - 8rem);
+    overflow-y: scroll;
+    background-color: var(--bg-secondary);
+}
+
+.version-btn {
+    display: none;
+}
+
+.version-btn:checked + label {
+    background-color: var(--bg-primary);
+}
+
+.version {
+    padding: 0.5rem;
+    cursor: pointer;
+    user-select: none;
+    border-radius: 1rem;
+}
+
+.version:hover {
+    background-color: var(--bg-primary);
+}
+
+#versions-btn {
+    display: none;
+    user-select: none;
+}
+
+#versions-btn ~ label {
+    display: inline-block;
     flex-shrink: 0;
+    border: none;
+    border-radius: 1rem;
+    width: 2rem;
+    height: 2rem;
+    background-image: var(--versions);
+    background-color: var(--bg-secondary);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 1rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+#versions-btn ~ label:hover {
+    opacity: 0.7;
+}
+
+#versions-btn:disabled ~ label {
+    cursor: not-allowed;
+    opacity: 0.2;
+}
+
+#versions-btn:checked ~ label {
+    opacity: 0.7;
+}
+
+#versions-btn:checked ~ #versions {
+    display: flex;
 }
 
 select {
@@ -359,13 +439,31 @@ select:hover {
 }
 
 #code-view {
-    flex-grow: 1;
     border-radius: 1rem;
     width: 0;
     height: 0;
     min-width: 100%;
     min-height: 100%;
     overflow: auto;
+    padding: 1em;
+    display: block;
+}
+
+#code-view > div {
+    counter-increment: line-counter;
+}
+
+#code-view > div::before {
+    content: counter(line-counter);
+    display: inline-block;
+    width: 2rem;
+    text-align: right;
+    margin-right: 1rem;
+    color: var(--text-secondary);
+}
+
+#code-view:first-child {
+    counter-reset: line-counter;
 }
 
 #code-edit {

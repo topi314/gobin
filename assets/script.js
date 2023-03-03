@@ -12,28 +12,31 @@ hljs.listLanguages().forEach((language) => {
     languageElement.appendChild(option);
 });
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
     const key = window.location.pathname === "/" ? "" : window.location.pathname.slice(1);
+    const version = window.location.hash === "" ? 0 : parseInt(window.location.hash.slice(1));
     const params = new URLSearchParams(window.location.search);
     if (params.has("token")) {
-        setDocumentToken(key, params.get("token"));
+        setToken(key, params.get("token"));
     }
 
-    let newState;
-    let url;
+    document.querySelector("#nav-btn").checked = false;
+    document.querySelector("#versions-btn").checked = false;
+
+    let content = "", language = "";
     if (key) {
-        const content = document.querySelector("#code-view").innerText
-        const language = document.querySelector("#language").value;
-        newState = {key: key, mode: "view", content: content, language: language};
-        url = `/${key}`;
-    } else {
-        newState = {key: "", mode: "edit", content: "", language: ""};
-        url = "/";
+        if (version) {
+            const {newState} = await fetchVersion(key, version);
+            content = newState.content;
+            language = newState.language;
+        } else {
+            content = document.querySelector("#code-view").innerText;
+            language = document.querySelector("#language").value;
+        }
     }
-
+    const {newState, url} = createState(key, version, key ? "view" : "edit", content, language);
     updateCode(newState);
     updatePage(newState);
-
     window.history.replaceState(newState, "", url);
 });
 
@@ -52,67 +55,52 @@ document.querySelector("#code-edit").addEventListener("keydown", (event) => {
     const end = event.target.selectionEnd;
     event.target.value = event.target.value.substring(0, start) + "\t" + event.target.value.substring(end);
     event.target.selectionStart = event.target.selectionEnd = start + 1;
+});
+
+document.querySelector("#code-edit").addEventListener("paste", (event) => {
+    event.preventDefault();
+    const codeEditElement = document.querySelector("#code-edit");
+    const {key, version, language} = getState();
+    const newContent = codeEditElement.value + event.clipboardData.getData("text/plain");
+    const {newState, url} = createState(key, version, "edit", newContent, language);
+    updatePage(newState);
+    codeEditElement.value = newContent;
+    window.history.replaceState(newState, "", url);
 })
 
 document.addEventListener("keydown", (event) => {
-    if (!event.ctrlKey) return;
-
-    switch (event.key) {
-        case "s":
-            event.preventDefault();
-            if (document.querySelector("#save").disabled) return;
-            document.querySelector("#save").click();
-            break;
-        case "n":
-            event.preventDefault();
-            document.querySelector("#new").click();
-            break;
-        case "e":
-            event.preventDefault();
-            if (document.querySelector("#edit").disabled) return;
-            document.querySelector("#edit").click();
-            break;
-        case "d":
-            event.preventDefault();
-            if (document.querySelector("#delete").disabled) return;
-            document.querySelector("#delete").click();
-            break;
-    }
+    if (!event.ctrlKey || !["s", "n", "e", "d"].includes(event.key)) return;
+    doKeyboardAction(event, event.key);
 })
 
+const doKeyboardAction = (event, elementName) => {
+    event.preventDefault();
+    if (document.querySelector(`#${elementName}`).disabled) return;
+    document.querySelector(`#${elementName}`).click();
+}
+
 document.querySelector("#code-edit").addEventListener("keyup", (event) => {
-    const {key, language} = getState();
-    const newState = {key: key, mode: "edit", content: event.target.value, language: language};
-    window.history.replaceState(newState, "", `/${key}`);
+    const {key, version, language} = getState();
+    const {newState, url} = createState(key, version, "edit", event.target.value, language);
     updatePage(newState);
+    window.history.replaceState(newState, "", url);
 })
 
 document.querySelector("#edit").addEventListener("click", async () => {
     if (document.querySelector("#edit").disabled) return;
 
-    const {key, content, language} = getState();
-    let newState;
-    let url;
-    if (getDocumentToken(key) === "") {
-        newState = {key: "", mode: "edit", content: content, language: language};
-        url = "/";
-    } else {
-        newState = {key: key, mode: "edit", content: content, language: language};
-        url = `/${key}`;
-    }
-
+    const {key, version, content, language} = getState();
+    const {newState, url} = createState(getToken(key) === "" ? "" : key, version, "edit", content, language);
     updateCode(newState);
     updatePage(newState);
-
     window.history.pushState(newState, "", url);
 })
 
 document.querySelector("#save").addEventListener("click", async () => {
     if (document.querySelector("#save").disabled) return;
-
     const {key, mode, content, language} = getState()
     if (mode !== "edit") return;
-    const token = getDocumentToken(key);
+    const token = getToken(key);
     const saveButton = document.querySelector("#save");
     saveButton.classList.add("loading");
 
@@ -144,18 +132,41 @@ document.querySelector("#save").addEventListener("click", async () => {
         return;
     }
 
-    const newState = {key: body.key, mode: "view", content: body.data, language: body.language};
-    setDocumentToken(body.key, body.token);
+    const {newState, url} = createState(body.key, body.version, "view", body.data, body.language);
+    setToken(body.key, body.token);
+
+    const inputElement = document.createElement("input")
+    const labelElement = document.createElement("label")
+
+    inputElement.id = `version-${body.version}`;
+    inputElement.classList.add("version-btn");
+    inputElement.type = "radio";
+    inputElement.name = "version";
+    inputElement.value = body.version;
+    inputElement.checked = true;
+
+    labelElement.htmlFor = `version-${body.version}`;
+    labelElement.classList.add("version");
+    labelElement.title = `${body.version_time}`;
+    labelElement.innerText = `${body.version_label}`;
+
+    const versionsElement = document.querySelector("#versions")
+    for (let child of versionsElement.children) {
+        child.checked = false
+    }
+    versionsElement.insertBefore(labelElement, versionsElement.firstChild);
+    versionsElement.insertBefore(inputElement, versionsElement.firstChild);
+
     updateCode(newState);
     updatePage(newState);
-    window.history.pushState(newState, "", `/${body.key}`);
+    window.history.pushState(newState, "", url);
 });
 
 document.querySelector("#delete").addEventListener("click", async () => {
     if (document.querySelector("#delete").disabled) return;
 
     const {key} = getState();
-    const token = getDocumentToken(key);
+    const token = getToken(key);
     if (token === "") {
         return;
     }
@@ -180,10 +191,10 @@ document.querySelector("#delete").addEventListener("click", async () => {
         return;
     }
     deleteToken();
-    const newState = {key: "", mode: "edit", content: "", language: ""};
+    const {newState, url} = createState("", "", "edit", "", "");
     updateCode(newState);
     updatePage(newState);
-    window.history.pushState(newState, "", "/");
+    window.history.pushState(newState, "", url);
 })
 
 document.querySelector("#copy").addEventListener("click", async () => {
@@ -197,9 +208,9 @@ document.querySelector("#copy").addEventListener("click", async () => {
 document.querySelector("#raw").addEventListener("click", () => {
     if (document.querySelector("#raw").disabled) return;
 
-    const {key} = getState();
+    const {key, version} = getState();
     if (!key) return;
-    window.open(`/raw/${key}`, "_blank").focus();
+    window.open(`/raw/${key}/versions/${version}`, "_blank").focus();
 })
 
 document.querySelector("#share").addEventListener("click", async () => {
@@ -268,15 +279,45 @@ document.querySelector("#share-copy").addEventListener("click", async () => {
 
 
 document.querySelector("#language").addEventListener("change", (event) => {
-    const {key, mode, content} = getState();
-    const newState = {key: key, mode: mode, content: content, language: event.target.value};
+    const {key, version, mode, content} = getState();
+    const {newState, url} = createState(key, version, mode, content, event.target.value);
     highlightCode(newState);
-    window.history.replaceState(newState, "", window.location.pathname);
+    window.history.replaceState(newState, "", url);
 });
 
 document.querySelector("#style").addEventListener("change", (event) => {
     setStyle(event.target.value);
 });
+
+document.querySelector("#versions").addEventListener("click", async (event) => {
+    if (event.target && event.target.matches("input[type='radio']")) {
+        const {key, version} = getState();
+        let newVersion = event.target.value;
+        if (event.target.parentElement.children.item(0).value === newVersion) {
+            newVersion = ""
+        }
+        if (newVersion === version) return;
+        const {newState, url} = await fetchVersion(key, newVersion)
+        if (!newState) return;
+        updateCode(newState);
+        window.history.pushState(newState, "", url);
+    }
+})
+
+async function fetchVersion(key, version) {
+    const response = await fetch(`/documents/${key}${version ? `/versions/${version}` : ""}`, {
+        method: "GET"
+    });
+
+    const body = await response.json();
+    if (!response.ok) {
+        showErrorPopup(body.message || response.statusText);
+        console.error("error fetching document version:", response);
+        return;
+    }
+
+    return createState(key, version, "view", body.data, body.language);
+}
 
 function showErrorPopup(message) {
     const popup = document.getElementById("error-popup");
@@ -285,12 +326,15 @@ function showErrorPopup(message) {
     setTimeout(() => popup.style.display = "none", 5000);
 }
 
-
 function getState() {
     return window.history.state;
 }
 
-function getDocumentToken(key) {
+function createState(key, version, mode, content, language) {
+    return {newState: {key, version, mode, content: content.trim(), language}, url: `/${key}${version ? `#${version}` : ""}`};
+}
+
+function getToken(key) {
     const documents = localStorage.getItem("documents")
     if (!documents) return ""
     const token = JSON.parse(documents)[key]
@@ -299,7 +343,7 @@ function getDocumentToken(key) {
     return token
 }
 
-function setDocumentToken(key, token) {
+function setToken(key, token) {
     let documents = localStorage.getItem("documents")
     if (!documents) {
         documents = "{}"
@@ -341,7 +385,7 @@ function updateCode(state) {
 
 function updatePage(state) {
     const {key, mode, content} = state;
-    const token = getDocumentToken(key);
+    const token = getToken(key);
     // update page title
     if (key) {
         document.title = `gobin - ${key}`;
@@ -355,6 +399,8 @@ function updatePage(state) {
     const copyButton = document.querySelector("#copy");
     const rawButton = document.querySelector("#raw");
     const shareButton = document.querySelector("#share");
+    const versionsButton = document.querySelector("#versions-btn");
+    versionsButton.disabled = document.querySelector("#versions").children.length <= 2;
     if (mode === "view") {
         saveButton.disabled = true;
         saveButton.style.display = "none";
@@ -394,13 +440,43 @@ function highlightCode(state) {
         state.language = result.language;
     }
 
-    const codeViewElement = document.querySelector("#code-view");
-    codeViewElement.innerHTML = result.value;
-    codeViewElement.className = "hljs language-" + result.language;
+    applyCodeLines(result)
 
+    document.querySelector("#code-view").innerHTML = result.value;
     document.querySelector("#language").value = result.language;
+}
 
-    if (result.value) {
-        hljs.initLineNumbersOnLoad({singleLine: true});
-    }
+function applyCodeLines(result) {
+    const htmlLines = result.value.split('\n')
+    let spanStack = []
+    result.value = htmlLines.map((content, index) => {
+        let startSpanIndex, endSpanIndex
+        let needle = 0
+        content = spanStack.join('') + content
+        spanStack = []
+        do {
+            const remainingContent = content.slice(needle)
+            startSpanIndex = remainingContent.indexOf('<span')
+            endSpanIndex = remainingContent.indexOf('</span')
+            if (startSpanIndex === -1 && endSpanIndex === -1) {
+                break
+            }
+            if (endSpanIndex === -1 || (startSpanIndex !== -1 && startSpanIndex < endSpanIndex)) {
+                const nextSpan = /<span .+?>/.exec(remainingContent)
+                if (nextSpan === null) {
+                    // never: but ensure no exception is raised if it happens some day.
+                    break
+                }
+                spanStack.push(nextSpan[0])
+                needle += startSpanIndex + nextSpan[0].length
+            } else {
+                spanStack.pop()
+                needle += endSpanIndex + 1
+            }
+        } while (true)
+        if (spanStack.length > 0) {
+            content += Array(spanStack.length).fill('</span>').join('')
+        }
+        return `<div class="line">${content}\n</div>`
+    }).join('')
 }

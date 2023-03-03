@@ -1,11 +1,16 @@
 {{ template "head.gohtml" . }}
 <body>
 {{ template "header.gohtml" . }}
-<main class="error">
-    <h1>Oops!</h1>
-    <div>
+<main>
+    <div class="error">
+        <h1>Oops!</h1>
         <h2>Something went wrong:</h2>
-        <p>{{ . }}</p>
+        <div class="error-details">
+            <p>Message: {{ .Error }}</p>
+            <p>Status: {{ .Status }}</p>
+            <p>Path: {{ .Path }}</p>
+            <p>Request ID: {{ .RequestID }}</p>
+        </div>
         <h3>
             Try again later.
             <br/>

@@ -11,32 +11,27 @@ import (
 	"time"
 
 	"github.com/go-jose/go-jose/v3"
+
+	"github.com/topisenpai/gobin/gobin"
 )
 
 var (
 	//go:embed templates
-	templates embed.FS
+	Templates embed.FS
 
 	//go:embed assets
-	assets embed.FS
+	Assets embed.FS
+
+	//go:embed sql/schema.sql
+	Schema string
 )
-
-type ExecuteTemplateFunc func(wr io.Writer, name string, data any) error
-
-type Server struct {
-	cfg    Config
-	db     *Database
-	signer jose.Signer
-	tmpl   ExecuteTemplateFunc
-}
 
 func main() {
 	cfgPath := flag.String("config", "config.json", "path to config.json")
 	flag.Parse()
 
 	log.Println("Gobin starting... (config path:", *cfgPath, ")")
-
-	cfg, err := LoadConfig(*cfgPath)
+	cfg, err := gobin.LoadConfig(*cfgPath)
 	if err != nil {
 		log.Fatalln("Error while reading config:", err)
 	}
@@ -44,7 +39,7 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	db, err := NewDatabase(ctx, cfg)
+	db, err := gobin.NewDB(ctx, cfg.Database, Schema)
 	if err != nil {
 		log.Fatalln("Error while connecting to database:", err)
 	}
@@ -59,7 +54,10 @@ func main() {
 		log.Fatalln("Error while creating signer:", err)
 	}
 
-	var tmplFunc ExecuteTemplateFunc
+	var (
+		tmplFunc gobin.ExecuteTemplateFunc
+		assets   http.FileSystem
+	)
 	if cfg.DevMode {
 		log.Println("Development mode enabled")
 		tmplFunc = func(wr io.Writer, name string, data any) error {
@@ -69,23 +67,17 @@ func main() {
 			}
 			return tmpl.ExecuteTemplate(wr, name, data)
 		}
+		assets = http.Dir(".")
 	} else {
-		tmpl, err := template.New("").ParseFS(templates, "templates/*")
+		tmpl, err := template.New("").ParseFS(Templates, "templates/*")
 		if err != nil {
 			log.Fatalln("Error while parsing templates:", err)
 		}
 		tmplFunc = tmpl.ExecuteTemplate
+		assets = http.FS(Assets)
 	}
 
-	s := &Server{
-		cfg:    cfg,
-		db:     db,
-		signer: signer,
-		tmpl:   tmplFunc,
-	}
-
+	s := gobin.NewServer(cfg, db, signer, assets, tmplFunc)
 	log.Println("Gobin listening on:", cfg.ListenAddr)
-	if err = http.ListenAndServe(cfg.ListenAddr, s.Routes()); err != nil {
-		log.Fatalln("Error while listening:", err)
-	}
+	s.Start()
 }

@@ -1,4 +1,4 @@
-package main
+package gobin
 
 import (
 	"context"
@@ -55,12 +55,12 @@ func (s *Server) JWTMiddleware(next http.Handler) http.Handler {
 		} else {
 			token, err := jwt.ParseSigned(tokenString)
 			if err != nil {
-				s.Error(w, r, err, http.StatusUnauthorized)
+				s.error(w, r, err, http.StatusUnauthorized)
 				return
 			}
 
 			if err = token.Claims([]byte(s.cfg.JWTSecret), &claims); err != nil {
-				s.Error(w, r, err, http.StatusUnauthorized)
+				s.error(w, r, err, http.StatusUnauthorized)
 				return
 			}
 		}
