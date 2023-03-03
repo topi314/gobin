@@ -25,8 +25,11 @@ gobin is a simple lightweight haste-server alternative written in Go, HTML, JS a
 - [API](#api)
     - [Create a document](#create-a-document)
     - [Get a document](#get-a-document)
+    - [Get a documents versions](#get-a-documents-versions)
+    - [Get a document version](#get-a-document-version)
     - [Update a document](#update-a-document)
     - [Delete a document](#delete-a-document)
+    - [Delete a document version](#delete-a-document-version)
     - [Other endpoints](#other-endpoints)
     - [Errors](#errors)
 - [License](#license)
@@ -213,7 +216,7 @@ A successful request will return a `200 OK` response with a JSON body containing
 
 ### Get a document
 
-To get a document you have to send a `GET` request to `/documents/{key}?withContent={bool}`.
+To get a document you have to send a `GET` request to `/documents/{key}`.
 
 The response will be a `200 OK` with the document content as `application/json` body. 
 
@@ -230,7 +233,7 @@ The response will be a `200 OK` with the document content as `application/json` 
 
 ### Get a documents versions
 
-To get a documents versions you have to send a `GET` request to `/documents/{key}/versions`.
+To get a documents versions you have to send a `GET` request to `/documents/{key}/versions?withData={bool}`.
 
 The response will be a `200 OK` with the document content as `application/json` body.
 

@@ -137,7 +137,7 @@ func (s *Server) Routes() http.Handler {
 
 func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
 	documentID := chi.URLParam(r, "documentID")
-	withContent := r.URL.Query().Get("withContent") == "true"
+	withContent := r.URL.Query().Get("withData") == "true"
 
 	versions, err := s.db.GetDocumentVersions(r.Context(), documentID, withContent)
 	if err != nil {
