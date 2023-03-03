@@ -1,3 +1,4 @@
+--- v1.1.0 -> v1.2.0
 ALTER TABLE documents ADD COLUMN version TIMESTAMP NOT NULL DEFAULT now();
 ALTER TABLE documents DROP COLUMN created_at;
 ALTER TABLE documents DROP COLUMN updated_at;

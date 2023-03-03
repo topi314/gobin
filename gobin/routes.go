@@ -45,11 +45,13 @@ type (
 		Time    string
 	}
 	DocumentResponse struct {
-		Key         string `json:"key"`
-		Version     int64  `json:"version"`
-		Data        string `json:"data,omitempty"`
-		Language    string `json:"language"`
-		UpdateToken string `json:"update_token,omitempty"`
+		Key          string `json:"key,omitempty"`
+		Version      int64  `json:"version"`
+		VersionLabel string `json:"version_label,omitempty"`
+		VersionTime  string `json:"version_time,omitempty"`
+		Data         string `json:"data,omitempty"`
+		Language     string `json:"language"`
+		UpdateToken  string `json:"update_token,omitempty"`
 	}
 	ErrorResponse struct {
 		Message   string `json:"message"`
@@ -139,14 +141,13 @@ func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
 
 	versions, err := s.db.GetDocumentVersions(r.Context(), documentID, withContent)
 	if err != nil {
-		s.Log(r, "get document versions", err)
+		s.log(r, "get document versions", err)
 		s.error(w, r, err, http.StatusInternalServerError)
 		return
 	}
 	var response []DocumentResponse
 	for _, version := range versions {
 		response = append(response, DocumentResponse{
-			Key:      version.ID,
 			Version:  version.Version,
 			Data:     version.Content,
 			Language: version.Language,
@@ -167,7 +168,7 @@ func (s *Server) GetDocumentVersion(w http.ResponseWriter, r *http.Request) {
 			s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
 			return
 		}
-		s.Log(r, "get document version", err)
+		s.log(r, "get document version", err)
 		s.error(w, r, err, http.StatusInternalServerError)
 		return
 	}
@@ -191,7 +192,7 @@ func (s *Server) DeleteDocumentVersion(w http.ResponseWriter, r *http.Request) {
 			s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
 			return
 		}
-		s.Log(r, "delete document version", err)
+		s.log(r, "delete document version", err)
 		s.error(w, r, err, http.StatusInternalServerError)
 		return
 	}
@@ -209,7 +210,7 @@ func (s *Server) GetRawDocumentVersion(w http.ResponseWriter, r *http.Request) {
 			s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
 			return
 		}
-		s.Log(r, "get document version", err)
+		s.log(r, "get document version", err)
 		s.error(w, r, err, http.StatusInternalServerError)
 		return
 	}
@@ -254,14 +255,14 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 				s.redirectRoot(w, r)
 				return
 			}
-			s.Log(r, "get pretty document", err)
+			s.log(r, "get pretty document", err)
 			s.prettyError(w, r, err, http.StatusInternalServerError)
 			return
 		}
 
 		documents, err = s.db.GetDocumentVersions(r.Context(), documentID, false)
 		if err != nil {
-			s.Log(r, "get pretty document versions", err)
+			s.log(r, "get pretty document versions", err)
 			s.prettyError(w, r, err, http.StatusInternalServerError)
 			return
 		}
@@ -365,17 +366,18 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 
 	document, err := s.db.CreateDocument(r.Context(), content, language)
 	if err != nil {
-		s.Log(r, "creating document", err)
+		s.log(r, "creating document", err)
 		s.error(w, r, err, http.StatusInternalServerError)
 		return
 	}
 
+	versionLabel, versionTime := formatVersion(time.Now(), document.Version)
 	s.ok(w, r, DocumentResponse{
-		Key:         document.ID,
-		Version:     document.Version,
-		Data:        document.Content,
-		Language:    document.Language,
-		UpdateToken: document.UpdateToken,
+		Key:          document.ID,
+		Version:      document.Version,
+		VersionLabel: versionLabel,
+		VersionTime:  versionTime,
+		UpdateToken:  document.UpdateToken,
 	})
 }
 
@@ -407,12 +409,12 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	versionLabel, versionTime := formatVersion(time.Now(), document.Version)
 	s.ok(w, r, DocumentResponse{
-		Key:         document.ID,
-		Version:     document.Version,
-		Data:        document.Content,
-		Language:    document.Language,
-		UpdateToken: document.UpdateToken,
+		Key:          document.ID,
+		Version:      document.Version,
+		VersionLabel: versionLabel,
+		VersionTime:  versionTime,
 	})
 }
 
@@ -484,12 +486,12 @@ func (s *Server) rateLimit(w http.ResponseWriter, r *http.Request) {
 	s.error(w, r, ErrRateLimit, http.StatusTooManyRequests)
 }
 
-func (s *Server) Log(r *http.Request, logType string, err error) {
+func (s *Server) log(r *http.Request, logType string, err error) {
 	log.Printf("Error while handling %s(%s) %s: %s\n", logType, middleware.GetReqID(r.Context()), r.RequestURI, err)
 }
 
 func (s *Server) prettyError(w http.ResponseWriter, r *http.Request, err error, status int) {
-	s.Log(r, "pretty request", err)
+	s.log(r, "pretty request", err)
 	w.WriteHeader(status)
 
 	vars := map[string]any{
@@ -499,12 +501,12 @@ func (s *Server) prettyError(w http.ResponseWriter, r *http.Request, err error, 
 		"Path":      r.URL.Path,
 	}
 	if tmplErr := s.tmpl(w, "error.gohtml", vars); tmplErr != nil {
-		s.Log(r, "template", tmplErr)
+		s.log(r, "template", tmplErr)
 	}
 }
 
 func (s *Server) error(w http.ResponseWriter, r *http.Request, err error, status int) {
-	s.Log(r, "request", err)
+	s.log(r, "request", err)
 	s.json(w, r, ErrorResponse{
 		Message:   err.Error(),
 		Status:    status,
@@ -525,7 +527,7 @@ func (s *Server) json(w http.ResponseWriter, r *http.Request, v any, status int)
 	}
 
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		s.Log(r, "json", err)
+		s.log(r, "json", err)
 	}
 }
 
