@@ -36,7 +36,7 @@ func main() {
 	cfgPath := flag.String("config", "config.json", "path to config.json")
 	flag.Parse()
 
-	log.Println("Gobin starting... (config path:", *cfgPath, ")")
+	log.Printf("Gobin starting... (config path:%s)", *cfgPath)
 	cfg, err := gobin.LoadConfig(*cfgPath)
 	if err != nil {
 		log.Fatalln("Error while reading config:", err)
