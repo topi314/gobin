@@ -9,15 +9,44 @@
 
 gobin is a simple lightweight haste-server alternative written in Go, HTML, JS and CSS. It is aimed to be easy to use and deploy. You can find an instance running at [xgob.in](https://xgob.in).
 
+<details>
+<summary>Table of Contents</summary>
+
+- [Features](#features)
+- [Installation](#installation)
+    - [Docker](#docker)
+        - [Docker Compose](#docker-compose)
+    - [Manual](#manual)
+        - [Requirements](#requirements)
+        - [Build](#build)
+        - [Run](#run)
+- [Configuration](#configuration)
+    - [Rate Limit](#rate-limit)
+- [API](#api)
+    - [Create a document](#create-a-document)
+    - [Get a document](#get-a-document)
+    - [Update a document](#update-a-document)
+    - [Delete a document](#delete-a-document)
+    - [Other endpoints](#other-endpoints)
+    - [Errors](#errors)
+- [License](#license)
+- [Contributing](#contributing)
+- [Credits](#credits)
+- [Contact](#contact)
+
+</details>
+
 ## Features
 
 - Easy to deploy and use
+- Built-in rate-limiting
 - Create, update and delete documents
 - Syntax highlighting
 - Document expiration
 - Supports [PostgreSQL](https://www.postgresql.org/) or [SQLite](https://sqlite.org/)
 - One binary and config file
 - Docker image available
+- ~~Metrics (to be implemented)~~
 
 ## Installation
 
@@ -66,6 +95,8 @@ For `config.json` and database see schema [Configuration](#configuration).
 docker-compose up -d
 ```
 
+---
+
 ### Manual
 
 #### Requirements
@@ -93,7 +124,9 @@ go install github.com/TopiSenpai/gobin@latest
 gobin --config=config.json
 ```
 
-#### Configuration
+---
+
+## Configuration
 
 The schema is automatically created when you start gobin and there is no `documents` table in the database.
 
@@ -110,11 +143,11 @@ Create a new `config.json` file with the following content:
   "database": {
     # either "postgres" or "sqlite"
     "type": "postgres",
-    
+
     # path to sqlite database
     # if you run gobin with docker make sure to set it to "/var/lib/gobin/gobin.db"
     "path": "gobin.db",
-    
+
     # postgres connection settings
     "host": "localhost",
     "port": 5432,
@@ -122,11 +155,32 @@ Create a new `config.json` file with the following content:
     "password": "password",
     "database": "gobin",
     "ssl_mode": "disable"
+  },
+  # max document size in characters
+  "max_document_size": 0,
+  # omit or set values to 0 or "0" to disable rate limit
+  "rate_limit": {
+    # number of requests which can be done in the duration
+    "requests": 10,
+    # the duration of the requests
+    "duration": "1m"
   }
 }
 ```
 
-## Usage
+### Rate Limit
+
+Following endpoints are rate-limited:
+
+- `POST` `/documents`
+- `PATCH` `/documents/{key}`
+- `DELETE` `/documents/{key}`
+
+`PATCH` and `DELETE` share the same bucket while `POST` has it's own bucket
+
+---
+
+## API
 
 ### Create a document
 
@@ -153,6 +207,14 @@ A successful request will return a `200 OK` response with a JSON body containing
   "update_token": "kiczgez33j7qkvqdg9f7ksrd8jk88wba"
 }
 ```
+
+---
+
+### Get a document
+
+To get a document you have to send a `GET` request to `/documents/{key}`.
+
+---
 
 ### Update a document
 
@@ -184,21 +246,55 @@ A successful request will return a `200 OK` response with a JSON body containing
 }
 ```
 
+---
+
 ### Delete a document
 
-To delete a paste you have to send a `DELETE` request to `/documents/{key}` with the `update_token` as `Authorization` header.
+To delete a document you have to send a `DELETE` request to `/documents/{key}` with the `update_token` as `Authorization` header.
+
+---
+
+### Other endpoints
+
+- `GET` `/raw/{key}` - Get the raw content of a document
+- `HEAD` `/raw/{key}` - Get the raw content of a document without the body
+- `GET` `/ping` - Get the status of the server
+- `GET` `/debug` - Proof debug endpoint (only available in debug mode)
+
+---
+
+### Errors
+
+In case of an error gobin will return the following JSON body with the corresponding HTTP status code:
+
+```yaml
+{
+  "message": "document not found", # error message
+  "status": 404, # HTTP status code
+  "path": "/documents/7df3vw", # request path
+  "request_id": "fbe0a365387f/gVAMGuraLW-003490" # request id
+}
+```
+
+---
 
 ## License
 
 gobin is licensed under the [Apache License 2.0](/LICENSE).
 
+---
+
 ## Contributing
 
 Contributions are always welcome! Just open a pull request or discussion and I will take a look at it.
 
+---
+
 ## Credits
 
 - [@Damon](https://github.com/day-mon) for helping me.
+
+---
 
 ## Contact
 
