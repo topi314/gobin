@@ -90,7 +90,7 @@ document.querySelector("#edit").addEventListener("click", async () => {
     if (document.querySelector("#edit").disabled) return;
 
     const {key, version, content, language} = getState();
-    const {newState, url} = createState(getUpdateToken(key) === "" ? "" : key, version, "edit", content, language);
+    const {newState, url} = createState(getUpdateToken(key) === "" ? "" : key, 0, "edit", content, language);
     updateCode(newState);
     updatePage(newState);
     window.history.pushState(newState, "", url);
