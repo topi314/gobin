@@ -1,21 +1,19 @@
 package gobin
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 )
 
 type Config struct {
-	DevMode         bool             `json:"dev_mode"`
-	Debug           bool             `json:"debug"`
-	ListenAddr      string           `json:"listen_addr"`
-	Database        DatabaseConfig   `json:"database"`
-	MaxDocumentSize int              `json:"max_document_size"`
-	RateLimit       *RateLimitConfig `json:"rate_limit"`
-	JWTSecret       string           `json:"jwt_secret"`
+	DevMode         bool             `cfg:"dev_mode"`
+	Debug           bool             `cfg:"debug"`
+	ListenAddr      string           `cfg:"listen_addr"`
+	Database        DatabaseConfig   `cfg:"database"`
+	MaxDocumentSize int              `cfg:"max_document_size"`
+	RateLimit       *RateLimitConfig `cfg:"rate_limit"`
+	JWTSecret       string           `cfg:"jwt_secret"`
 }
 
 func (c Config) String() string {
@@ -23,51 +21,21 @@ func (c Config) String() string {
 }
 
 type DatabaseConfig struct {
-	Type            string        `json:"type"`
-	Debug           bool          `json:"debug"`
-	ExpireAfter     time.Duration `json:"expire_after"`
-	CleanupInterval time.Duration `json:"cleanup_interval"`
+	Type            string        `cfg:"type"`
+	Debug           bool          `cfg:"debug"`
+	ExpireAfter     time.Duration `cfg:"expire_after"`
+	CleanupInterval time.Duration `cfg:"cleanup_interval"`
 
 	// SQLite
-	Path string `json:"path"`
+	Path string `cfg:"path"`
 
 	// PostgreSQL
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Database string `json:"database"`
-	SSLMode  string `json:"ssl_mode"`
-}
-
-func (c *DatabaseConfig) UnmarshalJSON(data []byte) error {
-	type config DatabaseConfig
-	v := struct {
-		ExpireAfter     string `json:"expire_after"`
-		CleanupInterval string `json:"cleanup_interval"`
-		*config
-	}{
-		config: (*config)(c),
-	}
-	if err := json.Unmarshal(data, &v); err != nil {
-		return fmt.Errorf("failed to unmarshal config: %w", err)
-	}
-	if v.ExpireAfter != "" {
-		d1, err := time.ParseDuration(v.ExpireAfter)
-		if err != nil {
-			return fmt.Errorf("failed to parse expire after duration: %w", err)
-		}
-		c.ExpireAfter = d1
-	}
-
-	if v.CleanupInterval != "" {
-		d2, err := time.ParseDuration(v.CleanupInterval)
-		if err != nil {
-			return fmt.Errorf("failed to parse cleanup interval duration: %w", err)
-		}
-		c.CleanupInterval = d2
-	}
-	return nil
+	Host     string `cfg:"host"`
+	Port     int    `cfg:"port"`
+	Username string `cfg:"username"`
+	Password string `cfg:"password"`
+	Database string `cfg:"database"`
+	SSLMode  string `cfg:"ssl_mode"`
 }
 
 func (c DatabaseConfig) String() string {
@@ -88,45 +56,10 @@ func (c DatabaseConfig) PostgresDataSourceName() string {
 }
 
 type RateLimitConfig struct {
-	Requests int           `json:"requests"`
-	Duration time.Duration `json:"duration"`
-}
-
-func (c *RateLimitConfig) UnmarshalJSON(data []byte) error {
-	var v struct {
-		Requests int    `json:"requests"`
-		Duration string `json:"duration"`
-	}
-	if err := json.Unmarshal(data, &v); err != nil {
-		return fmt.Errorf("failed to unmarshal rate limit config: %w", err)
-	}
-	if v.Duration != "" {
-		duration, err := time.ParseDuration(v.Duration)
-		if err != nil {
-			return fmt.Errorf("failed to parse rate limit duration: %w", err)
-		}
-		c.Duration = duration
-	}
-	c.Requests = v.Requests
-
-	return nil
+	Requests int           `cfg:"requests"`
+	Duration time.Duration `cfg:"duration"`
 }
 
 func (c RateLimitConfig) String() string {
 	return fmt.Sprintf("\n  Requests: %d\n  Duration: %s", c.Requests, c.Duration)
-}
-
-func LoadConfig(path string) (Config, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return Config{}, err
-	}
-	defer file.Close()
-
-	var cfg Config
-	if err = json.NewDecoder(file).Decode(&cfg); err != nil {
-		return Config{}, err
-	}
-
-	return cfg, nil
 }

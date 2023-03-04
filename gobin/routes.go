@@ -60,6 +60,9 @@ type (
 	ShareResponse struct {
 		Token string `json:"token"`
 	}
+	DeleteResponse struct {
+		Versions int `json:"versions"`
+	}
 	ErrorResponse struct {
 		Message   string `json:"message"`
 		Status    int    `json:"status"`
@@ -134,6 +137,7 @@ func (s *Server) Routes() http.Handler {
 				})
 			})
 		})
+		r.Get("/version", s.GetVersion)
 		r.Get("/{documentID}", s.GetPrettyDocument)
 		r.Head("/{documentID}", s.GetPrettyDocument)
 		r.Get("/", s.GetPrettyDocument)
@@ -152,6 +156,10 @@ func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.log(r, "get document versions", err)
 		s.error(w, r, err, http.StatusInternalServerError)
+		return
+	}
+	if len(versions) == 0 {
+		s.documentNotFound(w, r)
 		return
 	}
 	var response []DocumentResponse
@@ -205,7 +213,16 @@ func (s *Server) DeleteDocumentVersion(w http.ResponseWriter, r *http.Request) {
 		s.error(w, r, err, http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+
+	count, err := s.db.GetVersionCount(r.Context(), documentID)
+	if err != nil {
+		s.log(r, "delete document version", err)
+		s.error(w, r, err, http.StatusInternalServerError)
+		return
+	}
+	s.ok(w, r, DeleteResponse{
+		Versions: count,
+	})
 }
 
 func (s *Server) GetRawDocumentVersion(w http.ResponseWriter, r *http.Request) {
@@ -285,7 +302,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	versions := make([]DocumentVersion, 0, len(documents))
 	now := time.Now()
 	for _, documentVersion := range documents {
-		label, timeStr := formatVersion(now, documentVersion.Version)
+		label, timeStr := FormatDocumentVersion(now, documentVersion.Version)
 		versions = append(versions, DocumentVersion{
 			Version: documentVersion.Version,
 			Label:   label,
@@ -307,7 +324,11 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func formatVersion(now time.Time, versionRaw int64) (string, string) {
+func (s *Server) GetVersion(w http.ResponseWriter, _ *http.Request) {
+	_, _ = w.Write([]byte(s.version))
+}
+
+func FormatDocumentVersion(now time.Time, versionRaw int64) (string, string) {
 	version := time.Unix(versionRaw, 0)
 	timeStr := version.Format("02/01/2006 15:04:05")
 	if version.Year() < now.Year() {
@@ -387,7 +408,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	versionLabel, versionTime := formatVersion(time.Now(), document.Version)
+	versionLabel, versionTime := FormatDocumentVersion(time.Now(), document.Version)
 	s.ok(w, r, DocumentResponse{
 		Key:          document.ID,
 		Version:      document.Version,
@@ -426,7 +447,7 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	versionLabel, versionTime := formatVersion(time.Now(), document.Version)
+	versionLabel, versionTime := FormatDocumentVersion(time.Now(), document.Version)
 	s.ok(w, r, DocumentResponse{
 		Key:          document.ID,
 		Version:      document.Version,
@@ -439,7 +460,8 @@ func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
 	documentID := chi.URLParam(r, "documentID")
 
 	claims := s.GetClaims(r)
-	if claims.Subject != documentID || slices.Contains(claims.Permissions, PermissionDelete) {
+	if claims.Subject != documentID || !slices.Contains(claims.Permissions, PermissionDelete) {
+		println("not allowed")
 		s.documentNotFound(w, r)
 		return
 	}

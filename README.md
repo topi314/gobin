@@ -21,7 +21,7 @@ gobin is a simple lightweight haste-server alternative written in Go, HTML, JS a
         - [Build](#build)
         - [Run](#run)
 - [Configuration](#configuration)
-    - [Rate Limit](#rate-limit)
+- [Rate Limit](#rate-limits)
 - [API](#api)
     - [Create a document](#create-a-document)
     - [Get a document](#get-a-document)
@@ -62,7 +62,7 @@ The easiest way to deploy gobin is using docker with [Docker Compose](https://do
 Create a new `docker-compose.yml` file with the following content:
 
 > **Note**
-> You should change the password in the `docker-compose.yml` and `config.json` file.
+> You should change the password in the `docker-compose.yml` and `gobin.json` file.
 
 ```yaml
 version: "3.8"
@@ -73,7 +73,7 @@ services:
     container_name: gobin
     restart: unless-stopped
     volumes:
-      - ./config.json:/var/lib/gobin/config.json
+      - ./gobin.json:/var/lib/gobin/gobin.json
       # use this for sqlite
       - ./gobin.db:/var/lib/gobin/gobin.db
     ports:
@@ -92,7 +92,7 @@ services:
       POSTGRES_PASSWORD: password
 ```
 
-For `config.json` and database see schema [Configuration](#configuration).
+For `gobin.json`/environment variables and database schema see [Configuration](#configuration).
 
 ```bash
 docker-compose up -d
@@ -131,21 +131,26 @@ gobin --config=config.json
 
 ## Configuration
 
-The schema is automatically created when you start gobin and there is no `documents` table in the database.
+The database schema is automatically created when you start gobin and there is no `documents` table in the database.
 
-Create a new `config.json` file with the following content:
+Create a new `gobin.json` file with the following content:
 
 > **Note**
 > Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
 
 ```yml
 {
+  "dev_mode": false,
+  "debug": false,
   "listen_addr": "0.0.0.0:80",
-  "expire_after": "168h",
-  "cleanup_interval": "10m",
+  # secret for jwt tokens, replace with a long random string
+  "jwt_secret": "...",
   "database": {
     # either "postgres" or "sqlite"
     "type": "postgres",
+    "debug": false,
+    "expire_after": "168h",
+    "cleanup_interval": "10m",
 
     # path to sqlite database
     # if you run gobin with docker make sure to set it to "/var/lib/gobin/gobin.db"
@@ -171,7 +176,42 @@ Create a new `config.json` file with the following content:
 }
 ```
 
-### Rate Limit
+Alternatively you can use environment variables to configure gobin. The environment variables are prefixed with `GOBIN_` and are in uppercase. For example `GOBIN_DATABASE_TYPE` or `GOBIN_RATE_LIMIT_REQUESTS`.
+
+<details>
+<summary>Here is a list of all environment variables</summary>
+
+```env
+GOBIN_DEV_MODE=false
+GOBIN_DEBUG=false
+GOBIN_LISTEN_ADDR=0.0.0.0:80
+GOBIN_JWT_SECRET=...
+
+GOBIN_DATABASE_TYPE=postgres
+GOBIN_DATABASE_DEBUG=false
+GOBIN_DATABASE_EXPIRE_AFTER=168h
+GOBIN_DATABASE_CLEANUP_INTERVAL=10m
+
+GOBIN_DATABASE_PATH=gobin.db
+
+GOBIN_DATABASE_HOST=localhost
+GOBIN_DATABASE_PORT=5432
+GOBIN_DATABASE_USERNAME=gobin
+GOBIN_DATABASE_PASSWORD=password
+GOBIN_DATABASE_DATABASE=gobin
+GOBIN_DATABASE_SSL_MODE=disable
+
+GOBIN_MAX_DOCUMENT_SIZE=0
+
+GOBIN_RATE_LIMIT_REQUESTS=10
+GOBIN_RATE_LIMIT_DURATION=1m
+```
+
+</details>
+
+---
+
+## Rate Limits
 
 Following endpoints are rate-limited:
 
@@ -218,7 +258,7 @@ A successful request will return a `200 OK` response with a JSON body containing
 
 To get a document you have to send a `GET` request to `/documents/{key}`.
 
-The response will be a `200 OK` with the document content as `application/json` body. 
+The response will be a `200 OK` with the document content as `application/json` body.
 
 ```json
 {
@@ -325,6 +365,7 @@ A successful request will return a `204 No Content` response with an empty body.
 - `HEAD` `/raw/{key}/{version}` - Get the raw content of a document version without the body
 - `GET` `/ping` - Get the status of the server
 - `GET` `/debug` - Proof debug endpoint (only available in debug mode)
+- `GET` `/version` - Get the version of the server
 
 ---
 
