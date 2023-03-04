@@ -143,6 +143,8 @@ Create a new `gobin.json` file with the following content:
   "dev_mode": false,
   "debug": false,
   "listen_addr": "0.0.0.0:80",
+  # secret for jwt tokens, replace with a long random string
+  "jwt_secret": "...",
   "database": {
     # either "postgres" or "sqlite"
     "type": "postgres",
@@ -183,6 +185,7 @@ Alternatively you can use environment variables to configure gobin. The environm
 GOBIN_DEV_MODE=false
 GOBIN_DEBUG=false
 GOBIN_LISTEN_ADDR=0.0.0.0:80
+GOBIN_JWT_SECRET=...
 
 GOBIN_DATABASE_TYPE=postgres
 GOBIN_DATABASE_DEBUG=false
