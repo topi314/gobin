@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/go-jose/go-jose/v3"
+	"github.com/mitchellh/mapstructure"
+	"github.com/spf13/viper"
 
 	"github.com/topisenpai/gobin/gobin"
 )
@@ -34,14 +36,45 @@ var (
 )
 
 func main() {
-	log.Printf("Gobin version: %s (commit: %s, build time: %s)", version, commit, buildTime)
-	cfgPath := flag.String("config", "config.json", "path to config.json")
+	log.Printf("Starting Gobin with version: %s (commit: %s, build time: %s)...", version, commit, buildTime)
+	cfgPath := flag.String("config", "", "path to gobin.json")
 	flag.Parse()
 
-	log.Printf("Gobin starting... (config path:%s)", *cfgPath)
-	cfg, err := gobin.LoadConfig(*cfgPath)
-	if err != nil {
+	viper.SetDefault("listen_addr", ":80")
+	viper.SetDefault("dev_mode", false)
+	viper.SetDefault("database.type", "sqlite")
+	viper.SetDefault("database.debug", false)
+	viper.SetDefault("database.expire_after", "0")
+	viper.SetDefault("database.cleanup_interval", "1m")
+	viper.SetDefault("database.path", "gobin.db")
+	viper.SetDefault("database.host", "localhost")
+	viper.SetDefault("database.port", 5432)
+	viper.SetDefault("database.username", "gobin")
+	viper.SetDefault("database.password", "password")
+	viper.SetDefault("database.database", "gobin")
+	viper.SetDefault("database.ssl_mode", "disable")
+	viper.SetDefault("max_document_size", 0)
+	viper.SetDefault("rate_limit.requests", 10)
+	viper.SetDefault("rate_limit.duration", "1m")
+
+	viper.SetConfigName("gobin")
+	viper.SetConfigType("json")
+	if *cfgPath != "" {
+		viper.SetConfigFile(*cfgPath)
+	}
+	viper.AddConfigPath(".")
+	viper.AddConfigPath("/etc/gobin/")
+	if err := viper.ReadInConfig(); err != nil {
 		log.Fatalln("Error while reading config:", err)
+	}
+	viper.SetEnvPrefix("gobin")
+	viper.AutomaticEnv()
+
+	var cfg gobin.Config
+	if err := viper.Unmarshal(&cfg, func(config *mapstructure.DecoderConfig) {
+		config.TagName = "cfg"
+	}); err != nil {
+		log.Fatalln("Error while unmarshalling config:", err)
 	}
 	log.Println("Config:", cfg)
 

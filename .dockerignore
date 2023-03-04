@@ -3,7 +3,7 @@
 README.md
 LICENSE
 Dockerfile
-config.json
-config.json.example
+gobin.json
+gobin.json.example
 assets/highlight.min.js
 assets/styles/
