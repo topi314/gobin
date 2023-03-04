@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/go-jose/go-jose/v3"
+	"github.com/mitchellh/mapstructure"
+	"github.com/spf13/viper"
 
 	"github.com/topisenpai/gobin/gobin"
 )
@@ -35,13 +37,27 @@ var (
 
 func main() {
 	log.Printf("Gobin version: %s (commit: %s, build time: %s)", version, commit, buildTime)
-	cfgPath := flag.String("config", "config.json", "path to config.json")
+
+	cfgPath := flag.String("config", "", "path to gobin.json")
 	flag.Parse()
 
-	log.Printf("Gobin starting... (config path:%s)", *cfgPath)
-	cfg, err := gobin.LoadConfig(*cfgPath)
-	if err != nil {
+	viper.SetConfigName("gobin")
+	viper.SetConfigType("json")
+	if *cfgPath != "" {
+		viper.SetConfigFile(*cfgPath)
+	}
+	viper.AddConfigPath(".")
+	viper.AddConfigPath("/etc/gobin/")
+	if err := viper.ReadInConfig(); err != nil {
 		log.Fatalln("Error while reading config:", err)
+	}
+	log.Printf("Gobin starting... (config path:%s)", *cfgPath)
+
+	var cfg gobin.Config
+	if err := viper.Unmarshal(&cfg, func(config *mapstructure.DecoderConfig) {
+		config.TagName = "cfg"
+	}); err != nil {
+		log.Fatalln("Error while unmarshalling config:", err)
 	}
 	log.Println("Config:", cfg)
 
