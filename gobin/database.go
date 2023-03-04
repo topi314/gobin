@@ -76,11 +76,10 @@ func NewDB(ctx context.Context, cfg DatabaseConfig, schema string) (*DB, error) 
 }
 
 type Document struct {
-	ID          string `db:"id"`
-	Version     int64  `db:"version"`
-	Content     string `db:"content"`
-	Language    string `db:"language"`
-	UpdateToken string `db:"update_token"`
+	ID       string `db:"id"`
+	Version  int64  `db:"version"`
+	Content  string `db:"content"`
+	Language string `db:"language"`
 }
 
 type DB struct {
@@ -89,7 +88,7 @@ type DB struct {
 }
 
 func (d *DB) Close() error {
-	return d.Close()
+	return d.dbx.Close()
 }
 
 func (d *DB) GetDocument(ctx context.Context, documentID string) (Document, error) {
@@ -141,13 +140,12 @@ func (d *DB) createDocument(ctx context.Context, content string, language string
 	}
 	now := time.Now().Unix()
 	doc := Document{
-		ID:          randomString(8),
-		Content:     content,
-		Language:    language,
-		UpdateToken: randomString(32),
-		Version:     now,
+		ID:       randomString(8),
+		Content:  content,
+		Language: language,
+		Version:  now,
 	}
-	_, err := d.dbx.NamedExecContext(ctx, "INSERT INTO documents (id, version, content, language, update_token) VALUES (:id, :version, :content, :language, :update_token)", doc)
+	_, err := d.dbx.NamedExecContext(ctx, "INSERT INTO documents (id, version, content, language) VALUES (:id, :version, :content, :language)", doc)
 
 	if err != nil {
 		var (
@@ -164,15 +162,14 @@ func (d *DB) createDocument(ctx context.Context, content string, language string
 	return doc, err
 }
 
-func (d *DB) UpdateDocument(ctx context.Context, documentID string, updateToken string, content string, language string) (Document, error) {
+func (d *DB) UpdateDocument(ctx context.Context, documentID string, content string, language string) (Document, error) {
 	doc := Document{
-		ID:          documentID,
-		Version:     time.Now().Unix(),
-		Content:     content,
-		Language:    language,
-		UpdateToken: updateToken,
+		ID:       documentID,
+		Version:  time.Now().Unix(),
+		Content:  content,
+		Language: language,
 	}
-	res, err := d.dbx.NamedExecContext(ctx, "INSERT INTO documents (id, version, content, language, update_token) VALUES (:id, :version, :content, :language, :update_token)", doc)
+	res, err := d.dbx.NamedExecContext(ctx, "INSERT INTO documents (id, version, content, language) VALUES (:id, :version, :content, :language)", doc)
 	if err != nil {
 		return Document{}, err
 	}
@@ -187,8 +184,8 @@ func (d *DB) UpdateDocument(ctx context.Context, documentID string, updateToken 
 	return doc, nil
 }
 
-func (d *DB) DeleteDocument(ctx context.Context, documentID string, updateToken string) error {
-	res, err := d.dbx.ExecContext(ctx, "DELETE FROM documents WHERE id = $1 AND update_token = $2", documentID, updateToken)
+func (d *DB) DeleteDocument(ctx context.Context, documentID string) error {
+	res, err := d.dbx.ExecContext(ctx, "DELETE FROM documents WHERE id = $1", documentID)
 	if err != nil {
 		return err
 	}
@@ -204,7 +201,7 @@ func (d *DB) DeleteDocument(ctx context.Context, documentID string, updateToken 
 }
 
 func (d *DB) DeleteExpiredDocuments(ctx context.Context, expireAfter time.Duration) error {
-	_, err := d.dbx.ExecContext(ctx, "DELETE FROM documents WHERE version < $1", time.Now().Add(expireAfter))
+	_, err := d.dbx.ExecContext(ctx, "DELETE FROM documents WHERE version < $1", time.Now().Add(expireAfter).Unix())
 	return err
 }
 

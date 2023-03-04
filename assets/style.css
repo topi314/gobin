@@ -98,7 +98,6 @@ html {
     border: none;
     border-radius: 1rem;
     padding: 1rem;
-
     background-color: var(--bg-secondary);
 }
 
@@ -106,13 +105,13 @@ dialog::backdrop {
     background-color: rgba(0, 0, 0, 0.7);
 }
 
-#share-dialog div {
+.share-dialog-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
-#share-dialog div h2 {
+.share-dialog-header h2 {
     font-size: 1.5rem;
     font-weight: bold;
     margin: 0;
@@ -122,37 +121,19 @@ dialog::backdrop {
     background-image: var(--close);
 }
 
-#share-url-label {
+.share-dialog-main {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
     gap: 1rem;
+    align-items: flex-end;
+    justify-content: space-between;
 }
 
-#share-url-label input {
-    width: 100%;
-    padding: 0.5rem;
-    border: none;
-    border-radius: 1rem;
-    background-color: var(--bg-primary);
-    color: var(--text-primary);
-    font-family: monospace;
-    font-size: 1rem;
-}
-
-#share-url-label button {
-    padding: 0.5rem;
-    border: none;
-    border-radius: 1rem;
-    background-color: var(--bg-primary);
-    color: var(--text-primary);
-    font-family: monospace;
-    font-size: 1rem;
-    cursor: pointer;
-}
-
-#share-url-label button:hover {
-    opacity: 0.7;
+.share-dialog-permissions {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 1rem;
+    width: fit-content;
+    align-items: center;
 }
 
 body {
@@ -271,6 +252,12 @@ nav {
     background-position: center;
     background-size: 1rem;
     cursor: pointer;
+    color: var(--text-primary);
+}
+
+#share-copy {
+    width: fit-content;
+    padding: 0.5rem;
 }
 
 .button:hover, button:hover {
@@ -290,10 +277,16 @@ main {
 
 .error {
     text-align: center;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .error h1 {
     font-weight: bolder;
+}
+
+.error-details {
+    text-align: start;
 }
 
 .error p {
@@ -313,32 +306,47 @@ main {
     padding: 1rem;
 }
 
-.settings > * {
-    flex-shrink: 0;
+.settings .first {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
 }
 
 #versions {
     position: fixed;
-    display: flex;
+    display: none;
+    row-gap: 0.25rem;
     right: 1rem;
     flex-direction: column;
-    border-left: 1px solid var(--bg-secondary);
-    margin: 0;
-    padding: 0 1rem 0 1rem;
-    height: 0;
-    overflow: hidden;
+    border-radius: 1rem;
+    padding: 0.5rem;
+    max-height: calc(100vh - 8rem);
+    overflow-y: scroll;
     background-color: var(--bg-secondary);
-    transition: height 0.2s ease-out, padding-top 0.2s ease-out;
 }
 
-#version {
-    padding: 1rem;
+.version-btn {
+    display: none;
+}
+
+.version-btn:checked + label {
+    background-color: var(--bg-primary);
+}
+
+.version {
+    padding: 0.5rem;
     cursor: pointer;
-    border-radius: 2rem;
+    user-select: none;
+    border-radius: 1rem;
+}
+
+.version:hover {
+    background-color: var(--bg-primary);
 }
 
 #versions-btn {
     display: none;
+    user-select: none;
 }
 
 #versions-btn ~ label {
@@ -354,6 +362,16 @@ main {
     background-position: center;
     background-size: 1rem;
     cursor: pointer;
+    user-select: none;
+}
+
+#versions-btn ~ label:hover {
+    opacity: 0.7;
+}
+
+#versions-btn:disabled ~ label {
+    cursor: not-allowed;
+    opacity: 0.2;
 }
 
 #versions-btn:checked ~ label {
@@ -361,9 +379,7 @@ main {
 }
 
 #versions-btn:checked ~ #versions {
-    height: 10rem;
-    padding-top: 1rem;
-    padding-bottom: 1rem;
+    display: flex;
 }
 
 select {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/topisenpai/gobin/cmd"
+	"github.com/topisenpai/gobin/gobin"
 )
 
 // These variables are set via the -ldflags option in go build
@@ -16,6 +17,6 @@ func main() {
 	cmd.NewGetCmd(rootCmd)
 	cmd.NewPushCmd(rootCmd)
 	cmd.NewVersionsCmd(rootCmd)
-	cmd.NewVersionCmd(rootCmd, version, commit, buildTime)
+	cmd.NewVersionCmd(rootCmd, gobin.FormatVersion(version, commit, buildTime))
 	cmd.Execute(rootCmd)
 }

@@ -9,6 +9,8 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@v3
+              with:
+                fetch-depth: 0
 
             - name: Docker meta
               id: meta
@@ -16,7 +18,7 @@ jobs:
               with:
                   images: |
                     ghcr.io/topisenpai/gobin
-                    git.topi.wtf/topi/gobin
+#                    git.topi.wtf/topi/gobin
                   tags: |
                       type=ref,event=branch
                       type=ref,event=tag
@@ -36,12 +38,18 @@ jobs:
                   username: ${{ github.repository_owner }}
                   password: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Login to Gitea Container Registry
-              uses: docker/login-action@v2
-              with:
-                registry: git.topi.wtf
-                username: ${{ secrets.GITEA_USER }}
-                password: ${{ secrets.GITEA_TOKEN }}
+#            - name: Login to Gitea Container Registry
+#              uses: docker/login-action@v2
+#              with:
+#                registry: git.topi.wtf
+#                username: ${{ secrets.GITEA_USER }}
+#                password: ${{ secrets.GITEA_TOKEN }}
+
+            - name: Prepare Version Info
+              run: |
+                echo "VERSION=$(git describe --tags)" >> $GITHUB_ENV
+                echo "COMMIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
+                echo "BUILD_TIME=$(date --rfc-3339=seconds)" >> $GITHUB_ENV
 
             - name: Build and push
               uses: docker/build-push-action@v3
@@ -51,7 +59,11 @@ jobs:
                   push: true
                   tags: ${{ steps.meta.outputs.tags }}
                   labels: ${{ steps.meta.outputs.labels }}
-                  build-args: GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+                  build-args: |
+                    GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+                    VERSION=${{ env.VERSION }}
+                    COMMIT=${{ env.COMMIT }}
+                    BUILD_TIME=${{ env.BUILD_TIME }}
 
     deploy:
       needs:

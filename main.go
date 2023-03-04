@@ -10,7 +10,16 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-jose/go-jose/v3"
+
 	"github.com/topisenpai/gobin/gobin"
+)
+
+// These variables are set via the -ldflags option in go build
+var (
+	version   = "unknown"
+	commit    = "unknown"
+	buildTime = "unknown"
 )
 
 var (
@@ -25,10 +34,11 @@ var (
 )
 
 func main() {
+	log.Printf("Gobin version: %s (commit: %s, build time: %s)", version, commit, buildTime)
 	cfgPath := flag.String("config", "config.json", "path to config.json")
 	flag.Parse()
 
-	log.Println("Gobin starting... (config path:", *cfgPath, ")")
+	log.Printf("Gobin starting... (config path:%s)", *cfgPath)
 	cfg, err := gobin.LoadConfig(*cfgPath)
 	if err != nil {
 		log.Fatalln("Error while reading config:", err)
@@ -42,6 +52,15 @@ func main() {
 		log.Fatalln("Error while connecting to database:", err)
 	}
 	defer db.Close()
+
+	key := jose.SigningKey{
+		Algorithm: jose.HS512,
+		Key:       []byte(cfg.JWTSecret),
+	}
+	signer, err := jose.NewSigner(key, nil)
+	if err != nil {
+		log.Fatalln("Error while creating signer:", err)
+	}
 
 	var (
 		tmplFunc gobin.ExecuteTemplateFunc
@@ -66,7 +85,7 @@ func main() {
 		assets = http.FS(Assets)
 	}
 
-	s := gobin.NewServer(cfg, db, assets, tmplFunc)
+	s := gobin.NewServer(gobin.FormatVersion(version, commit, buildTime), cfg, db, signer, assets, tmplFunc)
 	log.Println("Gobin listening on:", cfg.ListenAddr)
 	s.Start()
 }

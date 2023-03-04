@@ -4,14 +4,18 @@ go 1.18
 
 require (
 	github.com/go-chi/chi/v5 v5.0.8
-	github.com/jackc/pgx/v5 v5.3.0
+	github.com/go-chi/httprate v0.7.1
+	github.com/go-jose/go-jose/v3 v3.0.0
+	github.com/jackc/pgx/v5 v5.2.0
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.15.0
+	golang.org/x/exp v0.0.0-20230203172020-98cc5a0785f9
 	modernc.org/sqlite v1.20.4
 )
 
 require (
+	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect

@@ -12,21 +12,29 @@ hljs.listLanguages().forEach((language) => {
     languageElement.appendChild(option);
 });
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
     const key = window.location.pathname === "/" ? "" : window.location.pathname.slice(1);
     const version = window.location.hash === "" ? 0 : parseInt(window.location.hash.slice(1));
     const params = new URLSearchParams(window.location.search);
     if (params.has("token")) {
-        setUpdateToken(key, params.get("token"));
+        setToken(key, params.get("token"));
     }
+
+    document.querySelector("#nav-btn").checked = false;
+    document.querySelector("#versions-btn").checked = false;
 
     let content = "", language = "";
     if (key) {
-        content = document.querySelector("#code-view").innerText
-        language = document.querySelector("#language").value;
+        if (version) {
+            const {newState} = await fetchVersion(key, version);
+            content = newState.content;
+            language = newState.language;
+        } else {
+            content = document.querySelector("#code-view").innerText;
+            language = document.querySelector("#language").value;
+        }
     }
     const {newState, url} = createState(key, version, key ? "view" : "edit", content, language);
-    console.log(newState);
     updateCode(newState);
     updatePage(newState);
     window.history.replaceState(newState, "", url);
@@ -50,10 +58,14 @@ document.querySelector("#code-edit").addEventListener("keydown", (event) => {
 });
 
 document.querySelector("#code-edit").addEventListener("paste", (event) => {
-    const {key, language} = getState();
-    const newState = {key: key, mode: "edit", content: event.clipboardData.getData("text/plain"), language: language};
+    event.preventDefault();
+    const codeEditElement = document.querySelector("#code-edit");
+    const {key, version, language} = getState();
+    const newContent = codeEditElement.value + event.clipboardData.getData("text/plain");
+    const {newState, url} = createState(key, version, "edit", newContent, language);
     updatePage(newState);
-    window.history.replaceState(newState, "", `/${key}`);
+    codeEditElement.value = newContent;
+    window.history.replaceState(newState, "", url);
 })
 
 document.addEventListener("keydown", (event) => {
@@ -68,29 +80,19 @@ const doKeyboardAction = (event, elementName) => {
 }
 
 document.querySelector("#code-edit").addEventListener("keyup", (event) => {
-    const {key, language} = getState();
-    const newState = {key: key, mode: "edit", content: event.target.value, language: language};
+    const {key, version, language} = getState();
+    const {newState, url} = createState(key, version, "edit", event.target.value, language);
     updatePage(newState);
-    window.history.replaceState(newState, "", `/${key}`);
+    window.history.replaceState(newState, "", url);
 })
 
 document.querySelector("#edit").addEventListener("click", async () => {
     if (document.querySelector("#edit").disabled) return;
 
     const {key, content, language} = getState();
-    let newState;
-    let url;
-    if (getUpdateToken(key) === "") {
-        newState = {key: "", mode: "edit", content: content, language: language};
-        url = "/";
-    } else {
-        newState = {key: key, mode: "edit", content: content, language: language};
-        url = `/${key}`;
-    }
-
+    const {newState, url} = createState(hasPermission(getToken(key), "write") ? key : "", 0, "edit", content, language);
     updateCode(newState);
     updatePage(newState);
-
     window.history.pushState(newState, "", url);
 })
 
@@ -98,17 +100,17 @@ document.querySelector("#save").addEventListener("click", async () => {
     if (document.querySelector("#save").disabled) return;
     const {key, mode, content, language} = getState()
     if (mode !== "edit") return;
-    const updateToken = getUpdateToken(key);
+    const token = getToken(key);
     const saveButton = document.querySelector("#save");
     saveButton.classList.add("loading");
 
     let response;
-    if (key && updateToken) {
+    if (key && token) {
         response = await fetch(`/documents/${key}`, {
             method: "PATCH",
             body: content,
             headers: {
-                Authorization: updateToken,
+                Authorization: `Bearer ${token}`,
                 Language: language
             }
         });
@@ -130,21 +132,43 @@ document.querySelector("#save").addEventListener("click", async () => {
         return;
     }
 
-    const newState = {key: body.key, mode: "view", content: body.data, language: body.language};
-    setUpdateToken(body.key, body.update_token);
+    const {newState, url} = createState(body.key, 0, "view", content, language);
+    if (body.token) {
+        setToken(body.key, body.token);
+    }
+    const inputElement = document.createElement("input")
+    const labelElement = document.createElement("label")
+
+    inputElement.id = `version-${body.version}`;
+    inputElement.classList.add("version-btn");
+    inputElement.type = "radio";
+    inputElement.name = "version";
+    inputElement.value = body.version;
+    inputElement.checked = true;
+
+    labelElement.htmlFor = `version-${body.version}`;
+    labelElement.classList.add("version");
+    labelElement.title = `${body.version_time}`;
+    labelElement.innerText = `${body.version_label}`;
+
+    const versionsElement = document.querySelector("#versions")
+    for (let child of versionsElement.children) {
+        child.checked = false
+    }
+    versionsElement.insertBefore(labelElement, versionsElement.firstChild);
+    versionsElement.insertBefore(inputElement, versionsElement.firstChild);
+
     updateCode(newState);
     updatePage(newState);
-    window.history.pushState(newState, "", `/${body.key}`);
+    window.history.pushState(newState, "", url);
 });
 
 document.querySelector("#delete").addEventListener("click", async () => {
     if (document.querySelector("#delete").disabled) return;
 
     const {key} = getState();
-    const updateToken = getUpdateToken(key);
-    if (updateToken === "") {
-        return;
-    }
+    const token = getToken(key);
+    if (!token) return;
 
     const deleteConfirm = window.confirm("Are you sure you want to delete this document? This action cannot be undone.")
     if (!deleteConfirm) return;
@@ -152,8 +176,9 @@ document.querySelector("#delete").addEventListener("click", async () => {
     const deleteButton = document.querySelector("#delete");
     deleteButton.classList.add("loading");
     let response = await fetch(`/documents/${key}`, {
-        method: "DELETE", headers: {
-            Authorization: updateToken
+        method: "DELETE",
+        headers: {
+            Authorization: `Bearer ${token}`
         }
     });
     deleteButton.classList.remove("loading");
@@ -164,11 +189,11 @@ document.querySelector("#delete").addEventListener("click", async () => {
         console.error("error deleting document:", response);
         return;
     }
-    deleteUpdateToken();
-    const newState = {key: "", mode: "edit", content: "", language: ""};
+    deleteToken();
+    const {newState, url} = createState("", 0, "edit", "", "");
     updateCode(newState);
     updatePage(newState);
-    window.history.pushState(newState, "", "/");
+    window.history.pushState(newState, "", url);
 })
 
 document.querySelector("#copy").addEventListener("click", async () => {
@@ -182,23 +207,25 @@ document.querySelector("#copy").addEventListener("click", async () => {
 document.querySelector("#raw").addEventListener("click", () => {
     if (document.querySelector("#raw").disabled) return;
 
-    const {key} = getState();
+    const {key, version} = getState();
     if (!key) return;
-    window.open(`/raw/${key}`, "_blank").focus();
+    window.open(`/raw/${key}/versions/${version}`, "_blank").focus();
 })
 
 document.querySelector("#share").addEventListener("click", async () => {
     if (document.querySelector("#share").disabled) return;
 
     const {key} = getState();
-    const updateToken = getUpdateToken(key);
-    if (updateToken === "") {
+    const token = getToken(key);
+    if (!hasPermission(token, "share")) {
         await navigator.clipboard.writeText(window.location.href);
         return;
     }
 
-    document.querySelector("#share-permissions").checked = false;
-    document.querySelector("#share-url").value = window.location.href;
+    document.querySelector("#share-permissions-write").checked = false;
+    document.querySelector("#share-permissions-delete").checked = false;
+    document.querySelector("#share-permissions-share").checked = false;
+
     document.querySelector("#share-dialog").showModal();
 });
 
@@ -206,37 +233,55 @@ document.querySelector("#share-dialog-close").addEventListener("click", () => {
     document.querySelector("#share-dialog").close();
 });
 
-document.querySelector("#share-permissions").addEventListener("change", (event) => {
-    const {key} = getState();
-    const updateToken = getUpdateToken(key);
-    if (updateToken === "") {
-        return;
-    }
-
-    const shareUrl = document.querySelector("#share-url");
-    if (event.target.checked) {
-        shareUrl.value = `${window.location.href}?token=${updateToken}`;
-        return;
-    }
-    shareUrl.value = window.location.href;
-});
-
-document.querySelector("#share-url").addEventListener("click", () => {
-    document.querySelector("#share-url").select();
-});
-
 document.querySelector("#share-copy").addEventListener("click", async () => {
-    const shareUrl = document.querySelector("#share-url");
-    await navigator.clipboard.writeText(shareUrl.value);
+    const permissions = [];
+    if (document.querySelector("#share-permissions-write").checked) {
+        permissions.push("write");
+    }
+    if (document.querySelector("#share-permissions-delete").checked) {
+        permissions.push("delete");
+    }
+    if (document.querySelector("#share-permissions-share").checked) {
+        permissions.push("share");
+    }
+
+    if (permissions.length === 0) {
+        await navigator.clipboard.writeText(window.location.href);
+        document.querySelector("#share-dialog").close();
+        return;
+    }
+
+    const {key} = getState();
+    const token = getToken(key);
+
+    const response = await fetch(`/documents/${key}/share`, {
+        method: "POST",
+        body: JSON.stringify({permissions: permissions}),
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+        }
+    });
+
+    if (!response.ok) {
+        const body = await response.json();
+        showErrorPopup(body.message || response.statusText)
+        console.error("error sharing document:", response);
+        return;
+    }
+
+    const body = await response.json()
+    const shareUrl = window.location.href + "?token=" + body.token;
+    await navigator.clipboard.writeText(shareUrl);
     document.querySelector("#share-dialog").close();
 });
 
 
 document.querySelector("#language").addEventListener("change", (event) => {
-    const {key, mode, content} = getState();
-    const newState = {key: key, mode: mode, content: content, language: event.target.value};
+    const {key, version, mode, content} = getState();
+    const {newState, url} = createState(key, version, mode, content, event.target.value);
     highlightCode(newState);
-    window.history.replaceState(newState, "", window.location.pathname);
+    window.history.replaceState(newState, "", url);
 });
 
 document.querySelector("#style").addEventListener("change", (event) => {
@@ -245,24 +290,33 @@ document.querySelector("#style").addEventListener("change", (event) => {
 
 document.querySelector("#versions").addEventListener("click", async (event) => {
     if (event.target && event.target.matches("input[type='radio']")) {
-        const {key} = getState();
-        const version = event.target.value;
-        const response = await fetch(`/documents/${key}/versions/${version}`, {
-            method: "GET"
-        });
-
-        const body = await response.json();
-        if (!response.ok) {
-            showErrorPopup(body.message || response.statusText);
-            console.error("error fetching document version:", response);
-            return;
+        const {key, version} = getState();
+        let newVersion = parseInt(event.target.value);
+        if (event.target.parentElement.children.item(0).value === `${newVersion}`) {
+            newVersion = 0;
         }
-
-        const {newState, url} = createState(key, version, "view", body.data, body.language);
+        if (newVersion === version) return;
+        const {newState, url} = await fetchVersion(key, newVersion)
+        if (!newState) return;
         updateCode(newState);
         window.history.pushState(newState, "", url);
     }
 })
+
+async function fetchVersion(key, version) {
+    const response = await fetch(`/documents/${key}${version ? `/versions/${version}` : ""}`, {
+        method: "GET"
+    });
+
+    const body = await response.json();
+    if (!response.ok) {
+        showErrorPopup(body.message || response.statusText);
+        console.error("error fetching document version:", response);
+        return;
+    }
+
+    return createState(key, version, "view", body.data, body.language);
+}
 
 function showErrorPopup(message) {
     const popup = document.getElementById("error-popup");
@@ -271,41 +325,47 @@ function showErrorPopup(message) {
     setTimeout(() => popup.style.display = "none", 5000);
 }
 
-
 function getState() {
     return window.history.state;
 }
 
 function createState(key, version, mode, content, language) {
-    return {newState: {key, version, mode, content, language}, url: `/${key}${version ? `#${version}` : ""}`};
+    return {newState: {key, version, mode, content: content.trim(), language}, url: `/${key}${version ? `#${version}` : ""}`};
 }
 
-function getUpdateToken(key) {
+function getToken(key) {
     const documents = localStorage.getItem("documents")
     if (!documents) return ""
-    const updateToken = JSON.parse(documents)[key]
-    if (!updateToken) return ""
+    const token = JSON.parse(documents)[key]
+    if (!token) return ""
 
-    return updateToken
+    return token
 }
 
-function setUpdateToken(key, updateToken) {
+function setToken(key, token) {
     let documents = localStorage.getItem("documents")
     if (!documents) {
         documents = "{}"
     }
     const parsedDocuments = JSON.parse(documents)
-    parsedDocuments[key] = updateToken
+    parsedDocuments[key] = token
     localStorage.setItem("documents", JSON.stringify(parsedDocuments))
 }
 
-function deleteUpdateToken() {
+function deleteToken() {
     const {key} = getState();
     const documents = localStorage.getItem("documents");
     if (!documents) return;
     const parsedDocuments = JSON.parse(documents);
     delete parsedDocuments[key]
     localStorage.setItem("documents", JSON.stringify(parsedDocuments));
+}
+
+function hasPermission(token, permission) {
+    if (!token) return false;
+    const tokenSplit = token.split(".")
+    if (tokenSplit.length !== 3) return false;
+    return JSON.parse(atob(tokenSplit[1])).permissions.includes(permission);
 }
 
 function updateCode(state) {
@@ -331,7 +391,7 @@ function updateCode(state) {
 
 function updatePage(state) {
     const {key, mode, content} = state;
-    const updateToken = getUpdateToken(key);
+    const token = getToken(key);
     // update page title
     if (key) {
         document.title = `gobin - ${key}`;
@@ -345,14 +405,14 @@ function updatePage(state) {
     const copyButton = document.querySelector("#copy");
     const rawButton = document.querySelector("#raw");
     const shareButton = document.querySelector("#share");
+    const versionsButton = document.querySelector("#versions-btn");
+    versionsButton.disabled = document.querySelector("#versions").children.length <= 2;
     if (mode === "view") {
         saveButton.disabled = true;
         saveButton.style.display = "none";
         editButton.disabled = false;
         editButton.style.display = "block";
-        if (updateToken) {
-            deleteButton.disabled = false;
-        }
+        deleteButton.disabled = !hasPermission(token, "delete");
         copyButton.disabled = false;
         rawButton.disabled = false;
         shareButton.disabled = false;

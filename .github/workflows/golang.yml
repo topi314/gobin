@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v3
@@ -29,18 +31,21 @@ jobs:
       - name: Create Dist Folder
         run: mkdir dist
 
-      - name: Print
-        run: 'echo FILE_NAME: dist/gobin-${{ matrix.goos }}-${{ matrix.goarch }}${{ env.file_name }}'
+      - name: Prepare Version Info
+        run: |
+          echo "VERSION=$(git describe --tags)" >> $GITHUB_ENV
+          echo "COMMIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
+          echo "BUILD_TIME=$(date --rfc-3339=seconds)" >> $GITHUB_ENV
 
       - name: Build
         run: |
           CGO_ENABLED=0
           GOOS=${{ matrix.goos }}
           GOARCH=${{ matrix.goarch }}
-          go build -ldflags="-X 'main.version=$(git describe --tags)' -X 'main.commit=$(git rev-parse HEAD)' -X 'main.buildTime=$(date --rfc-3339=seconds)'" -o dist/gobin-${{ matrix.goos }}-${{ matrix.goarch }}${{ env.file_name }} github.com/topisenpai/gobin/cli
+          go build -ldflags="-X 'main.version=${{ env.VERSION }}' -X 'main.commit=${{ env.COMMIT }}' -X 'main.buildTime=${{ env.BUILD_TIME }}'" -o dist/gobin-${{ matrix.goos }}-${{ matrix.goarch }}${{ env.file_name }} github.com/topisenpai/gobin/cli
 
       - name: Upload
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: gobin-cli
           path: dist/gobin-*
