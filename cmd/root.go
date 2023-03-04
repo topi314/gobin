@@ -37,10 +37,10 @@ func initConfig(cfgFile string) func() {
 			home, err := os.UserHomeDir()
 			cobra.CheckErr(err)
 
-			viper.AddConfigPath(".")
+			viper.AddConfigPath("$HOME/.gobin")
 			viper.AddConfigPath(home)
-			viper.SetConfigType("yaml")
-			viper.SetConfigName(".gobin")
+			viper.SetConfigType("json")
+			viper.SetConfigName("config")
 		}
 
 		viper.AutomaticEnv()

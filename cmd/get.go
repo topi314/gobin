@@ -1,8 +1,12 @@
 package cmd
 
 import (
+	"encoding/json"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"io"
+	"net/http"
+	"os"
 )
 
 func NewGetCmd(parent *cobra.Command) {
@@ -27,8 +31,62 @@ gobin get -v 123456 jis74978
 
 Will return the document with the id of jis74978 and the version of 123456.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Println("get called with args:", args)
-			cmd.Println("server:", viper.GetString("server"))
+			requestUrl := viper.GetString("server")
+			document := args[0]
+
+			if viper.GetString("version") != "" {
+				requestUrl += "/raw/" + document + "/versions/" + viper.GetString("version")
+			} else {
+				requestUrl += "/raw/" + document
+			}
+
+			client := &http.Client{}
+
+			response, err := client.Get(requestUrl)
+			defer response.Body.Close()
+
+			if err != nil {
+				cmd.PrintErrln(err)
+				return
+			}
+
+			body, err := io.ReadAll(response.Body)
+			if err != nil {
+				cmd.PrintErrln(err)
+				return
+			}
+
+			content := string(body)
+
+			if response.StatusCode != http.StatusOK {
+				var errorResponse ErrorResponse
+				err := json.Unmarshal(body, &errorResponse)
+				if err != nil {
+					return
+				}
+				cmd.PrintErrln(viper.GetString("server") + " has returned a error: " + errorResponse.Message)
+				return
+			}
+
+			if viper.GetString("file") != "" {
+				file, err := os.Create(viper.GetString("file"))
+				if err != nil {
+					cmd.PrintErrln(err)
+					return
+				}
+				defer file.Close()
+
+				_, err = file.WriteString(content)
+				if err != nil {
+					cmd.PrintErrln(err)
+					return
+				}
+			} else {
+				cmd.Println(content)
+			}
+
+			//cmd.Println("get called with args:", args)
+			//cmd.Println("server:", viper.GetString("server"))
 		},
 	}
 	parent.AddCommand(cmd)

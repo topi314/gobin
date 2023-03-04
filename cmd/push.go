@@ -1,11 +1,12 @@
 package cmd
 
 import (
-	"io"
-	"os"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"io"
+	"net/http"
+	"os"
+	"strings"
 )
 
 func NewPushCmd(parent *cobra.Command) {
@@ -57,19 +58,62 @@ func NewPushCmd(parent *cobra.Command) {
 				}
 
 				if info.Mode()&os.ModeNamedPipe == 0 {
-					cmd.PrintErrln("no data from stdin")
-					return
+					r = nil
+				} else {
+					r = os.Stdin
 				}
-				r = os.Stdin
 			}
 
-			content, err := io.ReadAll(r)
+			var content string
+			if r == nil && len(args) > 0 {
+				content = args[0]
+			} else {
+				bytes, err := io.ReadAll(r)
+				content = string(bytes)
+				if err != nil {
+					cmd.PrintErr("failed to read from stdin", err)
+					return
+				}
+			}
+
+			client := &http.Client{}
+
+			var (
+				requestUrl string
+				method     string
+			)
+			if document != "" {
+				requestUrl = server + "/documents/" + document
+				method = http.MethodPatch
+			} else {
+				requestUrl = server + "/documents"
+				method = http.MethodPost
+			}
+
+			request, err := http.NewRequest(method, requestUrl, strings.NewReader(content))
+			if err != nil {
+				cmd.PrintErrln(err)
+				return
+			}
+			response, err := client.Do(request)
+			if err != nil {
+				cmd.PrintErrln(err)
+				return
+			}
+			defer response.Body.Close()
+			responseContent, err := io.ReadAll(response.Body)
 			if err != nil {
 				cmd.PrintErr("failed to read from stdin", err)
 				return
 			}
 
-			cmd.Println("content:", string(content))
+			if response.StatusCode != http.StatusOK {
+				cmd.PrintErrln(server + " returned status code: " + response.Status)
+				return
+			}
+
+			body := string(responseContent)
+			cmd.Printf("body: %s", body)
 		},
 	}
 
