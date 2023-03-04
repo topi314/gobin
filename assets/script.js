@@ -89,8 +89,8 @@ document.querySelector("#code-edit").addEventListener("keyup", (event) => {
 document.querySelector("#edit").addEventListener("click", async () => {
     if (document.querySelector("#edit").disabled) return;
 
-    const {key, version, content, language} = getState();
-    const {newState, url} = createState(getUpdateToken(key) === "" ? "" : key, 0, "edit", content, language);
+    const {key, content, language} = getState();
+    const {newState, url} = createState(hasPermission(getToken(key), "write") ? key : "", 0, "edit", content, language);
     updateCode(newState);
     updatePage(newState);
     window.history.pushState(newState, "", url);
@@ -132,9 +132,10 @@ document.querySelector("#save").addEventListener("click", async () => {
         return;
     }
 
-    const {newState, url} = createState(body.key, body.version, "view", content, language);
-    setToken(body.key, body.token);
-
+    const {newState, url} = createState(body.key, 0, "view", content, language);
+    if (body.token) {
+        setToken(body.key, body.token);
+    }
     const inputElement = document.createElement("input")
     const labelElement = document.createElement("label")
 
@@ -167,9 +168,7 @@ document.querySelector("#delete").addEventListener("click", async () => {
 
     const {key} = getState();
     const token = getToken(key);
-    if (token === "") {
-        return;
-    }
+    if (!token) return;
 
     const deleteConfirm = window.confirm("Are you sure you want to delete this document? This action cannot be undone.")
     if (!deleteConfirm) return;
@@ -218,7 +217,7 @@ document.querySelector("#share").addEventListener("click", async () => {
 
     const {key} = getState();
     const token = getToken(key);
-    if (!token) {
+    if (!hasPermission(token, "share")) {
         await navigator.clipboard.writeText(window.location.href);
         return;
     }
@@ -292,9 +291,9 @@ document.querySelector("#style").addEventListener("change", (event) => {
 document.querySelector("#versions").addEventListener("click", async (event) => {
     if (event.target && event.target.matches("input[type='radio']")) {
         const {key, version} = getState();
-        let newVersion = event.target.value;
-        if (event.target.parentElement.children.item(0).value === newVersion) {
-            newVersion = ""
+        let newVersion = parseInt(event.target.value);
+        if (event.target.parentElement.children.item(0).value === `${newVersion}`) {
+            newVersion = 0;
         }
         if (newVersion === version) return;
         const {newState, url} = await fetchVersion(key, newVersion)
@@ -362,6 +361,13 @@ function deleteToken() {
     localStorage.setItem("documents", JSON.stringify(parsedDocuments));
 }
 
+function hasPermission(token, permission) {
+    if (!token) return false;
+    const tokenSplit = token.split(".")
+    if (tokenSplit.length !== 3) return false;
+    return JSON.parse(atob(tokenSplit[1])).permissions.includes(permission);
+}
+
 function updateCode(state) {
     const {mode, content} = state;
 
@@ -406,7 +412,7 @@ function updatePage(state) {
         saveButton.style.display = "none";
         editButton.disabled = false;
         editButton.style.display = "block";
-        deleteButton.disabled = !token;
+        deleteButton.disabled = !hasPermission(token, "delete");
         copyButton.disabled = false;
         rawButton.disabled = false;
         shareButton.disabled = false;

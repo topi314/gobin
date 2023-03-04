@@ -98,7 +98,6 @@ html {
     border: none;
     border-radius: 1rem;
     padding: 1rem;
-
     background-color: var(--bg-secondary);
 }
 
@@ -106,13 +105,13 @@ dialog::backdrop {
     background-color: rgba(0, 0, 0, 0.7);
 }
 
-#share-dialog div {
+.share-dialog-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
-#share-dialog div h2 {
+.share-dialog-header h2 {
     font-size: 1.5rem;
     font-weight: bold;
     margin: 0;
@@ -120,6 +119,21 @@ dialog::backdrop {
 
 #share-dialog-close {
     background-image: var(--close);
+}
+
+.share-dialog-main {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+    justify-content: space-between;
+}
+
+.share-dialog-permissions {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 1rem;
+    width: fit-content;
+    align-items: center;
 }
 
 body {
@@ -242,7 +256,8 @@ nav {
 }
 
 #share-copy {
-    width: unset;
+    width: fit-content;
+    padding: 0.5rem;
 }
 
 .button:hover, button:hover {
