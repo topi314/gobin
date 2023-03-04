@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -31,22 +30,21 @@ func Execute(command *cobra.Command) {
 
 func initConfig(cfgFile string) func() {
 	return func() {
+		viper.SetDefault("server", "https://xgob.in")
 		if cfgFile != "" {
 			viper.SetConfigFile(cfgFile)
 		} else {
 			home, err := os.UserHomeDir()
 			cobra.CheckErr(err)
 
-			viper.AddConfigPath("$HOME/.gobin")
+			viper.SetConfigName(".gobin")
+			viper.SetConfigType("env")
 			viper.AddConfigPath(home)
-			viper.SetConfigType("json")
-			viper.SetConfigName("config")
 		}
-
+		viper.SetEnvPrefix("gobin")
 		viper.AutomaticEnv()
 
-		if err := viper.ReadInConfig(); err == nil {
-			fmt.Println("Using config file:", viper.ConfigFileUsed())
-		}
+		err := viper.ReadInConfig()
+		cobra.CheckErr(err)
 	}
 }

@@ -16,7 +16,7 @@ func main() {
 	rootCmd := cmd.NewRootCmd()
 	cmd.NewGetCmd(rootCmd)
 	cmd.NewPushCmd(rootCmd)
-	cmd.NewVersionsCmd(rootCmd)
-	cmd.NewVersionCmd(rootCmd, gobin.FormatVersion(version, commit, buildTime))
+	cmd.NewRmCmd(rootCmd)
+	cmd.NewVersionCmd(rootCmd, gobin.FormatBuildVersion(version, commit, buildTime))
 	cmd.Execute(rootCmd)
 }

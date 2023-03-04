@@ -130,6 +130,12 @@ func (d *DB) DeleteDocumentByVersion(ctx context.Context, version int64, documen
 	return nil
 }
 
+func (d *DB) GetVersionCount(ctx context.Context, documentID string) (int, error) {
+	var count int
+	err := d.dbx.GetContext(ctx, &count, "SELECT COUNT(*) FROM documents WHERE id = $1", documentID)
+	return count, err
+}
+
 func (d *DB) CreateDocument(ctx context.Context, content string, language string) (Document, error) {
 	return d.createDocument(ctx, content, language, 0)
 }

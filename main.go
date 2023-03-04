@@ -57,13 +57,14 @@ func main() {
 	viper.SetDefault("rate_limit.requests", 10)
 	viper.SetDefault("rate_limit.duration", "1m")
 
-	viper.SetConfigName("gobin")
-	viper.SetConfigType("json")
 	if *cfgPath != "" {
 		viper.SetConfigFile(*cfgPath)
+	} else {
+		viper.SetConfigName("gobin")
+		viper.SetConfigType("json")
+		viper.AddConfigPath(".")
+		viper.AddConfigPath("/etc/gobin/")
 	}
-	viper.AddConfigPath(".")
-	viper.AddConfigPath("/etc/gobin/")
 	if err := viper.ReadInConfig(); err != nil {
 		log.Fatalln("Error while reading config:", err)
 	}
@@ -118,7 +119,7 @@ func main() {
 		assets = http.FS(Assets)
 	}
 
-	s := gobin.NewServer(gobin.FormatVersion(version, commit, buildTime), cfg, db, signer, assets, tmplFunc)
+	s := gobin.NewServer(gobin.FormatBuildVersion(version, commit, buildTime), cfg, db, signer, assets, tmplFunc)
 	log.Println("Gobin listening on:", cfg.ListenAddr)
 	s.Start()
 }

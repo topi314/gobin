@@ -39,7 +39,7 @@ func (s *Server) Start() {
 	}
 }
 
-func FormatVersion(version string, commit string, buildTime string) string {
+func FormatBuildVersion(version string, commit string, buildTime string) string {
 	if len(commit) > 7 {
 		commit = commit[:7]
 	}

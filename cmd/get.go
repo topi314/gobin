@@ -1,12 +1,15 @@
 package cmd
 
 import (
-	"encoding/json"
+	"fmt"
+	"os"
+	"time"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"io"
-	"net/http"
-	"os"
+
+	"github.com/topisenpai/gobin/gobin"
+	"github.com/topisenpai/gobin/internal/ezhttp"
 )
 
 func NewGetCmd(parent *cobra.Command) {
@@ -31,71 +34,85 @@ gobin get -v 123456 jis74978
 
 Will return the document with the id of jis74978 and the version of 123456.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			requestUrl := viper.GetString("server")
-			document := args[0]
+			if len(args) == 0 {
+				cmd.PrintErrln("document id is required")
+				return
+			}
+			documentID := args[0]
+			file := viper.GetString("file")
+			version := viper.GetString("version")
+			versions := viper.GetBool("versions")
 
-			if viper.GetString("version") != "" {
-				requestUrl += "/raw/" + document + "/versions/" + viper.GetString("version")
-			} else {
-				requestUrl += "/raw/" + document
+			if versions {
+				url := "/documents/" + documentID + "/versions"
+				rs, err := ezhttp.Get(url)
+				if err != nil {
+					cmd.PrintErrln("Failed to get document versions:", err)
+					return
+				}
+				defer rs.Body.Close()
+
+				var documentVersionsRs []gobin.DocumentResponse
+				if ok := ezhttp.ProcessBody(cmd, "get document versions", rs, &documentVersionsRs); !ok {
+					return
+				}
+
+				now := time.Now()
+				var documentVersions string
+				for _, documentVersion := range documentVersionsRs {
+					relative, _ := gobin.FormatDocumentVersion(now, documentVersion.Version)
+					documentVersions += fmt.Sprintf("%d: %s\n", documentVersion.Version, relative)
+				}
+
+				cmd.Printf("Document versions(%d):\n%s", len(documentVersions), documentVersions)
+				return
 			}
 
-			client := &http.Client{}
+			url := "/documents/" + documentID
+			if version != "" {
+				url += "/versions/" + version
+			}
 
-			response, err := client.Get(requestUrl)
-			defer response.Body.Close()
-
+			rs, err := ezhttp.Get(url)
 			if err != nil {
-				cmd.PrintErrln(err)
+				cmd.PrintErrln("Failed to get document:", err)
+				return
+			}
+			defer rs.Body.Close()
+
+			var documentRs gobin.DocumentResponse
+			if ok := ezhttp.ProcessBody(cmd, "get document", rs, &documentRs); !ok {
 				return
 			}
 
-			body, err := io.ReadAll(response.Body)
+			if file == "" {
+				cmd.Println(documentRs.Data)
+				return
+			}
+			documentFile, err := os.Create(file)
 			if err != nil {
-				cmd.PrintErrln(err)
+				cmd.PrintErrln("Failed to create file to write document:", err)
 				return
 			}
+			defer documentFile.Close()
 
-			content := string(body)
-
-			if response.StatusCode != http.StatusOK {
-				var errorResponse ErrorResponse
-				err := json.Unmarshal(body, &errorResponse)
-				if err != nil {
-					return
-				}
-				cmd.PrintErrln(viper.GetString("server") + " has returned a error: " + errorResponse.Message)
+			_, err = documentFile.WriteString(documentRs.Data)
+			if err != nil {
+				cmd.PrintErrln("Failed to write document to file:", err)
 				return
 			}
-
-			if viper.GetString("file") != "" {
-				file, err := os.Create(viper.GetString("file"))
-				if err != nil {
-					cmd.PrintErrln(err)
-					return
-				}
-				defer file.Close()
-
-				_, err = file.WriteString(content)
-				if err != nil {
-					cmd.PrintErrln(err)
-					return
-				}
-			} else {
-				cmd.Println(content)
-			}
-
-			//cmd.Println("get called with args:", args)
-			//cmd.Println("server:", viper.GetString("server"))
+			cmd.Println("Document saved to file:", file)
 		},
 	}
 	parent.AddCommand(cmd)
 
-	cmd.Flags().StringP("server", "s", "https://xgob.in", "Gobin server address")
+	cmd.Flags().StringP("server", "s", "", "Gobin server address")
 	cmd.Flags().StringP("file", "f", "", "The file to save the document to")
 	cmd.Flags().StringP("version", "v", "", "The version of the document to get")
+	cmd.Flags().BoolP("versions", "", false, "Get all versions of the document")
 
 	viper.BindPFlag("server", cmd.PersistentFlags().Lookup("server"))
 	viper.BindPFlag("file", cmd.Flags().Lookup("file"))
 	viper.BindPFlag("version", cmd.Flags().Lookup("version"))
+	viper.BindPFlag("versions", cmd.Flags().Lookup("versions"))
 }

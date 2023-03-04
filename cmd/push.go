@@ -1,12 +1,17 @@
 package cmd
 
 import (
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"io"
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+
+	"github.com/topisenpai/gobin/gobin"
+	"github.com/topisenpai/gobin/internal/cfg"
+	"github.com/topisenpai/gobin/internal/ezhttp"
 )
 
 func NewPushCmd(parent *cobra.Command) {
@@ -15,45 +20,40 @@ func NewPushCmd(parent *cobra.Command) {
 		Short: "Push a document to the gobin server",
 		Long: `Push a document to the gobin server from std in. For example:
 
-			gobin push
-		
-			Will push the document to the gobin server.
-		
-			You can also push a specific file. For example:
-		
-			gobin push -f /path/to/file
-		
-			Will push the file to the gobin server.
-		
-			You can also update a specific document. For example:
-		
-			gobin push -d jis74978
-		
-			Will update the document with the key of jis74978.`,
+gobin push
+
+Will push the document to the gobin server.
+
+You can also push a specific file. For example:
+
+gobin push -f /path/to/file
+
+Will push the file to the gobin server.
+
+You can also update a specific document. For example:
+
+gobin push -d jis74978
+
+Will update the document with the key of jis74978.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Printf("push called with args: %v\n", args)
-
 			file := viper.GetString("file")
-			document := viper.GetString("document")
-			server := viper.GetString("server")
-
-			cmd.Printf("file: %s, document: %s, server: %s\n", file, document, server)
+			documentID := viper.GetString("document")
+			token := viper.GetString("token")
 
 			var (
 				r   io.Reader
 				err error
 			)
-
 			if file != "" {
 				r, err = os.Open(file)
 				if err != nil {
-					cmd.PrintErrln(err)
+					cmd.PrintErrln("Failed to open document file:", err)
 					return
 				}
 			} else {
 				info, err := os.Stdin.Stat()
 				if err != nil {
-					cmd.PrintErrln(err)
+					cmd.PrintErrln("Failed to get stdin info:", err)
 					return
 				}
 
@@ -65,65 +65,80 @@ func NewPushCmd(parent *cobra.Command) {
 			}
 
 			var content string
-			if r == nil && len(args) > 0 {
+			if r == nil {
+				if len(args) == 0 {
+					cmd.PrintErrln("no document provided")
+					return
+				}
 				content = args[0]
 			} else {
-				bytes, err := io.ReadAll(r)
-				content = string(bytes)
+				data, err := io.ReadAll(r)
 				if err != nil {
-					cmd.PrintErr("failed to read from stdin", err)
+					cmd.PrintErrln("Failed to read from std in or file:", err)
+					return
+				}
+				content = string(data)
+			}
+
+			contentReader := strings.NewReader(content)
+			var rs *http.Response
+			if documentID == "" {
+				rs, err = ezhttp.Post("/documents", "", contentReader)
+				if err != nil {
+					cmd.PrintErrln("Failed to create document:", err)
+					return
+				}
+			} else {
+				if token == "" {
+					token = viper.GetString("tokens_" + documentID)
+				}
+				if token == "" {
+					cmd.PrintErrln("No token found or provided for document:", documentID)
+					return
+				}
+				rs, err = ezhttp.Patch("/documents/"+documentID, token, "", contentReader)
+				if err != nil {
+					cmd.PrintErrln("Failed to update document:", err)
 					return
 				}
 			}
+			defer rs.Body.Close()
 
-			client := &http.Client{}
-
-			var (
-				requestUrl string
-				method     string
-			)
-			if document != "" {
-				requestUrl = server + "/documents/" + document
-				method = http.MethodPatch
-			} else {
-				requestUrl = server + "/documents"
-				method = http.MethodPost
+			var documentRs gobin.DocumentResponse
+			if ok := ezhttp.ProcessBody(cmd, "push document", rs, &documentRs); !ok {
+				return
 			}
 
-			request, err := http.NewRequest(method, requestUrl, strings.NewReader(content))
+			method := "Updated"
+			if documentID == "" {
+				method = "Created"
+			}
+			cmd.Printf("%s document with ID: %s, Version: %d, URL: %s/%s\n", method, documentRs.Key, documentRs.Version, viper.GetString("server"), documentRs.Key)
+
+			if documentID != "" {
+				return
+			}
+
+			path, err := cfg.Update(func(m map[string]string) {
+				m["TOKENS_"+documentRs.Key] = documentRs.Token
+			})
 			if err != nil {
-				cmd.PrintErrln(err)
+				cmd.PrintErrln("Failed to update config:", err)
 				return
 			}
-			response, err := client.Do(request)
-			if err != nil {
-				cmd.PrintErrln(err)
-				return
-			}
-			defer response.Body.Close()
-			responseContent, err := io.ReadAll(response.Body)
-			if err != nil {
-				cmd.PrintErr("failed to read from stdin", err)
-				return
-			}
-
-			if response.StatusCode != http.StatusOK {
-				cmd.PrintErrln(server + " returned status code: " + response.Status)
-				return
-			}
-
-			body := string(responseContent)
-			cmd.Printf("body: %s", body)
+			cmd.Println("Saved token to:", path)
 		},
 	}
 
 	parent.AddCommand(cmd)
 
-	cmd.Flags().StringP("server", "s", "https://xgob.in", "Gobin server address")
+	cmd.Flags().StringP("server", "s", "", "Gobin server address")
 	cmd.Flags().StringP("file", "f", "", "The file to push")
 	cmd.Flags().StringP("document", "d", "", "The document to update")
+	cmd.Flags().StringP("token", "t", "", "The token for the document to update")
 
 	viper.BindPFlag("server", cmd.PersistentFlags().Lookup("server"))
 	viper.BindPFlag("file", cmd.Flags().Lookup("file"))
 	viper.BindPFlag("document", cmd.Flags().Lookup("document"))
+	viper.BindPFlag("token", cmd.Flags().Lookup("token"))
 }
