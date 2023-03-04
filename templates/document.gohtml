@@ -2,24 +2,25 @@
 <body>
 <div id="error-popup" style="display: none;"></div>
 <dialog id="share-dialog">
-    <div>
+    <div class="share-dialog-header">
         <h2>Share</h2>
         <button id="share-dialog-close"></button>
     </div>
+    <p>Share this URL with your friends and let them edit or delete the document.</p>
+    <h3>Permissions</h3>
+    <div class="share-dialog-main">
+        <div class="share-dialog-permissions">
+            <label for="share-permissions-write">Write</label>
+            <input id="share-permissions-write" type="checkbox">
 
-    <p>Share this URL with your friends and let them optionally edit the document.</p>
+            <label for="share-permissions-delete">Delete</label>
+            <input id="share-permissions-delete" type="checkbox">
 
-    <label for="share-permissions">Edit Document</label>
-    <input id="share-permissions" type="checkbox"/>
-
-    <br/>
-    <br/>
-
-    <label id="share-url-label" for="share-url">
-        <input id="share-url" type="text" readonly="readonly"/>
+            <label for="share-permissions-share">Share</label>
+            <input id="share-permissions-share" type="checkbox">
+        </div>
         <button id="share-copy">Copy</button>
-    </label>
-
+    </div>
 </dialog>
 {{ template "header.gohtml" . }}
 <main>

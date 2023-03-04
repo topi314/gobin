@@ -4,14 +4,17 @@ import (
 	"io"
 	"log"
 	"net/http"
+
+	"github.com/go-jose/go-jose/v3"
 )
 
 type ExecuteTemplateFunc func(wr io.Writer, name string, data any) error
 
-func NewServer(cfg Config, db *DB, assets http.FileSystem, tmpl ExecuteTemplateFunc) *Server {
+func NewServer(cfg Config, db *DB, signer jose.Signer, assets http.FileSystem, tmpl ExecuteTemplateFunc) *Server {
 	return &Server{
 		cfg:    cfg,
 		db:     db,
+		signer: signer,
 		assets: assets,
 		tmpl:   tmpl,
 	}
@@ -20,6 +23,7 @@ func NewServer(cfg Config, db *DB, assets http.FileSystem, tmpl ExecuteTemplateF
 type Server struct {
 	cfg    Config
 	db     *DB
+	signer jose.Signer
 	assets http.FileSystem
 	tmpl   ExecuteTemplateFunc
 }
