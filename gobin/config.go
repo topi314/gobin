@@ -15,10 +15,11 @@ type Config struct {
 	Database        DatabaseConfig   `json:"database"`
 	MaxDocumentSize int              `json:"max_document_size"`
 	RateLimit       *RateLimitConfig `json:"rate_limit"`
+	JWTSecret       string           `json:"jwt_secret"`
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("\n DevMode: %t\n Debug: %t\n ListenAddr: %s\n Database: %s\n MaxDocumentSize: %d\n Rate Limit: %s\n", c.DevMode, c.Debug, c.ListenAddr, c.Database, c.MaxDocumentSize, c.RateLimit)
+	return fmt.Sprintf("\n DevMode: %t\n Debug: %t\n ListenAddr: %s\n Database: %s\n MaxDocumentSize: %d\n Rate Limit: %s\n JWTSecret: %s\n", c.DevMode, c.Debug, c.ListenAddr, c.Database, c.MaxDocumentSize, c.RateLimit, strings.Repeat("*", len(c.JWTSecret)))
 }
 
 type DatabaseConfig struct {

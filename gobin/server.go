@@ -7,15 +7,18 @@ import (
 	"net/http"
 	"runtime"
 	"time"
+
+	"github.com/go-jose/go-jose/v3"
 )
 
 type ExecuteTemplateFunc func(wr io.Writer, name string, data any) error
 
-func NewServer(version string, cfg Config, db *DB, assets http.FileSystem, tmpl ExecuteTemplateFunc) *Server {
+func NewServer(version string, cfg Config, db *DB, signer jose.Signer, assets http.FileSystem, tmpl ExecuteTemplateFunc) *Server {
 	return &Server{
 		version: version,
 		cfg:     cfg,
 		db:      db,
+		signer:  signer,
 		assets:  assets,
 		tmpl:    tmpl,
 	}
@@ -25,6 +28,7 @@ type Server struct {
 	version string
 	cfg     Config
 	db      *DB
+	signer  jose.Signer
 	assets  http.FileSystem
 	tmpl    ExecuteTemplateFunc
 }

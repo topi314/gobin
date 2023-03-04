@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
+	"golang.org/x/exp/slices"
 )
 
 var (
@@ -51,7 +52,13 @@ type (
 		VersionTime  string `json:"version_time,omitempty"`
 		Data         string `json:"data,omitempty"`
 		Language     string `json:"language"`
-		UpdateToken  string `json:"update_token,omitempty"`
+		Token        string `json:"token,omitempty"`
+	}
+	ShareRequest struct {
+		Permissions []Permission `json:"permissions"`
+	}
+	ShareResponse struct {
+		Token string `json:"token"`
 	}
 	ErrorResponse struct {
 		Message   string `json:"message"`
@@ -76,6 +83,7 @@ func (s *Server) Routes() http.Handler {
 	))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Heartbeat("/ping"))
+	r.Use(s.JWTMiddleware)
 
 	if s.cfg.RateLimit != nil && s.cfg.RateLimit.Requests > 0 && s.cfg.RateLimit.Duration > 0 {
 		rateLimiter := httprate.NewRateLimiter(
@@ -116,6 +124,7 @@ func (s *Server) Routes() http.Handler {
 				r.Get("/", s.GetDocument)
 				r.Patch("/", s.PatchDocument)
 				r.Delete("/", s.DeleteDocument)
+				r.Post("/share", s.PostDocumentShare)
 				r.Route("/versions", func(r chi.Router) {
 					r.Get("/", s.DocumentVersions)
 					r.Route("/{version}", func(r chi.Router) {
@@ -166,7 +175,7 @@ func (s *Server) GetDocumentVersion(w http.ResponseWriter, r *http.Request) {
 	document, err := s.db.GetDocumentVersion(r.Context(), documentID, version)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+			s.documentNotFound(w, r)
 			return
 		}
 		s.log(r, "get document version", err)
@@ -190,7 +199,7 @@ func (s *Server) DeleteDocumentVersion(w http.ResponseWriter, r *http.Request) {
 
 	if err := s.db.DeleteDocumentByVersion(r.Context(), version, documentID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+			s.documentNotFound(w, r)
 			return
 		}
 		s.log(r, "delete document version", err)
@@ -208,7 +217,7 @@ func (s *Server) GetRawDocumentVersion(w http.ResponseWriter, r *http.Request) {
 	document, err := s.db.GetDocumentVersion(r.Context(), documentID, version)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+			s.documentNotFound(w, r)
 			return
 		}
 		s.log(r, "get document version", err)
@@ -229,13 +238,13 @@ func parseDocumentVersion(r *http.Request, s *Server, w http.ResponseWriter) (st
 	documentID := chi.URLParam(r, "documentID")
 	version := chi.URLParam(r, "version")
 	if documentID == "" || version == "" {
-		s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+		s.documentNotFound(w, r)
 		return "", -1
 	}
 
 	int64Version, err := strconv.ParseInt(version, 10, 64)
 	if err != nil {
-		s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+		s.documentNotFound(w, r)
 		return "", -1
 	}
 	return documentID, int64Version
@@ -376,13 +385,20 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	token, err := s.NewToken(document.ID, []Permission{PermissionWrite, PermissionDelete, PermissionShare})
+	if err != nil {
+		s.log(r, "creating jwt token", err)
+		s.error(w, r, err, http.StatusInternalServerError)
+		return
+	}
+
 	versionLabel, versionTime := formatVersion(time.Now(), document.Version)
 	s.ok(w, r, DocumentResponse{
 		Key:          document.ID,
 		Version:      document.Version,
 		VersionLabel: versionLabel,
 		VersionTime:  versionTime,
-		UpdateToken:  document.UpdateToken,
+		Token:        token,
 	})
 }
 
@@ -390,8 +406,9 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 	documentID := chi.URLParam(r, "documentID")
 	language := r.Header.Get("Language")
 
-	updateToken := s.getUpdateToken(w, r)
-	if updateToken == "" {
+	claims := s.GetClaims(r)
+	if claims.Subject != documentID || !slices.Contains(claims.Permissions, PermissionWrite) {
+		s.documentNotFound(w, r)
 		return
 	}
 
@@ -404,10 +421,10 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	document, err := s.db.UpdateDocument(r.Context(), documentID, updateToken, content, language)
+	document, err := s.db.UpdateDocument(r.Context(), documentID, content, language)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+			s.documentNotFound(w, r)
 			return
 		}
 		s.error(w, r, err, http.StatusInternalServerError)
@@ -425,17 +442,67 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
 	documentID := chi.URLParam(r, "documentID")
-	updateToken := r.Header.Get("Authorization")
 
-	if err := s.db.DeleteDocument(r.Context(), documentID, updateToken); err != nil {
+	claims := s.GetClaims(r)
+	if claims.Subject != documentID || slices.Contains(claims.Permissions, PermissionDelete) {
+		s.documentNotFound(w, r)
+		return
+	}
+
+	if err := s.db.DeleteDocument(r.Context(), documentID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+			s.documentNotFound(w, r)
 			return
 		}
 		s.error(w, r, err, http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) PostDocumentShare(w http.ResponseWriter, r *http.Request) {
+	documentID := chi.URLParam(r, "documentID")
+
+	var shareRequest ShareRequest
+	if err := json.NewDecoder(r.Body).Decode(&shareRequest); err != nil {
+		s.error(w, r, err, http.StatusBadRequest)
+		return
+	}
+
+	if len(shareRequest.Permissions) == 0 {
+		s.error(w, r, ErrNoPermissions, http.StatusBadRequest)
+		return
+	}
+
+	for _, permission := range shareRequest.Permissions {
+		if !permission.IsValid() {
+			s.error(w, r, ErrUnknownPermission(permission), http.StatusBadRequest)
+			return
+		}
+	}
+
+	claims := s.GetClaims(r)
+	if claims.Subject != documentID || !slices.Contains(claims.Permissions, PermissionShare) {
+		s.documentNotFound(w, r)
+		return
+	}
+
+	for _, permission := range shareRequest.Permissions {
+		if !slices.Contains(claims.Permissions, permission) {
+			s.error(w, r, ErrPermissionDenied(permission), http.StatusForbidden)
+			return
+		}
+	}
+
+	token, err := s.NewToken(documentID, shareRequest.Permissions)
+	if err != nil {
+		s.error(w, r, err, http.StatusInternalServerError)
+		return
+	}
+
+	s.ok(w, r, ShareResponse{
+		Token: token,
+	})
 }
 
 func (s *Server) getDocument(w http.ResponseWriter, r *http.Request) *Document {
@@ -447,22 +514,13 @@ func (s *Server) getDocument(w http.ResponseWriter, r *http.Request) *Document {
 	document, err := s.db.GetDocument(r.Context(), documentID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
+			s.documentNotFound(w, r)
 			return nil
 		}
 		s.error(w, r, err, http.StatusInternalServerError)
 		return nil
 	}
 	return &document
-}
-
-func (s *Server) getUpdateToken(w http.ResponseWriter, r *http.Request) string {
-	updateToken := r.Header.Get("Authorization")
-	if updateToken == "" {
-		s.unauthorized(w, r)
-		return ""
-	}
-	return updateToken
 }
 
 func (s *Server) readBody(w http.ResponseWriter, r *http.Request) string {
@@ -485,6 +543,10 @@ func (s *Server) redirectRoot(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) unauthorized(w http.ResponseWriter, r *http.Request) {
 	s.error(w, r, ErrUnauthorized, http.StatusUnauthorized)
+}
+
+func (s *Server) documentNotFound(w http.ResponseWriter, r *http.Request) {
+	s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
 }
 
 func (s *Server) rateLimit(w http.ResponseWriter, r *http.Request) {

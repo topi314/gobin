@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-jose/go-jose/v3"
+
 	"github.com/topisenpai/gobin/gobin"
 )
 
@@ -51,6 +53,15 @@ func main() {
 	}
 	defer db.Close()
 
+	key := jose.SigningKey{
+		Algorithm: jose.HS512,
+		Key:       []byte(cfg.JWTSecret),
+	}
+	signer, err := jose.NewSigner(key, nil)
+	if err != nil {
+		log.Fatalln("Error while creating signer:", err)
+	}
+
 	var (
 		tmplFunc gobin.ExecuteTemplateFunc
 		assets   http.FileSystem
@@ -74,7 +85,7 @@ func main() {
 		assets = http.FS(Assets)
 	}
 
-	s := gobin.NewServer(gobin.FormatVersion(version, commit, buildTime), cfg, db, assets, tmplFunc)
+	s := gobin.NewServer(gobin.FormatVersion(version, commit, buildTime), cfg, db, signer, assets, tmplFunc)
 	log.Println("Gobin listening on:", cfg.ListenAddr)
 	s.Start()
 }
