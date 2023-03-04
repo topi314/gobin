@@ -17,8 +17,8 @@ import (
 func NewPushCmd(parent *cobra.Command) {
 	cmd := &cobra.Command{
 		Use:   "push",
-		Short: "Push a document to the gobin server",
-		Long: `Push a document to the gobin server from std in. For example:
+		Short: "Pushes a document to the gobin server",
+		Long: `Pushes a document to the gobin server from std in. For example:
 
 gobin push
 

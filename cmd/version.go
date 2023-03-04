@@ -12,8 +12,8 @@ import (
 func NewVersionCmd(parent *cobra.Command, version string) {
 	cmd := &cobra.Command{
 		Use:   "version",
-		Short: "Returns the version of the gobin cli",
-		Long: `Returns the version of the gobin cli. For example:
+		Short: "Prints the version of the gobin cli",
+		Long: `Prints the version of the gobin cli. For example:
 
 gobin version
 

@@ -14,8 +14,8 @@ import (
 func NewRmCmd(parent *cobra.Command) {
 	cmd := &cobra.Command{
 		Use:   "rm",
-		Short: "Remove a document from the gobin server",
-		Long: `Remove a document from the gobin server. For example:
+		Short: "Removes a document from the gobin server",
+		Long: `Removes a document from the gobin server. For example:
 
 gobin rm jis74978
 
@@ -23,7 +23,7 @@ Will remove the document to the gobin server.
 
 You can also rm a specific version. For example:
 
-gobin push -v 1 jis74978
+gobin rm -v 1 jis74978
 
 Will remove the version to the gobin server.`,
 		Run: func(cmd *cobra.Command, args []string) {

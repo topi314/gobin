@@ -15,8 +15,8 @@ import (
 func NewGetCmd(parent *cobra.Command) {
 	cmd := &cobra.Command{
 		Use:   "get",
-		Short: "Get returns a document from the gobin server",
-		Long: `Get returns a document from the gobin server. For example:
+		Short: "Gets a document from the gobin server",
+		Long: `Gets a document from the gobin server. For example:
 
 gobin get jis74978
 
