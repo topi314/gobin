@@ -351,8 +351,6 @@ func (s *Server) renderDocument(r *http.Request, document Document, formatterNam
 		formatter = formatters.Fallback
 	}
 
-	fmt.Printf("formatter: %T\n", formatter)
-
 	buff := new(bytes.Buffer)
 	if err = formatter.Format(buff, style, iterator); err != nil {
 		return "", "", "", "", err
