@@ -16,7 +16,7 @@ var defaultClient = &http.Client{
 	Timeout: 10 * time.Second,
 }
 
-func Do(method string, path string, token string, contentType string, body io.Reader) (*http.Response, error) {
+func Do(method string, path string, token string, language string, body io.Reader) (*http.Response, error) {
 	server := viper.GetString("server")
 	request, err := http.NewRequest(method, server+path, body)
 	if err != nil {
@@ -25,8 +25,8 @@ func Do(method string, path string, token string, contentType string, body io.Re
 	if token != "" {
 		request.Header.Set("Authorization", "Bearer "+token)
 	}
-	if contentType != "" {
-		request.Header.Set("Content-Type", contentType)
+	if language != "" {
+		request.Header.Set("Language", language)
 	}
 	return defaultClient.Do(request)
 }
@@ -35,12 +35,12 @@ func Get(path string) (*http.Response, error) {
 	return Do(http.MethodGet, path, "", "", nil)
 }
 
-func Post(path string, contentType string, body io.Reader) (*http.Response, error) {
-	return Do(http.MethodPost, path, "", contentType, body)
+func Post(path string, language string, body io.Reader) (*http.Response, error) {
+	return Do(http.MethodPost, path, "", language, body)
 }
 
-func Patch(path string, token string, contentType string, body io.Reader) (*http.Response, error) {
-	return Do(http.MethodPatch, path, token, contentType, body)
+func Patch(path string, token string, language string, body io.Reader) (*http.Response, error) {
+	return Do(http.MethodPatch, path, token, language, body)
 }
 
 func Delete(path string, token string) (*http.Response, error) {

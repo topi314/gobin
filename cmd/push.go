@@ -39,6 +39,7 @@ Will update the document with the key of jis74978.`,
 			file := viper.GetString("file")
 			documentID := viper.GetString("document")
 			token := viper.GetString("token")
+			language := viper.GetString("language")
 
 			var (
 				r   io.Reader
@@ -83,7 +84,7 @@ Will update the document with the key of jis74978.`,
 			contentReader := strings.NewReader(content)
 			var rs *http.Response
 			if documentID == "" {
-				rs, err = ezhttp.Post("/documents", "", contentReader)
+				rs, err = ezhttp.Post("/documents", language, contentReader)
 				if err != nil {
 					cmd.PrintErrln("Failed to create document:", err)
 					return
@@ -96,7 +97,7 @@ Will update the document with the key of jis74978.`,
 					cmd.PrintErrln("No token found or provided for document:", documentID)
 					return
 				}
-				rs, err = ezhttp.Patch("/documents/"+documentID, token, "", contentReader)
+				rs, err = ezhttp.Patch("/documents/"+documentID, token, language, contentReader)
 				if err != nil {
 					cmd.PrintErrln("Failed to update document:", err)
 					return
@@ -136,9 +137,11 @@ Will update the document with the key of jis74978.`,
 	cmd.Flags().StringP("file", "f", "", "The file to push")
 	cmd.Flags().StringP("document", "d", "", "The document to update")
 	cmd.Flags().StringP("token", "t", "", "The token for the document to update")
+	cmd.Flags().StringP("language", "l", "auto", "The language of the document")
 
 	viper.BindPFlag("server", cmd.PersistentFlags().Lookup("server"))
 	viper.BindPFlag("file", cmd.Flags().Lookup("file"))
 	viper.BindPFlag("document", cmd.Flags().Lookup("document"))
 	viper.BindPFlag("token", cmd.Flags().Lookup("token"))
+	viper.BindPFlag("language", cmd.Flags().Lookup("language"))
 }
