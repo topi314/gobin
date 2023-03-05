@@ -42,6 +42,7 @@ Will return the document with the id of jis74978 and the version of 123456.`,
 			file := viper.GetString("file")
 			version := viper.GetString("version")
 			versions := viper.GetBool("versions")
+			render := viper.GetString("render")
 
 			if versions {
 				url := "/documents/" + documentID + "/versions"
@@ -72,6 +73,9 @@ Will return the document with the id of jis74978 and the version of 123456.`,
 			if version != "" {
 				url += "/versions/" + version
 			}
+			if render != "" {
+				url += "?render=" + render
+			}
 
 			rs, err := ezhttp.Get(url)
 			if err != nil {
@@ -85,8 +89,13 @@ Will return the document with the id of jis74978 and the version of 123456.`,
 				return
 			}
 
+			data := documentRs.Data
+			if render != "" {
+				data = string(documentRs.Formatted)
+			}
+
 			if file == "" {
-				cmd.Println(documentRs.Data)
+				cmd.Println(data)
 				return
 			}
 			documentFile, err := os.Create(file)
@@ -96,7 +105,7 @@ Will return the document with the id of jis74978 and the version of 123456.`,
 			}
 			defer documentFile.Close()
 
-			_, err = documentFile.WriteString(documentRs.Data)
+			_, err = documentFile.WriteString(data)
 			if err != nil {
 				cmd.PrintErrln("Failed to write document to file:", err)
 				return
@@ -110,9 +119,11 @@ Will return the document with the id of jis74978 and the version of 123456.`,
 	cmd.Flags().StringP("file", "f", "", "The file to save the document to")
 	cmd.Flags().StringP("version", "v", "", "The version of the document to get")
 	cmd.Flags().BoolP("versions", "", false, "Get all versions of the document")
+	cmd.Flags().StringP("render", "r", "terminal", "Render the document with syntax highlighting (terminal, html, or none)")
 
 	viper.BindPFlag("server", cmd.PersistentFlags().Lookup("server"))
 	viper.BindPFlag("file", cmd.Flags().Lookup("file"))
 	viper.BindPFlag("version", cmd.Flags().Lookup("version"))
 	viper.BindPFlag("versions", cmd.Flags().Lookup("versions"))
+	viper.BindPFlag("render", cmd.Flags().Lookup("render"))
 }

@@ -28,6 +28,7 @@
     --share: url("/assets/icons/dark/share.png");
     --close: url("/assets/icons/dark/close.png");
     --versions: url("/assets/icons/dark/versions.png");
+    --theme: url("/assets/icons/dark/theme.png");
 }
 
 .light {
@@ -54,6 +55,7 @@
     --share: url("/assets/icons/light/share.png");
     --close: url("/assets/icons/light/close.png");
     --versions: url("/assets/icons/light/versions.png");
+    --theme: url("/assets/icons/light/theme.png");
 }
 
 html {
@@ -344,6 +346,30 @@ main {
     background-color: var(--bg-primary);
 }
 
+#theme-toggle {
+    display: none;
+    user-select: none;
+}
+
+#theme-toggle + label {
+    margin-left: 1rem;
+    border: none;
+    border-radius: 1rem;
+    width: 2rem;
+    height: 2rem;
+    background-image: var(--theme);
+    background-color: var(--nav-button-bg);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 1rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+#theme-toggle + label:hover {
+    opacity: 0.7;
+}
+
 #versions-btn {
     display: none;
     user-select: none;
@@ -454,7 +480,6 @@ select:hover {
 }
 
 #code-view {
-    border-radius: 1rem;
     width: 0;
     height: 0;
     min-width: 100%;
@@ -496,7 +521,7 @@ select:hover {
     outline: none;
 }
 
-@media (min-width: 30rem) {
+@media (min-width: 32rem) {
     nav {
         display: inline-flex;
         margin-left: auto;

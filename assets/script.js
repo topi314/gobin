@@ -1,20 +1,7 @@
-hljs.listLanguages().forEach((language) => {
-    const option = document.createElement("option");
-    option.value = language;
-    option.innerText = language;
-
-    const languageElement = document.querySelector("#language")
-    if (languageElement.value === language) {
-        languageElement.removeChild(languageElement.querySelector(`option[value="${language}"]`));
-        option.selected = true;
-    }
-
-    languageElement.appendChild(option);
-});
-
 document.addEventListener("DOMContentLoaded", async () => {
-    const key = window.location.pathname === "/" ? "" : window.location.pathname.slice(1);
-    const version = window.location.hash === "" ? 0 : parseInt(window.location.hash.slice(1));
+    const path = window.location.pathname === "/" ? [] : window.location.pathname.slice(1).split("/")
+    const key = path.length > 0 ? path[0] : ""
+    const version = path.length > 1 ? path[1] : ""
     const params = new URLSearchParams(window.location.search);
     if (params.has("token")) {
         setToken(key, params.get("token"));
@@ -25,14 +12,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     let content = "", language = "";
     if (key) {
-        if (version) {
-            const {newState} = await fetchVersion(key, version);
-            content = newState.content;
-            language = newState.language;
-        } else {
-            content = document.querySelector("#code-view").innerText;
-            language = document.querySelector("#language").value;
-        }
+        content = document.querySelector("#code-edit").value;
+        language = document.querySelector("#language").value;
     }
     const {newState, url} = createState(key, version, key ? "view" : "edit", content, language);
     updateCode(newState);
@@ -58,13 +39,10 @@ document.querySelector("#code-edit").addEventListener("keydown", (event) => {
 });
 
 document.querySelector("#code-edit").addEventListener("paste", (event) => {
-    event.preventDefault();
     const codeEditElement = document.querySelector("#code-edit");
     const {key, version, language} = getState();
-    const newContent = codeEditElement.value + event.clipboardData.getData("text/plain");
-    const {newState, url} = createState(key, version, "edit", newContent, language);
+    const {newState, url} = createState(key, version, "edit", codeEditElement.value, language);
     updatePage(newState);
-    codeEditElement.value = newContent;
     window.history.replaceState(newState, "", url);
 })
 
@@ -90,7 +68,7 @@ document.querySelector("#edit").addEventListener("click", async () => {
     if (document.querySelector("#edit").disabled) return;
 
     const {key, content, language} = getState();
-    const {newState, url} = createState(hasPermission(getToken(key), "write") ? key : "", 0, "edit", content, language);
+    const {newState, url} = createState(hasPermission(getToken(key), "write") ? key : "", "", "edit", content, language);
     updateCode(newState);
     updatePage(newState);
     window.history.pushState(newState, "", url);
@@ -106,20 +84,20 @@ document.querySelector("#save").addEventListener("click", async () => {
 
     let response;
     if (key && token) {
-        response = await fetch(`/documents/${key}`, {
+        response = await fetch(`/documents/${key}?render=html`, {
             method: "PATCH",
             body: content,
             headers: {
                 Authorization: `Bearer ${token}`,
-                Language: language
+                Language: language || "auto"
             }
         });
     } else {
-        response = await fetch("/documents", {
+        response = await fetch("/documents?render=html", {
             method: "POST",
             body: content,
             headers: {
-                Language: language
+                Language: language || "auto"
             }
         });
     }
@@ -132,10 +110,15 @@ document.querySelector("#save").addEventListener("click", async () => {
         return;
     }
 
-    const {newState, url} = createState(body.key, 0, "view", content, language);
+    const {newState, url} = createState(body.key, "", "view", content, body.language);
     if (body.token) {
         setToken(body.key, body.token);
     }
+    document.querySelector("#code-view").innerHTML = body.formatted;
+    document.querySelector("#code-style").innerHTML = body.css;
+    document.querySelector("#code-edit").value = body.data;
+    document.querySelector("#language").value = body.language;
+
     const inputElement = document.createElement("input")
     const labelElement = document.createElement("label")
 
@@ -190,7 +173,7 @@ document.querySelector("#delete").addEventListener("click", async () => {
         return;
     }
     deleteToken();
-    const {newState, url} = createState("", 0, "edit", "", "");
+    const {newState, url} = createState("", "", "edit", "", "");
     updateCode(newState);
     updatePage(newState);
     window.history.pushState(newState, "", url);
@@ -277,34 +260,37 @@ document.querySelector("#share-copy").addEventListener("click", async () => {
 });
 
 
-document.querySelector("#language").addEventListener("change", (event) => {
+document.querySelector("#language").addEventListener("change", async (event) => {
     const {key, version, mode, content} = getState();
     const {newState, url} = createState(key, version, mode, content, event.target.value);
-    highlightCode(newState);
     window.history.replaceState(newState, "", url);
+    if (!key) return;
+    await fetchDocument(key, version, event.target.value);
 });
 
-document.querySelector("#style").addEventListener("change", (event) => {
-    setStyle(event.target.value);
+document.querySelector("#style").addEventListener("change", async (event) => {
+    const {key, version} = getState();
+    setCookie("style", event.target.value);
+    await fetchDocument(key, version);
 });
 
 document.querySelector("#versions").addEventListener("click", async (event) => {
-    if (event.target && event.target.matches("input[type='radio']")) {
-        const {key, version} = getState();
-        let newVersion = parseInt(event.target.value);
-        if (event.target.parentElement.children.item(0).value === `${newVersion}`) {
-            newVersion = 0;
-        }
-        if (newVersion === version) return;
-        const {newState, url} = await fetchVersion(key, newVersion)
-        if (!newState) return;
-        updateCode(newState);
-        window.history.pushState(newState, "", url);
+    if (!event.target || !event.target.matches("input[type='radio'][class='version-btn']")) return;
+
+    const {key, version} = getState();
+    let newVersion = event.target.value;
+    if (event.target.parentElement.children.item(0).value === newVersion) {
+        newVersion = "";
     }
+    if (newVersion === version) return;
+
+    const {newState, url} = fetchDocument(key, newVersion);
+    updateCode(newState);
+    window.history.pushState(newState, "", url);
 })
 
-async function fetchVersion(key, version) {
-    const response = await fetch(`/documents/${key}${version ? `/versions/${version}` : ""}`, {
+async function fetchDocument(key, version, language) {
+    const response = await fetch(`/documents/${key}${version ? `/versions/${version}` : ""}?render=html&language=${language}`, {
         method: "GET"
     });
 
@@ -312,10 +298,15 @@ async function fetchVersion(key, version) {
     if (!response.ok) {
         showErrorPopup(body.message || response.statusText);
         console.error("error fetching document version:", response);
-        return;
+        return undefined;
     }
 
-    return createState(key, version, "view", body.data, body.language);
+    document.querySelector("#code-view").innerHTML = body.formatted;
+    document.querySelector("#code-style").innerHTML = body.css;
+    document.querySelector("#code-edit").value = body.data;
+    document.querySelector("#language").value = body.language;
+
+    return createState(key, `${body.version}`, "view", body.data, body.language);
 }
 
 function showErrorPopup(message) {
@@ -330,7 +321,7 @@ function getState() {
 }
 
 function createState(key, version, mode, content, language) {
-    return {newState: {key, version, mode, content: content.trim(), language}, url: `/${key}${version ? `#${version}` : ""}`};
+    return {newState: {key, version, mode, content: content.trim(), language}, url: `/${key}${version ? `/${version}` : ""}${window.location.hash}`};
 }
 
 function getToken(key) {
@@ -369,27 +360,23 @@ function hasPermission(token, permission) {
 }
 
 function updateCode(state) {
-    const {mode, content} = state;
+    if (!state) return;
+    const {mode} = state;
 
     const codeElement = document.querySelector("#code");
     const codeEditElement = document.querySelector("#code-edit");
-    const codeViewElement = document.querySelector("#code-view");
 
     if (mode === "view") {
         codeEditElement.style.display = "none";
-        codeEditElement.value = "";
-        codeViewElement.innerText = content;
         codeElement.style.display = "block";
-        highlightCode(state);
         return;
     }
-    codeEditElement.value = content;
     codeEditElement.style.display = "block";
-    codeViewElement.innerText = "";
     codeElement.style.display = "none";
 }
 
 function updatePage(state) {
+    if (!state) return;
     const {key, mode, content} = state;
     const token = getToken(key);
     // update page title
@@ -426,63 +413,4 @@ function updatePage(state) {
     copyButton.disabled = true;
     rawButton.disabled = true;
     shareButton.disabled = true;
-}
-
-function highlightCode(state) {
-    const {content, language} = state;
-    let result;
-    if (language && language !== "auto") {
-        result = hljs.highlight(content, {
-            language: language, ignoreIllegals: true
-        });
-    } else {
-        result = hljs.highlightAuto(content);
-    }
-    if (result.language === undefined) {
-        result.language = "plaintext";
-    }
-
-    if (result.language !== language) {
-        state.language = result.language;
-    }
-
-    applyCodeLines(result)
-
-    document.querySelector("#code-view").innerHTML = result.value;
-    document.querySelector("#language").value = result.language;
-}
-
-function applyCodeLines(result) {
-    const htmlLines = result.value.split('\n')
-    let spanStack = []
-    result.value = htmlLines.map((content, index) => {
-        let startSpanIndex, endSpanIndex
-        let needle = 0
-        content = spanStack.join('') + content
-        spanStack = []
-        do {
-            const remainingContent = content.slice(needle)
-            startSpanIndex = remainingContent.indexOf('<span')
-            endSpanIndex = remainingContent.indexOf('</span')
-            if (startSpanIndex === -1 && endSpanIndex === -1) {
-                break
-            }
-            if (endSpanIndex === -1 || (startSpanIndex !== -1 && startSpanIndex < endSpanIndex)) {
-                const nextSpan = /<span .+?>/.exec(remainingContent)
-                if (nextSpan === null) {
-                    // never: but ensure no exception is raised if it happens some day.
-                    break
-                }
-                spanStack.push(nextSpan[0])
-                needle += startSpanIndex + nextSpan[0].length
-            } else {
-                spanStack.pop()
-                needle += endSpanIndex + 1
-            }
-        } while (true)
-        if (spanStack.length > 0) {
-            content += Array(spanStack.length).fill('</span>').join('')
-        }
-        return `<div class="line">${content}\n</div>`
-    }).join('')
 }

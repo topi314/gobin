@@ -10,6 +10,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/alecthomas/chroma/v2/formatters"
+	"github.com/alecthomas/chroma/v2/formatters/html"
+	"github.com/alecthomas/chroma/v2/lexers"
+	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/go-jose/go-jose/v3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
@@ -118,6 +122,19 @@ func main() {
 		tmplFunc = tmpl.ExecuteTemplate
 		assets = http.FS(Assets)
 	}
+
+	styles.Fallback = styles.Get("onedark")
+	lexers.Fallback = lexers.Get("plaintext")
+	formatters.Register("html", html.New(
+		html.WithClasses(true),
+		html.ClassPrefix("ch-"),
+		html.Standalone(false),
+		html.InlineCode(false),
+		html.WithPreWrapper(&gobin.NoopPreWrapper{}),
+		html.WithLineNumbers(true),
+		html.WithLinkableLineNumbers(true, "L"),
+		html.TabWidth(4),
+	))
 
 	s := gobin.NewServer(gobin.FormatBuildVersion(version, commit, buildTime), cfg, db, signer, assets, tmplFunc)
 	log.Println("Gobin listening on:", cfg.ListenAddr)

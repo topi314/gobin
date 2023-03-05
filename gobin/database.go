@@ -115,8 +115,8 @@ func (d *DB) GetDocumentVersions(ctx context.Context, documentID string, withCon
 	return docs, err
 }
 
-func (d *DB) DeleteDocumentByVersion(ctx context.Context, version int64, documentID string) error {
-	res, err := d.dbx.ExecContext(ctx, "DELETE FROM documents WHERE version = $1 AND id = $2", version, documentID)
+func (d *DB) DeleteDocumentByVersion(ctx context.Context, documentID string, version int64) error {
+	res, err := d.dbx.ExecContext(ctx, "DELETE FROM documents WHERE id = $1 AND version = $2", documentID, version)
 	if err != nil {
 		return err
 	}

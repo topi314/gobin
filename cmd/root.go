@@ -11,7 +11,7 @@ func NewRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "gobin",
 		Short: "gobin let's you upload and download documents from the gobin server",
-		Long:  `long description`,
+		Long:  "",
 	}
 
 	var cfgFile string
