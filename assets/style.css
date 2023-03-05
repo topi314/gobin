@@ -324,6 +324,7 @@ main {
     max-height: calc(100vh - 8rem);
     overflow-y: scroll;
     background-color: var(--bg-secondary);
+    color: var(--text-primary);
 }
 
 .version-btn {
