@@ -83,21 +83,17 @@ document.querySelector("#save").addEventListener("click", async () => {
 
     let response;
     if (key && token) {
-        response = await fetch(`/documents/${key}?render=html`, {
+        response = await fetch(`/documents/${key}?render=html${language ? `&language=${language || "auto"}` : ""}`, {
             method: "PATCH",
             body: content,
             headers: {
                 Authorization: `Bearer ${token}`,
-                Language: language || "auto"
             }
         });
     } else {
-        response = await fetch("/documents?render=html", {
+        response = await fetch(`/documents?render=html${language ? `&language=${language || "auto"}` : ""}`, {
             method: "POST",
             body: content,
-            headers: {
-                Language: language || "auto"
-            }
         });
     }
     saveButton.classList.remove("loading");

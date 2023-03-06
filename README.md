@@ -225,20 +225,75 @@ Following endpoints are rate-limited:
 
 ## API
 
+Fields marked with `?` are optional and types marked with `?` are nullable.
+
+### Render Enum
+
+Document rendering is done using [chroma](https://github.com/alecthomas/chroma). The following renderers are available:
+
+| Value       | Description             |
+|-------------|-------------------------|
+| terminal8   | 8-bit terminal colors   |
+| terminal16  | 16-bit terminal colors  |
+| terminal256 | 256-bit terminal colors |
+| terminal16m | true terminal colors    |
+| html        | HTML                    |
+
+---
+
+### Language Enum
+
+The following languages are available:
+
+<details>
+<summary>Click to expand</summary>
+
+| Prefix | Language                                                                                                                                                                                                          |
+|--------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| A      | ABAP, ABNF, ActionScript, ActionScript 3, Ada, Angular2, ANTLR, ApacheConf, APL, AppleScript, Arduino, Awk                                                                                                        |
+| B      | Ballerina, Bash, Batchfile, BibTeX, Bicep, BlitzBasic, BNF, Brainfuck, BQN                                                                                                                                        |
+| C      | C, C#, C++, Caddyfile, Caddyfile Directives, Cap'n Proto, Cassandra CQL, Ceylon, CFEngine3, cfstatement, ChaiScript, Chapel, Cheetah, Clojure, CMake, COBOL, CoffeeScript, Common Lisp, Coq, Crystal, CSS, Cython |
+| D      | D, Dart, Diff, Django/Jinja, Docker, DTD, Dylan                                                                                                                                                                   |
+| E      | EBNF, Elixir, Elm, EmacsLisp, Erlang                                                                                                                                                                              |
+| F      | Factor, Fish, Forth, Fortran, FSharp                                                                                                                                                                              |
+| G      | GAS, GDScript, Genshi, Genshi HTML, Genshi Text, Gherkin, GLSL, Gnuplot, Go, Go HTML Template, Go Text Template, GraphQL, Groff, Groovy                                                                           |
+| H      | Handlebars, Haskell, Haxe, HCL, Hexdump, HLB, HLSL, HTML, HTTP, Hy                                                                                                                                                |
+| I      | Idris, Igor, INI, Io                                                                                                                                                                                              |
+| J      | J, Java, JavaScript, JSON, Julia, Jungle                                                                                                                                                                          |
+| K      | Kotlin                                                                                                                                                                                                            |
+| L      | Lighttpd configuration file, LLVM, Lua                                                                                                                                                                            |
+| M      | Makefile, Mako, markdown, Mason, Mathematica, Matlab, MiniZinc, MLIR, Modula-2, MonkeyC, MorrowindScript, Myghty, MySQL                                                                                           |
+| N      | NASM, Newspeak, Nginx configuration file, Nim, Nix                                                                                                                                                                |
+| O      | Objective-C, OCaml, Octave, OnesEnterprise, OpenEdge ABL, OpenSCAD, Org Mode                                                                                                                                      |
+| P      | PacmanConf, Perl, PHP, PHTML, Pig, PkgConfig, PL/pgSQL, plaintext, Pony, PostgreSQL SQL dialect, PostScript, POVRay, PowerShell, Prolog, PromQL, Properties, Protocol Buffer, PSL, Puppet, Python 2, Python       |
+| Q      | QBasic                                                                                                                                                                                                            |
+| R      | R, Racket, Ragel, Raku, react, ReasonML, reg, reStructuredText, Rexx, Ruby, Rust                                                                                                                                  |
+| S      | SAS, Sass, Scala, Scheme, Scilab, SCSS, Sed, Smalltalk, Smarty, Snobol, Solidity, SPARQL, SQL, SquidConf, Standard ML, stas, Stylus, Svelte, Swift, SYSTEMD, systemverilog                                        |
+| T      | TableGen, TASM, Tcl, Tcsh, Termcap, Terminfo, Terraform, TeX, Thrift, TOML, TradingView, Transact-SQL, Turing, Turtle, Twig, TypeScript, TypoScript, TypoScriptCssData, TypoScriptHtmlData                        |
+| V      | VB.net, verilog, VHDL, VHS, VimL, vue                                                                                                                                                                             |
+| W      | WDTE                                                                                                                                                                                                              |
+| X      | XML, Xorg                                                                                                                                                                                                         |
+| Y      | YAML, YANG                                                                                                                                                                                                        |
+| Z      | Zig                                                                                                                                                                                                               |
+
+</details>
+
+--- 
+
 ### Create a document
 
 To create a paste you have to send a `POST` request to `/documents` with the `content` as `plain/text` body.
 
-> **Note**
-> You can also specify the code language with the `Language` header.
+| Query Parameter | Type                       | Description                   |
+|-----------------|----------------------------|-------------------------------|
+| language?       | [language](#language-enum) | The language of the document. |
+| render?         | [render](#render-enum)     | How to render the document.   |
 
-```
-Language: go
-
+```go
 package main
 
 func main() {
-    println("Hello World!")
+	println("Hello World!")
 }
 ```
 
@@ -258,13 +313,20 @@ A successful request will return a `200 OK` response with a JSON body containing
 
 To get a document you have to send a `GET` request to `/documents/{key}`.
 
+| Query Parameter | Type                       | Description                                        |
+|-----------------|----------------------------|----------------------------------------------------|
+| language?       | [language](#language-enum) | In which language the document should be rendered. |
+| render?         | [render](#render-enum)     | How to render the document.                        |
+
 The response will be a `200 OK` with the document content as `application/json` body.
 
-```json
+```yaml
 {
   "key": "hocwr6i6",
   "version": "1",
   "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
+  "formatted": "...", # only if render is set
+  "css": "...", # only if render=html
   "language": "go"
 }
 ```
@@ -273,20 +335,30 @@ The response will be a `200 OK` with the document content as `application/json` 
 
 ### Get a documents versions
 
-To get a documents versions you have to send a `GET` request to `/documents/{key}/versions?withData={bool}`.
+To get a documents versions you have to send a `GET` request to `/documents/{key}/versions`.
+
+| Query Parameter | Type                       | Description                                        |
+|-----------------|----------------------------|----------------------------------------------------|
+| withData?       | bool                       | If the data should be included in the response.    |
+| language?       | [language](#language-enum) | In which language the document should be rendered. |
+| render?         | [render](#render-enum)     | How to render the document.                        |
 
 The response will be a `200 OK` with the document content as `application/json` body.
 
-```json
+```yaml
 [
   {
     "version": 1,
     "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
+    "formatted": "...", # only if render is set
+    "css": "...", # only if render=html
     "language": "go"
   },
   {
     "version": 2,
     "data": "package main\n\nfunc main() {\n    println(\"Hello World2!\")\n}",
+    "formatted": "...", # only if render is set
+    "css": "...", # only if render=html
     "language": "go"
   }
 ]
@@ -296,13 +368,20 @@ The response will be a `200 OK` with the document content as `application/json` 
 
 To get a document version you have to send a `GET` request to `/documents/{key}/versions/{version}`.
 
+| Query Parameter | Type                       | Description                                        |
+|-----------------|----------------------------|----------------------------------------------------|
+| language?       | [language](#language-enum) | In which language the document should be rendered. |
+| render?         | [render](#render-enum)     | How to render the document.                        |
+
 The response will be a `200 OK` with the document content as `application/json` body.
 
-```json
+```yaml
 {
   "key": "hocwr6i6",
   "version": 1,
   "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
+  "formatted": "...", # only if render is set
+  "css": "...", # only if render=html
   "language": "go"
 }
 ```
@@ -313,13 +392,16 @@ The response will be a `200 OK` with the document content as `application/json` 
 
 To update a paste you have to send a `PATCH` request to `/documents/{key}` with the `content` as `plain/text` body and the `token` as `Authorization` header.
 
-> **Note**
-> You can also specify the code language with the `Language` header.
+| Query Parameter | Type                       | Description                   |
+|-----------------|----------------------------|-------------------------------|
+| language?       | [language](#language-enum) | The language of the document. |
+| render?         | [render](#render-enum)     | How to render the document.   |
 
 ```
 Authorization: kiczgez33j7qkvqdg9f7ksrd8jk88wba
-Language: go
+```
 
+```go
 package main
 
 func main() {
@@ -332,10 +414,13 @@ A successful request will return a `200 OK` response with a JSON body containing
 > **Note**
 > The update token will not change after updating the document. You can use the same token to update the document again.
 
-```json
+```yaml
 {
   "key": "hocwr6i6",
-  "version": 2
+  "version": 2,
+  "data": "package main\n\nfunc main() {\n    println(\"Hello World Updated!\")\n}", # only if render is set
+  "formatted": "...", # only if render is set
+  "css": "...", # only if render=html
 }
 ```
 
@@ -359,10 +444,10 @@ A successful request will return a `204 No Content` response with an empty body.
 
 ### Other endpoints
 
-- `GET` `/raw/{key}` - Get the raw content of a document
-- `GET` `/raw/{key}/{version}` - Get the raw content of a document version
-- `HEAD` `/raw/{key}` - Get the raw content of a document without the body
-- `HEAD` `/raw/{key}/{version}` - Get the raw content of a document version without the body
+- `GET` `/raw/{key}` - Get the raw content of a document, query parameters are the same as for `GET /documents/{key}`
+- `GET` `/raw/{key}/{version}` - Get the raw content of a document version, query parameters are the same as for `GET /documents/{key}/versions/{version}`
+- `HEAD` `/raw/{key}` - Get the raw content of a document without the body, query parameters are the same as for `GET /documents/{key}`
+- `HEAD` `/raw/{key}/{version}` - Get the raw content of a document version without the body, query parameters are the same as for `GET /documents/{key}/versions/{version}`
 - `GET` `/ping` - Get the status of the server
 - `GET` `/debug` - Proof debug endpoint (only available in debug mode)
 - `GET` `/version` - Get the version of the server

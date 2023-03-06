@@ -26,6 +26,11 @@ You can also rm a specific version. For example:
 gobin rm -v 1 jis74978
 
 Will remove the version to the gobin server.`,
+		PreRun: func(cmd *cobra.Command, args []string) {
+			viper.BindPFlag("server", cmd.PersistentFlags().Lookup("server"))
+			viper.BindPFlag("version", cmd.Flags().Lookup("version"))
+			viper.BindPFlag("token", cmd.Flags().Lookup("token"))
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 {
 				cmd.PrintErrln("document id is required")
@@ -96,8 +101,4 @@ Will remove the version to the gobin server.`,
 	cmd.Flags().StringP("server", "s", "", "Gobin server address")
 	cmd.Flags().StringP("version", "v", "", "The version to update")
 	cmd.Flags().StringP("token", "t", "", "The token for the document to update")
-
-	viper.BindPFlag("server", cmd.PersistentFlags().Lookup("server"))
-	viper.BindPFlag("version", cmd.Flags().Lookup("version"))
-	viper.BindPFlag("token", cmd.Flags().Lookup("token"))
 }

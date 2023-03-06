@@ -481,7 +481,7 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
-	language := r.Header.Get("Language")
+	language := r.URL.Query().Get("language")
 	content := s.readBody(w, r)
 	if content == "" {
 		return
@@ -554,7 +554,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 	documentID := chi.URLParam(r, "documentID")
-	language := r.Header.Get("Language")
+	language := r.URL.Query().Get("language")
 
 	claims := s.GetClaims(r)
 	if claims.Subject != documentID || !slices.Contains(claims.Permissions, PermissionWrite) {

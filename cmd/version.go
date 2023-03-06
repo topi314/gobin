@@ -28,6 +28,9 @@ Version: dev
 Commit: b1fd421
 Build Time: Mon Jan  1 00:00:00 0001
 OS/Arch: windows/amd64`,
+		PreRun: func(cmd *cobra.Command, args []string) {
+			viper.BindPFlag("server", cmd.PersistentFlags().Lookup("server"))
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			server := viper.GetString("server")
 			cmd.Println(version)
@@ -53,6 +56,4 @@ OS/Arch: windows/amd64`,
 	parent.AddCommand(cmd)
 
 	cmd.Flags().StringP("server", "s", "", "Gobin server address")
-
-	viper.BindPFlag("server", cmd.PersistentFlags().Lookup("server"))
 }
