@@ -21,9 +21,10 @@ import (
 	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/httprate"
 	"golang.org/x/exp/slices"
 )
+
+const maxUnix = int(^int32(0))
 
 var (
 	ErrDocumentNotFound = errors.New("document not found")
@@ -101,26 +102,10 @@ func (s *Server) Routes() http.Handler {
 	))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Heartbeat("/ping"))
-	r.Use(s.JWTMiddleware)
-
-	if s.cfg.RateLimit != nil && s.cfg.RateLimit.Requests > 0 && s.cfg.RateLimit.Duration > 0 {
-		rateLimiter := httprate.NewRateLimiter(
-			s.cfg.RateLimit.Requests,
-			s.cfg.RateLimit.Duration,
-			httprate.WithLimitHandler(s.rateLimit),
-			httprate.WithKeyFuncs(
-				httprate.KeyByIP,
-				httprate.KeyByEndpoint,
-			),
-		)
-		r.Use(middleware.Maybe(
-			rateLimiter.Handler,
-			func(r *http.Request) bool {
-				// Only apply rate limiting to POST, PATCH, and DELETE requests
-				return r.Method == http.MethodPost || r.Method == http.MethodPatch || r.Method == http.MethodDelete
-			},
-		))
+	if s.cfg.RateLimit != nil {
+		r.Use(s.Ratelimit)
 	}
+	r.Use(s.JWTMiddleware)
 
 	if s.cfg.Debug {
 		r.Mount("/debug", middleware.Profiler())
@@ -163,7 +148,7 @@ func (s *Server) Routes() http.Handler {
 		r.Get("/", s.GetPrettyDocument)
 		r.Head("/", s.GetPrettyDocument)
 	})
-	//r.NotFound(s.redirectRoot)
+	r.NotFound(s.redirectRoot)
 
 	return r
 }
@@ -770,16 +755,44 @@ func (s *Server) redirectRoot(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-func (s *Server) unauthorized(w http.ResponseWriter, r *http.Request) {
-	s.error(w, r, ErrUnauthorized, http.StatusUnauthorized)
-}
-
 func (s *Server) documentNotFound(w http.ResponseWriter, r *http.Request) {
 	s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
 }
 
 func (s *Server) rateLimit(w http.ResponseWriter, r *http.Request) {
 	s.error(w, r, ErrRateLimit, http.StatusTooManyRequests)
+}
+
+func (s *Server) Ratelimit(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Only apply rate limiting to POST, PATCH, and DELETE requests
+		if r.Method != http.MethodPost && r.Method != http.MethodPatch && r.Method != http.MethodDelete {
+			next.ServeHTTP(w, r)
+			return
+		}
+		remoteAddr := strings.SplitN(r.RemoteAddr, ":", 2)[0]
+		// Filter whitelisted IPs
+		if slices.Contains(s.cfg.RateLimit.Whitelist, remoteAddr) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		// Filter blacklisted IPs
+		if slices.Contains(s.cfg.RateLimit.Blacklist, remoteAddr) {
+			retryAfter := maxUnix - int(time.Now().Unix())
+			w.Header().Set("X-RateLimit-Limit", "0")
+			w.Header().Set("X-RateLimit-Remaining", "0")
+			w.Header().Set("X-RateLimit-Reset", strconv.Itoa(maxUnix))
+			w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
+			w.WriteHeader(http.StatusTooManyRequests)
+			s.rateLimit(w, r)
+			return
+		}
+		if s.rateLimitHandler == nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+		s.rateLimitHandler(next).ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) log(r *http.Request, logType string, err error) {
@@ -802,7 +815,9 @@ func (s *Server) prettyError(w http.ResponseWriter, r *http.Request, err error, 
 }
 
 func (s *Server) error(w http.ResponseWriter, r *http.Request, err error, status int) {
-	s.log(r, "request", err)
+	if status != http.StatusTooManyRequests {
+		s.log(r, "request", err)
+	}
 	s.json(w, r, ErrorResponse{
 		Message:   err.Error(),
 		Status:    status,

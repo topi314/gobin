@@ -17,7 +17,7 @@ type Config struct {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("\n DevMode: %t\n Debug: %t\n ListenAddr: %s\n Database: %s\n MaxDocumentSize: %d\n Rate Limit: %s\n JWTSecret: %s\n", c.DevMode, c.Debug, c.ListenAddr, c.Database, c.MaxDocumentSize, c.RateLimit, strings.Repeat("*", len(c.JWTSecret)))
+	return fmt.Sprintf("\n DevMode: %t\n Debug: %t\n ListenAddr: %s\n Database: %s\n MaxDocumentSize: %d\n RateLimit: %s\n JWTSecret: %s\n", c.DevMode, c.Debug, c.ListenAddr, c.Database, c.MaxDocumentSize, c.RateLimit, strings.Repeat("*", len(c.JWTSecret)))
 }
 
 type DatabaseConfig struct {
@@ -56,10 +56,12 @@ func (c DatabaseConfig) PostgresDataSourceName() string {
 }
 
 type RateLimitConfig struct {
-	Requests int           `cfg:"requests"`
-	Duration time.Duration `cfg:"duration"`
+	Requests  int           `cfg:"requests"`
+	Duration  time.Duration `cfg:"duration"`
+	Whitelist []string      `cfg:"whitelist"`
+	Blacklist []string      `cfg:"blacklist"`
 }
 
 func (c RateLimitConfig) String() string {
-	return fmt.Sprintf("\n  Requests: %d\n  Duration: %s", c.Requests, c.Duration)
+	return fmt.Sprintf("\n  Requests: %d\n  Duration: %s\n  Whitelist: %v\n  Blacklist: %v", c.Requests, c.Duration, c.Whitelist, c.Blacklist)
 }

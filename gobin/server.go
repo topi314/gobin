@@ -8,13 +8,14 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/go-chi/httprate"
 	"github.com/go-jose/go-jose/v3"
 )
 
 type ExecuteTemplateFunc func(wr io.Writer, name string, data any) error
 
 func NewServer(version string, cfg Config, db *DB, signer jose.Signer, assets http.FileSystem, tmpl ExecuteTemplateFunc) *Server {
-	return &Server{
+	s := &Server{
 		version: version,
 		cfg:     cfg,
 		db:      db,
@@ -22,15 +23,30 @@ func NewServer(version string, cfg Config, db *DB, signer jose.Signer, assets ht
 		assets:  assets,
 		tmpl:    tmpl,
 	}
+
+	if cfg.RateLimit != nil && cfg.RateLimit.Requests > 0 && cfg.RateLimit.Duration > 0 {
+		s.rateLimitHandler = httprate.NewRateLimiter(
+			cfg.RateLimit.Requests,
+			cfg.RateLimit.Duration,
+			httprate.WithLimitHandler(s.rateLimit),
+			httprate.WithKeyFuncs(
+				httprate.KeyByIP,
+				httprate.KeyByEndpoint,
+			),
+		).Handler
+	}
+
+	return s
 }
 
 type Server struct {
-	version string
-	cfg     Config
-	db      *DB
-	signer  jose.Signer
-	assets  http.FileSystem
-	tmpl    ExecuteTemplateFunc
+	version          string
+	cfg              Config
+	db               *DB
+	signer           jose.Signer
+	assets           http.FileSystem
+	tmpl             ExecuteTemplateFunc
+	rateLimitHandler func(http.Handler) http.Handler
 }
 
 func (s *Server) Start() {
