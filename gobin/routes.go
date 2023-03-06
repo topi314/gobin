@@ -401,13 +401,37 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var formatted template.HTML
+	query := r.URL.Query()
+	render := query.Get("render")
+	if render != "" {
+		if render == "html" {
+			render = "html-standalone"
+		}
+		if query.Get("language") != "" {
+			document.Language = query.Get("language")
+		}
+		var err error
+		formatted, _, _, _, err = s.renderDocument(r, *document, render)
+		if err != nil {
+			s.log(r, "render document", err)
+			s.error(w, r, err, http.StatusInternalServerError)
+			return
+		}
+	}
+
+	content := document.Content
+	if formatted != "" {
+		content = string(formatted)
+	}
+
 	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
 	if r.Method == http.MethodHead {
-		w.Header().Set("Content-Length", strconv.Itoa(len([]byte(document.Content))))
+		w.Header().Set("Content-Length", strconv.Itoa(len([]byte(content))))
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	_, _ = w.Write([]byte(document.Content))
+	_, _ = w.Write([]byte(content))
 }
 
 func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {

@@ -135,6 +135,12 @@ func main() {
 		html.WithLinkableLineNumbers(true, "L"),
 		html.TabWidth(4),
 	))
+	formatters.Register("html-standalone", html.New(
+		html.Standalone(true),
+		html.WithLineNumbers(true),
+		html.WithLinkableLineNumbers(true, "L"),
+		html.TabWidth(4),
+	))
 
 	s := gobin.NewServer(gobin.FormatBuildVersion(version, commit, buildTime), cfg, db, signer, assets, tmplFunc)
 	log.Println("Gobin listening on:", cfg.ListenAddr)

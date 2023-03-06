@@ -119,7 +119,7 @@ Will return the document with the id of jis74978 and the version of 123456.`,
 	cmd.Flags().StringP("file", "f", "", "The file to save the document to")
 	cmd.Flags().StringP("version", "v", "", "The version of the document to get")
 	cmd.Flags().BoolP("versions", "", false, "Get all versions of the document")
-	cmd.Flags().StringP("render", "r", "terminal", "Render the document with syntax highlighting (terminal, html, or none)")
+	cmd.Flags().StringP("render", "r", "", "Render the document with syntax highlighting (terminal8, terminal16, terminal256, terminal16m, html, or none)")
 
 	viper.BindPFlag("server", cmd.PersistentFlags().Lookup("server"))
 	viper.BindPFlag("file", cmd.Flags().Lookup("file"))
