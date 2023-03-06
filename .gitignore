@@ -2,4 +2,5 @@
 gobin.json
 .gobin
 gobin.db
-
+completions/
+dist/

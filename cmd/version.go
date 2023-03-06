@@ -13,21 +13,20 @@ func NewVersionCmd(parent *cobra.Command, version string) {
 	cmd := &cobra.Command{
 		Use:   "version",
 		Short: "Prints the version of the gobin cli",
-		Long: `Prints the version of the gobin cli. For example:
-
-gobin version
+		Example: `gobin version
 
 Go Version: go1.18.3
 Version: dev
 Commit: b1fd421
-Build Time: Mon Jan  1 00:00:00 0001
+Build Time: Thu Jan  1 00:00:00 1970
 OS/Arch: windows/amd64
 
 Go Version: go1.19
 Version: dev
 Commit: b1fd421
-Build Time: Mon Jan  1 00:00:00 0001
+Build Time: Thu Jan  1 00:00:00 1970
 OS/Arch: windows/amd64`,
+		Args: cobra.NoArgs,
 		PreRun: func(cmd *cobra.Command, args []string) {
 			viper.BindPFlag("server", cmd.PersistentFlags().Lookup("server"))
 		},

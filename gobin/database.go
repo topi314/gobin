@@ -151,7 +151,7 @@ func (d *DB) createDocument(ctx context.Context, content string, language string
 		Language: language,
 		Version:  now,
 	}
-	_, err := d.dbx.NamedExecContext(ctx, "INSERT INTO documents (id, version, content, language) VALUES (:id, :version, :content, :language)", doc)
+	_, err := d.dbx.NamedExecContext(ctx, "INSERT INTO documents (id, version, content, language) VALUES (:id, :version, :content, :language) RETURNING *", doc)
 
 	if err != nil {
 		var (

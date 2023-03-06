@@ -1,4 +1,4 @@
-name: Golang
+name: CLI
 
 on:
   push:
@@ -6,16 +6,40 @@ on:
     types: [published]
 
 jobs:
-  build:
+  cli-completions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Generate Completions
+        run: sh completions.sh
+
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: completions
+          path: completions/*
+
+      - name: Release
+        if: ${{ github.event_name == 'release' }}
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: completions/*
+          allowUpdates: true
+  cli-build:
+    needs: cli-completions
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goos: [ linux, windows, darwin ]
-        goarch: [ amd64, 386, arm, arm64 ]
+        goos: [linux, windows, darwin]
+        goarch: [amd64, 386, arm, arm64]
         exclude:
           - goos: darwin
             goarch: 386
           - goos: darwin
+            goarch: arm
+          - goos: windows
             goarch: arm
     steps:
       - name: Checkout
@@ -52,12 +76,12 @@ jobs:
       - name: Upload
         uses: actions/upload-artifact@v3
         with:
-          name: gobin-cli
-          path: dist/gobin-*
+          name: gobin-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
 
       - name: Release
         if: ${{ github.event_name == 'release' }}
         uses: ncipollo/release-action@v1
         with:
-          artifacts: dist/gobin-*
+          artifacts: dist/*
           allowUpdates: true

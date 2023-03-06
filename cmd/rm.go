@@ -13,19 +13,13 @@ import (
 
 func NewRmCmd(parent *cobra.Command) {
 	cmd := &cobra.Command{
-		Use:   "rm",
-		Short: "Removes a document from the gobin server",
-		Long: `Removes a document from the gobin server. For example:
+		Use:     "rm",
+		GroupID: "actions",
+		Short:   "Removes a document from the gobin server",
+		Example: `gobin rm jis74978
 
-gobin rm jis74978
-
-Will remove the document to the gobin server.
-
-You can also rm a specific version. For example:
-
-gobin rm -v 1 jis74978
-
-Will remove the version to the gobin server.`,
+Will delete the jis74978 from the server.`,
+		Args: cobra.ExactArgs(1),
 		PreRun: func(cmd *cobra.Command, args []string) {
 			viper.BindPFlag("server", cmd.PersistentFlags().Lookup("server"))
 			viper.BindPFlag("version", cmd.Flags().Lookup("version"))

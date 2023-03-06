@@ -14,25 +14,21 @@ import (
 
 func NewGetCmd(parent *cobra.Command) {
 	cmd := &cobra.Command{
-		Use:   "get",
-		Short: "Gets a document from the gobin server",
-		Long: `Gets a document from the gobin server. For example:
+		Use:     "get",
+		GroupID: "actions",
+		Short:   "Gets a document from the gobin server",
+		Example: `gobin get jis74978
 
-gobin get jis74978
-
-Will return the document with the id of jis74978.
-
-You can also save the document to a file. For example:
-
-gobin get -f /path/to/file jis74978
-
-Will save the document with the id of jis74978 to the file.
-
-You can also get a specific version of a document. For example:
-
-gobin get -v 123456 jis74978
-
-Will return the document with the id of jis74978 and the version of 123456.`,
+Will return the document with the id of jis74978.`,
+		Args: cobra.ExactArgs(1),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			tokensMap := viper.GetStringMap("tokens.")
+			tokens := make([]string, 0, len(tokensMap))
+			for document := range tokensMap {
+				tokens = append(tokens, document)
+			}
+			return tokens, cobra.ShellCompDirectiveNoFileComp
+		},
 		PreRun: func(cmd *cobra.Command, args []string) {
 			viper.BindPFlag("server", cmd.PersistentFlags().Lookup("server"))
 			viper.BindPFlag("file", cmd.Flags().Lookup("file"))
@@ -40,6 +36,7 @@ Will return the document with the id of jis74978 and the version of 123456.`,
 			viper.BindPFlag("versions", cmd.Flags().Lookup("versions"))
 			viper.BindPFlag("render", cmd.Flags().Lookup("render"))
 			viper.BindPFlag("language", cmd.Flags().Lookup("language"))
+			viper.BindPFlag("style", cmd.Flags().Lookup("style"))
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 {
@@ -52,6 +49,7 @@ Will return the document with the id of jis74978 and the version of 123456.`,
 			versions := viper.GetBool("versions")
 			render := viper.GetString("render")
 			language := viper.GetString("language")
+			style := viper.GetString("style")
 
 			if versions {
 				url := "/documents/" + documentID + "/versions"
@@ -86,6 +84,9 @@ Will return the document with the id of jis74978 and the version of 123456.`,
 				url += "?render=" + render
 				if language != "" {
 					url += "&language=" + language
+				}
+				if style != "" {
+					url += "&style=" + style
 				}
 			}
 
@@ -125,6 +126,7 @@ Will return the document with the id of jis74978 and the version of 123456.`,
 			cmd.Println("Document saved to file:", file)
 		},
 	}
+
 	parent.AddCommand(cmd)
 
 	cmd.Flags().StringP("server", "s", "", "Gobin server address")
@@ -133,4 +135,5 @@ Will return the document with the id of jis74978 and the version of 123456.`,
 	cmd.Flags().BoolP("versions", "", false, "Get all versions of the document")
 	cmd.Flags().StringP("render", "r", "", "Render the document with syntax highlighting (terminal8, terminal16, terminal256, terminal16m, html, or none)")
 	cmd.Flags().StringP("language", "l", "", "The language to render the document with")
+	cmd.Flags().StringP("style", "", "", "The style to render the document with")
 }

@@ -12,10 +12,20 @@ func NewRootCmd() *cobra.Command {
 		Use:   "gobin",
 		Short: "gobin let's you upload and download documents from the gobin server",
 		Long:  "",
+		CompletionOptions: cobra.CompletionOptions{
+			DisableDescriptions: true,
+			HiddenDefaultCmd:    true,
+		},
 	}
+	cmd.AddGroup(&cobra.Group{
+		ID:    "actions",
+		Title: "Actions",
+	})
 
 	var cfgFile string
 	cmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.gobin)")
+	cmd.PersistentFlags().BoolP("help", "h", false, "help for gobin")
+	cmd.PersistentFlags().Lookup("help").Hidden = true
 	cobra.OnInitialize(initConfig(cfgFile))
 
 	return cmd
@@ -45,7 +55,6 @@ func initConfig(cfgFile string) func() {
 		viper.SetEnvPrefix("gobin")
 		viper.AutomaticEnv()
 
-		err := viper.ReadInConfig()
-		cobra.CheckErr(err)
+		_ = viper.ReadInConfig()
 	}
 }

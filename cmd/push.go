@@ -16,25 +16,13 @@ import (
 
 func NewPushCmd(parent *cobra.Command) {
 	cmd := &cobra.Command{
-		Use:   "push",
-		Short: "Pushes a document to the gobin server",
-		Long: `Pushes a document to the gobin server from std in. For example:
-
-gobin push
-
-Will push the document to the gobin server.
-
-You can also push a specific file. For example:
-
-gobin push -f /path/to/file
-
-Will push the file to the gobin server.
-
-You can also update a specific document. For example:
-
-gobin push -d jis74978
-
-Will update the document with the key of jis74978.`,
+		Use:     "push",
+		GroupID: "actions",
+		Short:   "Pushes a document to the gobin server",
+		Example: `gobin push "hello world!
+		
+Will push "hello world!" to the server`,
+		Args: cobra.ExactArgs(1),
 		PreRun: func(cmd *cobra.Command, args []string) {
 			viper.BindPFlag("server", cmd.PersistentFlags().Lookup("server"))
 			viper.BindPFlag("file", cmd.Flags().Lookup("file"))

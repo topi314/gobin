@@ -127,6 +127,9 @@ func (s *Server) Routes() http.Handler {
 	}
 
 	r.Mount("/assets", http.FileServer(s.assets))
+	r.Handle("/favicon.png", s.file("/assets/favicon.png"))
+	r.Handle("/favicon-light.png", s.file("/assets/favicon-light.png"))
+	r.Handle("/robots.txt", s.file("/assets/robots.txt"))
 	r.Group(func(r chi.Router) {
 		r.Route("/raw/{documentID}", func(r chi.Router) {
 			r.Get("/", s.GetRawDocument)
@@ -330,6 +333,10 @@ func (s *Server) renderDocument(r *http.Request, document Document, formatterNam
 	)
 	if styleCookie, err := r.Cookie("style"); err == nil {
 		styleName = styleCookie.Value
+	}
+	queryStyle := r.URL.Query().Get("style")
+	if queryStyle != "" {
+		styleName = queryStyle
 	}
 
 	style := styles.Get(styleName)
@@ -826,4 +833,16 @@ func (s *Server) exceedsMaxDocumentSize(w http.ResponseWriter, r *http.Request, 
 		return true
 	}
 	return false
+}
+
+func (s *Server) file(path string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		file, err := s.assets.Open(path)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer file.Close()
+		_, _ = io.Copy(w, file)
+	}
 }

@@ -115,8 +115,8 @@ document.querySelector("#save").addEventListener("click", async () => {
     document.querySelector("#language").value = body.language;
 
     const optionElement = document.createElement("option")
-    optionElement.value = body.version;
     optionElement.title = `${body.version_time}`;
+    optionElement.value = body.version;
     optionElement.innerText = `${body.version_label}`;
 
     const versionElement = document.querySelector("#version")
@@ -174,7 +174,7 @@ document.querySelector("#raw").addEventListener("click", () => {
 
     const {key, version} = getState();
     if (!key) return;
-    window.open(`/raw/${key}/versions/${version}`, "_blank").focus();
+    window.open(`/raw/${key}${version ? `/versions/${version}` : ""}`, "_blank").focus();
 })
 
 document.querySelector("#share").addEventListener("click", async () => {
@@ -259,6 +259,7 @@ document.querySelector("#style").addEventListener("change", async (event) => {
 document.querySelector("#version").addEventListener("change", async (event) => {
     const {key, version} = getState();
     let newVersion = event.target.value;
+    console.log(event.target.options.item(0).value, newVersion);
     if (event.target.options.item(0).value === newVersion) {
         newVersion = "";
     }
@@ -278,7 +279,6 @@ async function fetchDocument(key, version, language) {
     if (!response.ok) {
         showErrorPopup(body.message || response.statusText);
         console.error("error fetching document version:", response);
-        console.log("AAAAAAAAAAAAAAAAAAAAA");
         return;
     }
 
@@ -287,9 +287,7 @@ async function fetchDocument(key, version, language) {
     document.querySelector("#code-edit").value = body.data;
     document.querySelector("#language").value = body.language;
 
-    console.log(body.version)
-
-    return createState(key, `${body.version}`, "view", body.data, body.language);
+    return createState(key, `${body.version === 0 ? "" : body.version}`, "view", body.data, body.language);
 }
 
 function showErrorPopup(message) {
