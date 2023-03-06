@@ -269,9 +269,9 @@ document.querySelector("#language").addEventListener("change", async (event) => 
 });
 
 document.querySelector("#style").addEventListener("change", async (event) => {
-    const {key, version} = getState();
+    const {key, version, language} = getState();
     setCookie("style", event.target.value);
-    await fetchDocument(key, version);
+    await fetchDocument(key, version, language);
 });
 
 document.querySelector("#versions").addEventListener("click", async (event) => {
