@@ -1,10 +1,12 @@
 package gobin
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
 	"io"
 	"log"
 	"net/http"
@@ -12,6 +14,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alecthomas/chroma/v2"
+	"github.com/alecthomas/chroma/v2/formatters"
+	"github.com/alecthomas/chroma/v2/formatters/html"
+	"github.com/alecthomas/chroma/v2/lexers"
+	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
@@ -30,15 +37,20 @@ var (
 
 type (
 	TemplateVariables struct {
-		ID       string
-		Version  int64
-		Content  string
-		Language string
+		ID        string
+		Version   int64
+		Content   template.HTML
+		Formatted template.HTML
+		CSS       template.CSS
+		Language  string
 
 		Versions []DocumentVersion
+		Lexers   []string
+		Styles   []string
+		Style    string
+		Theme    string
 
-		Host   string
-		Styles []Style
+		Host string
 	}
 	DocumentVersion struct {
 		Version int64
@@ -46,13 +58,15 @@ type (
 		Time    string
 	}
 	DocumentResponse struct {
-		Key          string `json:"key,omitempty"`
-		Version      int64  `json:"version"`
-		VersionLabel string `json:"version_label,omitempty"`
-		VersionTime  string `json:"version_time,omitempty"`
-		Data         string `json:"data,omitempty"`
-		Language     string `json:"language"`
-		Token        string `json:"token,omitempty"`
+		Key          string        `json:"key,omitempty"`
+		Version      int64         `json:"version"`
+		VersionLabel string        `json:"version_label,omitempty"`
+		VersionTime  string        `json:"version_time,omitempty"`
+		Data         string        `json:"data,omitempty"`
+		Formatted    template.HTML `json:"formatted,omitempty"`
+		CSS          template.CSS  `json:"css,omitempty"`
+		Language     string        `json:"language"`
+		Token        string        `json:"token,omitempty"`
 	}
 	ShareRequest struct {
 		Permissions []Permission `json:"permissions"`
@@ -73,6 +87,7 @@ type (
 
 func (s *Server) Routes() http.Handler {
 	r := chi.NewRouter()
+	r.Use(middleware.CleanPath)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Timeout(30 * time.Second))
@@ -117,8 +132,8 @@ func (s *Server) Routes() http.Handler {
 			r.Get("/", s.GetRawDocument)
 			r.Head("/", s.GetRawDocument)
 			r.Route("/versions/{version}", func(r chi.Router) {
-				r.Get("/", s.GetRawDocumentVersion)
-				r.Head("/", s.GetRawDocumentVersion)
+				r.Get("/", s.GetRawDocument)
+				r.Head("/", s.GetRawDocument)
 			})
 		})
 		r.Route("/documents", func(r chi.Router) {
@@ -131,8 +146,8 @@ func (s *Server) Routes() http.Handler {
 				r.Route("/versions", func(r chi.Router) {
 					r.Get("/", s.DocumentVersions)
 					r.Route("/{version}", func(r chi.Router) {
-						r.Get("/", s.GetDocumentVersion)
-						r.Delete("/", s.DeleteDocumentVersion)
+						r.Get("/", s.GetDocument)
+						r.Delete("/", s.DeleteDocument)
 					})
 				})
 			})
@@ -140,10 +155,12 @@ func (s *Server) Routes() http.Handler {
 		r.Get("/version", s.GetVersion)
 		r.Get("/{documentID}", s.GetPrettyDocument)
 		r.Head("/{documentID}", s.GetPrettyDocument)
+		r.Get("/{documentID}/{version}", s.GetPrettyDocument)
+		r.Head("/{documentID}/{version}", s.GetPrettyDocument)
 		r.Get("/", s.GetPrettyDocument)
 		r.Head("/", s.GetPrettyDocument)
 	})
-	r.NotFound(s.redirectRoot)
+	//r.NotFound(s.redirectRoot)
 
 	return r
 }
@@ -174,8 +191,9 @@ func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) GetDocumentVersion(w http.ResponseWriter, r *http.Request) {
-	documentID, version := parseDocumentVersion(r, s, w)
-	if documentID == "" {
+	documentID := chi.URLParam(r, "documentID")
+	version := parseDocumentVersion(r, s, w)
+	if version == -1 {
 		return
 	}
 
@@ -198,76 +216,26 @@ func (s *Server) GetDocumentVersion(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) DeleteDocumentVersion(w http.ResponseWriter, r *http.Request) {
-	documentID, version := parseDocumentVersion(r, s, w)
-	if documentID == "" {
-		return
-	}
-
-	if err := s.db.DeleteDocumentByVersion(r.Context(), version, documentID); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			s.documentNotFound(w, r)
-			return
-		}
-		s.log(r, "delete document version", err)
-		s.error(w, r, err, http.StatusInternalServerError)
-		return
-	}
-
-	count, err := s.db.GetVersionCount(r.Context(), documentID)
-	if err != nil {
-		s.log(r, "delete document version", err)
-		s.error(w, r, err, http.StatusInternalServerError)
-		return
-	}
-	s.ok(w, r, DeleteResponse{
-		Versions: count,
-	})
-}
-
-func (s *Server) GetRawDocumentVersion(w http.ResponseWriter, r *http.Request) {
-	documentID, version := parseDocumentVersion(r, s, w)
-	if documentID == "" {
-		return
-	}
-	document, err := s.db.GetDocumentVersion(r.Context(), documentID, version)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			s.documentNotFound(w, r)
-			return
-		}
-		s.log(r, "get document version", err)
-		s.error(w, r, err, http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
-	if r.Method == http.MethodHead {
-		w.Header().Set("Content-Length", strconv.Itoa(len([]byte(document.Content))))
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-	_, _ = w.Write([]byte(document.Content))
-}
-
-func parseDocumentVersion(r *http.Request, s *Server, w http.ResponseWriter) (string, int64) {
-	documentID := chi.URLParam(r, "documentID")
+func parseDocumentVersion(r *http.Request, s *Server, w http.ResponseWriter) int64 {
 	version := chi.URLParam(r, "version")
-	if documentID == "" || version == "" {
-		s.documentNotFound(w, r)
-		return "", -1
+	if version == "" {
+		return 0
 	}
 
 	int64Version, err := strconv.ParseInt(version, 10, 64)
 	if err != nil {
 		s.documentNotFound(w, r)
-		return "", -1
+		return -1
 	}
-	return documentID, int64Version
+	return int64Version
 }
 
 func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	documentID := chi.URLParam(r, "documentID")
+	version := parseDocumentVersion(r, s, w)
+	if version == -1 {
+		return
+	}
 
 	var (
 		document  Document
@@ -275,17 +243,29 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		err       error
 	)
 	if documentID != "" {
-		document, err = s.db.GetDocument(r.Context(), documentID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				s.redirectRoot(w, r)
+		if version == 0 {
+			document, err = s.db.GetDocument(r.Context(), documentID)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					s.redirectRoot(w, r)
+					return
+				}
+				s.log(r, "get pretty document", err)
+				s.prettyError(w, r, err, http.StatusInternalServerError)
 				return
 			}
-			s.log(r, "get pretty document", err)
-			s.prettyError(w, r, err, http.StatusInternalServerError)
-			return
+		} else {
+			document, err = s.db.GetDocumentVersion(r.Context(), documentID, version)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					s.redirectRoot(w, r)
+					return
+				}
+				s.log(r, "get pretty document", err)
+				s.prettyError(w, r, err, http.StatusInternalServerError)
+				return
+			}
 		}
-
 		documents, err = s.db.GetDocumentVersions(r.Context(), documentID, false)
 		if err != nil {
 			s.log(r, "get pretty document versions", err)
@@ -310,18 +290,84 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	formatted, css, language, style, err := s.renderDocument(r, document, "html")
+	if err != nil {
+		s.log(r, "render document", err)
+		s.prettyError(w, r, err, http.StatusInternalServerError)
+		return
+	}
+
+	theme := "dark"
+	if themeCookie, err := r.Cookie("theme"); err == nil && themeCookie.Value != "" {
+		theme = themeCookie.Value
+	}
+
 	vars := TemplateVariables{
-		ID:       document.ID,
-		Version:  document.Version,
-		Content:  document.Content,
-		Language: document.Language,
+		ID:        document.ID,
+		Version:   document.Version,
+		Content:   template.HTML(document.Content),
+		Formatted: formatted,
+		CSS:       css,
+		Language:  language,
+
 		Versions: versions,
-		Host:     r.Host,
-		Styles:   Styles,
+		Lexers:   lexers.Names(false),
+		Styles:   styles.Names(),
+		Style:    style,
+		Theme:    theme,
+
+		Host: r.Host,
 	}
 	if err = s.tmpl(w, "document.gohtml", vars); err != nil {
 		log.Println("error while executing template:", err)
 	}
+}
+
+func (s *Server) renderDocument(r *http.Request, document Document, formatterName string) (template.HTML, template.CSS, string, string, error) {
+	var (
+		styleName    string
+		languageName = document.Language
+	)
+	if styleCookie, err := r.Cookie("style"); err == nil {
+		styleName = styleCookie.Value
+	}
+
+	style := styles.Get(styleName)
+	if style == nil {
+		style = styles.Fallback
+	}
+	lexer := lexers.Get(languageName)
+	if lexer == nil {
+		lexer = lexers.Fallback
+	}
+
+	iterator, err := lexer.Tokenise(nil, document.Content)
+	if err != nil {
+		return "", "", "", "", err
+	}
+
+	formatter := formatters.Get(formatterName)
+	if formatter == nil {
+		formatter = formatters.Fallback
+	}
+
+	buff := new(bytes.Buffer)
+	if err = formatter.Format(buff, style, iterator); err != nil {
+		return "", "", "", "", err
+	}
+
+	cssBuff := new(bytes.Buffer)
+	if htmlFormatter, ok := formatter.(*html.Formatter); ok {
+		if err = htmlFormatter.WriteCSS(cssBuff, style); err != nil {
+			return "", "", "", "", err
+		}
+	}
+
+	language := lexer.Config().Name
+	if document.ID == "" {
+		language = "auto"
+	}
+	return template.HTML(buff.String()), template.CSS(cssBuff.String()), language, style.Name, nil
 }
 
 func (s *Server) GetVersion(w http.ResponseWriter, _ *http.Request) {
@@ -355,13 +401,37 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var formatted template.HTML
+	query := r.URL.Query()
+	render := query.Get("render")
+	if render != "" {
+		if render == "html" {
+			render = "html-standalone"
+		}
+		if query.Get("language") != "" {
+			document.Language = query.Get("language")
+		}
+		var err error
+		formatted, _, _, _, err = s.renderDocument(r, *document, render)
+		if err != nil {
+			s.log(r, "render document", err)
+			s.error(w, r, err, http.StatusInternalServerError)
+			return
+		}
+	}
+
+	content := document.Content
+	if formatted != "" {
+		content = string(formatted)
+	}
+
 	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
 	if r.Method == http.MethodHead {
-		w.Header().Set("Content-Length", strconv.Itoa(len([]byte(document.Content))))
+		w.Header().Set("Content-Length", strconv.Itoa(len([]byte(content))))
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	_, _ = w.Write([]byte(document.Content))
+	_, _ = w.Write([]byte(content))
 }
 
 func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
@@ -375,30 +445,90 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var (
+		formatted template.HTML
+		css       template.CSS
+		language  string
+	)
+	query := r.URL.Query()
+	render := query.Get("render")
+	if render != "" {
+		if query.Get("language") != "" {
+			document.Language = query.Get("language")
+		}
+		var err error
+		formatted, css, language, _, err = s.renderDocument(r, *document, render)
+		if err != nil {
+			s.log(r, "render document", err)
+			s.error(w, r, err, http.StatusInternalServerError)
+			return
+		}
+	}
+
+	var version int64
+	if chi.URLParam(r, "version") != "" {
+		version = document.Version
+	}
+
 	s.ok(w, r, DocumentResponse{
-		Key:      document.ID,
-		Version:  document.Version,
-		Data:     document.Content,
-		Language: document.Language,
+		Key:       document.ID,
+		Version:   version,
+		Data:      document.Content,
+		Formatted: formatted,
+		CSS:       css,
+		Language:  language,
 	})
 }
 
 func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
-	language := r.Header.Get("Language")
+	language := r.URL.Query().Get("language")
 	content := s.readBody(w, r)
 	if content == "" {
 		return
+	}
+
+	select {
+	case <-r.Context().Done():
+		return
+	default:
 	}
 
 	if s.exceedsMaxDocumentSize(w, r, content) {
 		return
 	}
 
-	document, err := s.db.CreateDocument(r.Context(), content, language)
+	var lexer chroma.Lexer
+	if language == "auto" || language == "" {
+		lexer = lexers.Analyse(content)
+	} else {
+		lexer = lexers.Get(language)
+	}
+	if lexer == nil {
+		lexer = lexers.Fallback
+	}
+
+	document, err := s.db.CreateDocument(r.Context(), content, lexer.Config().Name)
 	if err != nil {
 		s.log(r, "creating document", err)
 		s.error(w, r, err, http.StatusInternalServerError)
 		return
+	}
+
+	var (
+		data          string
+		formatted     template.HTML
+		css           template.CSS
+		finalLanguage string
+	)
+	render := r.URL.Query().Get("render")
+	if render != "" {
+		formatted, css, finalLanguage, _, err = s.renderDocument(r, document, render)
+		if err != nil {
+			s.log(r, "render document", err)
+			s.error(w, r, err, http.StatusInternalServerError)
+			return
+		}
+		data = document.Content
 	}
 
 	token, err := s.NewToken(document.ID, []Permission{PermissionWrite, PermissionDelete, PermissionShare})
@@ -414,13 +544,17 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 		Version:      document.Version,
 		VersionLabel: versionLabel,
 		VersionTime:  versionTime,
+		Data:         data,
+		Formatted:    formatted,
+		CSS:          css,
+		Language:     finalLanguage,
 		Token:        token,
 	})
 }
 
 func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 	documentID := chi.URLParam(r, "documentID")
-	language := r.Header.Get("Language")
+	language := r.URL.Query().Get("language")
 
 	claims := s.GetClaims(r)
 	if claims.Subject != documentID || !slices.Contains(claims.Permissions, PermissionWrite) {
@@ -429,6 +563,12 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 	}
 
 	content := s.readBody(w, r)
+	select {
+	case <-r.Context().Done():
+		return
+	default:
+	}
+
 	if content == "" {
 		return
 	}
@@ -437,7 +577,17 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	document, err := s.db.UpdateDocument(r.Context(), documentID, content, language)
+	var lexer chroma.Lexer
+	if language == "auto" || language == "" {
+		lexer = lexers.Analyse(content)
+	} else {
+		lexer = lexers.Get(language)
+	}
+	if lexer == nil {
+		lexer = lexers.Fallback
+	}
+
+	document, err := s.db.UpdateDocument(r.Context(), documentID, content, lexer.Config().Name)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			s.documentNotFound(w, r)
@@ -447,26 +597,56 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var (
+		data          string
+		formatted     template.HTML
+		css           template.CSS
+		finalLanguage string
+	)
+	render := r.URL.Query().Get("render")
+	if render != "" {
+		formatted, css, finalLanguage, _, err = s.renderDocument(r, document, render)
+		if err != nil {
+			s.log(r, "render document", err)
+			s.error(w, r, err, http.StatusInternalServerError)
+			return
+		}
+		data = document.Content
+	}
+
 	versionLabel, versionTime := FormatDocumentVersion(time.Now(), document.Version)
 	s.ok(w, r, DocumentResponse{
 		Key:          document.ID,
 		Version:      document.Version,
 		VersionLabel: versionLabel,
 		VersionTime:  versionTime,
+		Data:         data,
+		Formatted:    formatted,
+		CSS:          css,
+		Language:     finalLanguage,
 	})
 }
 
 func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
 	documentID := chi.URLParam(r, "documentID")
+	version := parseDocumentVersion(r, s, w)
+	if version == -1 {
+		return
+	}
 
 	claims := s.GetClaims(r)
 	if claims.Subject != documentID || !slices.Contains(claims.Permissions, PermissionDelete) {
-		println("not allowed")
 		s.documentNotFound(w, r)
 		return
 	}
 
-	if err := s.db.DeleteDocument(r.Context(), documentID); err != nil {
+	var err error
+	if version == 0 {
+		err = s.db.DeleteDocument(r.Context(), documentID)
+	} else {
+		err = s.db.DeleteDocumentByVersion(r.Context(), documentID, version)
+	}
+	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			s.documentNotFound(w, r)
 			return
@@ -474,7 +654,19 @@ func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
 		s.error(w, r, err, http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	if version == 0 {
+		w.WriteHeader(http.StatusNoContent)
+	}
+
+	count, err := s.db.GetVersionCount(r.Context(), documentID)
+	if err != nil {
+		s.log(r, "delete document version", err)
+		s.error(w, r, err, http.StatusInternalServerError)
+		return
+	}
+	s.ok(w, r, DeleteResponse{
+		Versions: count,
+	})
 }
 
 func (s *Server) PostDocumentShare(w http.ResponseWriter, r *http.Request) {
@@ -528,7 +720,20 @@ func (s *Server) getDocument(w http.ResponseWriter, r *http.Request) *Document {
 		return &Document{}
 	}
 
-	document, err := s.db.GetDocument(r.Context(), documentID)
+	version := parseDocumentVersion(r, s, w)
+	if version == -1 {
+		return nil
+	}
+
+	var (
+		document Document
+		err      error
+	)
+	if version == 0 {
+		document, err = s.db.GetDocument(r.Context(), documentID)
+	} else {
+		document, err = s.db.GetDocumentVersion(r.Context(), documentID, version)
+	}
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			s.documentNotFound(w, r)

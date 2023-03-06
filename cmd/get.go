@@ -33,6 +33,14 @@ You can also get a specific version of a document. For example:
 gobin get -v 123456 jis74978
 
 Will return the document with the id of jis74978 and the version of 123456.`,
+		PreRun: func(cmd *cobra.Command, args []string) {
+			viper.BindPFlag("server", cmd.PersistentFlags().Lookup("server"))
+			viper.BindPFlag("file", cmd.Flags().Lookup("file"))
+			viper.BindPFlag("version", cmd.Flags().Lookup("version"))
+			viper.BindPFlag("versions", cmd.Flags().Lookup("versions"))
+			viper.BindPFlag("render", cmd.Flags().Lookup("render"))
+			viper.BindPFlag("language", cmd.Flags().Lookup("language"))
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 {
 				cmd.PrintErrln("document id is required")
@@ -42,6 +50,8 @@ Will return the document with the id of jis74978 and the version of 123456.`,
 			file := viper.GetString("file")
 			version := viper.GetString("version")
 			versions := viper.GetBool("versions")
+			render := viper.GetString("render")
+			language := viper.GetString("language")
 
 			if versions {
 				url := "/documents/" + documentID + "/versions"
@@ -72,6 +82,12 @@ Will return the document with the id of jis74978 and the version of 123456.`,
 			if version != "" {
 				url += "/versions/" + version
 			}
+			if render != "" {
+				url += "?render=" + render
+				if language != "" {
+					url += "&language=" + language
+				}
+			}
 
 			rs, err := ezhttp.Get(url)
 			if err != nil {
@@ -85,8 +101,13 @@ Will return the document with the id of jis74978 and the version of 123456.`,
 				return
 			}
 
+			data := documentRs.Data
+			if render != "" {
+				data = string(documentRs.Formatted)
+			}
+
 			if file == "" {
-				cmd.Println(documentRs.Data)
+				cmd.Println(data)
 				return
 			}
 			documentFile, err := os.Create(file)
@@ -96,7 +117,7 @@ Will return the document with the id of jis74978 and the version of 123456.`,
 			}
 			defer documentFile.Close()
 
-			_, err = documentFile.WriteString(documentRs.Data)
+			_, err = documentFile.WriteString(data)
 			if err != nil {
 				cmd.PrintErrln("Failed to write document to file:", err)
 				return
@@ -110,9 +131,6 @@ Will return the document with the id of jis74978 and the version of 123456.`,
 	cmd.Flags().StringP("file", "f", "", "The file to save the document to")
 	cmd.Flags().StringP("version", "v", "", "The version of the document to get")
 	cmd.Flags().BoolP("versions", "", false, "Get all versions of the document")
-
-	viper.BindPFlag("server", cmd.PersistentFlags().Lookup("server"))
-	viper.BindPFlag("file", cmd.Flags().Lookup("file"))
-	viper.BindPFlag("version", cmd.Flags().Lookup("version"))
-	viper.BindPFlag("versions", cmd.Flags().Lookup("versions"))
+	cmd.Flags().StringP("render", "r", "", "Render the document with syntax highlighting (terminal8, terminal16, terminal256, terminal16m, html, or none)")
+	cmd.Flags().StringP("language", "l", "", "The language to render the document with")
 }

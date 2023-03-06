@@ -11,7 +11,7 @@ func NewRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "gobin",
 		Short: "gobin let's you upload and download documents from the gobin server",
-		Long:  `long description`,
+		Long:  "",
 	}
 
 	var cfgFile string
@@ -31,6 +31,7 @@ func Execute(command *cobra.Command) {
 func initConfig(cfgFile string) func() {
 	return func() {
 		viper.SetDefault("server", "https://xgob.in")
+		viper.SetDefault("render", "terminal16m")
 		if cfgFile != "" {
 			viper.SetConfigFile(cfgFile)
 		} else {

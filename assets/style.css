@@ -9,8 +9,6 @@
     --nav-button-bg: #373b41;
     --text-primary: #c8cdd3;
     --text-secondary: #828997;
-
-
     --bg-scrollbar: #373b41;
     --bg-scrollbar-thumb: #1f2228;
     --bg-scrollbar-thumb-hover: #232529;
@@ -27,7 +25,8 @@
     --style: url("/assets/icons/dark/style.png");
     --share: url("/assets/icons/dark/share.png");
     --close: url("/assets/icons/dark/close.png");
-    --versions: url("/assets/icons/dark/versions.png");
+    --version: url("/assets/icons/dark/version.png");
+    --theme: url("/assets/icons/dark/theme.png");
 }
 
 .light {
@@ -36,7 +35,6 @@
     --nav-button-bg: #d1d5da;
     --text-primary: #282c34;
     --text-secondary: #1f2228;
-
     --bg-scrollbar: #ebecef;
     --bg-scrollbar-thumb: #d4d5dc;
     --bg-scrollbar-thumb-hover: #c3c8ce;
@@ -53,7 +51,8 @@
     --style: url("/assets/icons/light/style.png");
     --share: url("/assets/icons/light/share.png");
     --close: url("/assets/icons/light/close.png");
-    --versions: url("/assets/icons/light/versions.png");
+    --version: url("/assets/icons/light/version.png");
+    --theme: url("/assets/icons/light/theme.png");
 }
 
 html {
@@ -143,7 +142,6 @@ body {
     padding: 0;
     margin: 0;
     font-family: monospace;
-    color: var(--text-primary);
     overflow: hidden;
 }
 
@@ -261,12 +259,12 @@ nav {
 }
 
 .button:hover, button:hover {
-    opacity: 0.7;
+    filter: opacity(0.7);
 }
 
 .button:disabled, button:disabled {
     cursor: not-allowed;
-    opacity: 0.2;
+    filter: opacity(0.2);
 }
 
 main {
@@ -312,52 +310,27 @@ main {
     gap: 1rem;
 }
 
-#versions {
-    position: fixed;
-    display: none;
-    row-gap: 0.25rem;
-    right: 1rem;
-    flex-direction: column;
-    border-radius: 1rem;
-    padding: 0.5rem;
-    max-height: calc(100vh - 8rem);
-    overflow-y: scroll;
-    background-color: var(--bg-secondary);
-}
-
-.version-btn {
-    display: none;
-}
-
-.version-btn:checked + label {
-    background-color: var(--bg-primary);
-}
-
-.version {
-    padding: 0.5rem;
-    cursor: pointer;
-    user-select: none;
-    border-radius: 1rem;
-}
-
-.version:hover {
-    background-color: var(--bg-primary);
-}
-
-#versions-btn {
-    display: none;
-    user-select: none;
-}
-
-#versions-btn ~ label {
-    display: inline-block;
+.settings .first > * {
     flex-shrink: 0;
+}
+
+.settings > * {
+    flex-shrink: 0;
+}
+
+#theme-toggle {
+    display: none;
+    user-select: none;
+}
+
+#theme-toggle + label {
+    margin-left: 1rem;
     border: none;
     border-radius: 1rem;
     width: 2rem;
     height: 2rem;
-    background-image: var(--versions);
-    background-color: var(--bg-secondary);
+    background-image: var(--theme);
+    background-color: var(--nav-button-bg);
     background-repeat: no-repeat;
     background-position: center;
     background-size: 1rem;
@@ -365,21 +338,8 @@ main {
     user-select: none;
 }
 
-#versions-btn ~ label:hover {
-    opacity: 0.7;
-}
-
-#versions-btn:disabled ~ label {
-    cursor: not-allowed;
-    opacity: 0.2;
-}
-
-#versions-btn:checked ~ label {
-    opacity: 0.7;
-}
-
-#versions-btn:checked ~ #versions {
-    display: flex;
+#theme-toggle + label:hover {
+    background-color: var(--nav-button-bg-hover);
 }
 
 select {
@@ -401,7 +361,12 @@ select {
 }
 
 select:hover {
-    opacity: 0.7;
+    filter: opacity(0.7);
+}
+
+select:disabled {
+    cursor: not-allowed;
+    filter: opacity(0.2);
 }
 
 #language {
@@ -409,6 +374,10 @@ select:hover {
 }
 
 #style {
+    background-image: var(--arrow-down);
+}
+
+#version {
     background-image: var(--arrow-down);
 }
 
@@ -454,7 +423,6 @@ select:hover {
 }
 
 #code-view {
-    border-radius: 1rem;
     width: 0;
     height: 0;
     min-width: 100%;
@@ -496,7 +464,7 @@ select:hover {
     outline: none;
 }
 
-@media (min-width: 30rem) {
+@media (min-width: 32rem) {
     nav {
         display: inline-flex;
         margin-left: auto;
@@ -517,7 +485,7 @@ select:hover {
     }
 
     select {
-        padding: 0.5rem 1.5rem 0.5rem 2rem;
+        padding: 0.5rem 2rem 0.5rem 2rem;
     }
 
     #language {
@@ -526,6 +494,10 @@ select:hover {
 
     #style {
         background-image: var(--arrow-down), var(--style);
+    }
+
+    #version {
+        background-image: var(--arrow-down), var(--version);
     }
 }
 

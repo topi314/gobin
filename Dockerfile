@@ -1,22 +1,10 @@
 FROM golang:1.19-alpine AS build
 
-ARG GITHUB_TOKEN
 ARG VERSION
 ARG COMMIT
 ARG BUILD_TIME
 
 WORKDIR /build
-
-COPY tools/go.mod tools/go.sum tools/
-
-RUN cd tools && go mod download
-
-COPY tools/ tools/
-
-RUN mkdir assets && \
-    mkdir assets/styles && \
-    cd tools && \
-    go run . --github-token $GITHUB_TOKEN
 
 COPY go.mod go.sum ./
 

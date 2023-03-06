@@ -1,11 +1,18 @@
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (event) => {
     updateFaviconStyle(event.matches);
+    setTheme(event.matches ? "dark" : "light");
 });
 
 document.addEventListener("DOMContentLoaded", () => {
     const matches = window.matchMedia("(prefers-color-scheme: dark)").matches;
     updateFaviconStyle(matches);
-    setStyle(localStorage.getItem("stylePreference") || (matches ? "atom-one-dark.min.css" : "atom-one-light.min.css"));
+    const theme = getCookie("theme") || (matches ? "dark" : "light");
+    setTheme(theme);
+});
+
+document.querySelector("#theme-toggle").addEventListener("click", () => {
+    const theme = getCookie("theme");
+    setTheme(theme === "dark" ? "light" : "dark");
 });
 
 function updateFaviconStyle(matches) {
@@ -17,19 +24,39 @@ function updateFaviconStyle(matches) {
     faviconElement.href = "/assets/favicon-light.png";
 }
 
-function setStyle(style) {
-    localStorage.setItem("stylePreference", style)
-    const highlightJSElement = document.querySelector(`link[title="Highlight.js Style"]`);
-    if (highlightJSElement) {
-        highlightJSElement.href = `/assets/styles/${style}`;
-    }
-    const styleElement = document.querySelector("#style");
-    if (styleElement) {
-        styleElement.value = style;
+function setTheme(theme) {
+    setCookie("theme", theme);
+    document.documentElement.setAttribute("data-theme", theme);
+    document.documentElement.classList.replace(theme === "dark" ? "light" : "dark", theme);
+}
+
+function getCookie(name) {
+    let matches = document.cookie.match(new RegExp(
+        "(?:^|; )" + name.replace(/([.$?*|{}()\[\]\\\/+^])/g, '\\$1') + "=([^;]*)"
+    ));
+    return matches ? decodeURIComponent(matches[1]) : undefined;
+}
+
+function setCookie(name, value, options = {}) {
+    options = {
+        path: "/",
+        sameSite: "strict",
+        ...options
+    };
+
+    if (options.expires instanceof Date) {
+        options.expires = options.expires.toUTCString();
     }
 
-    const theme = style.includes("dark") ? "dark" : "light";
-    const rootClassList = document.querySelector(":root").classList;
-    rootClassList.add(theme);
-    rootClassList.remove(theme === "dark" ? "light" : "dark");
+    let updatedCookie = encodeURIComponent(name) + "=" + encodeURIComponent(value);
+
+    for (let optionKey in options) {
+        updatedCookie += "; " + optionKey;
+        let optionValue = options[optionKey];
+        if (optionValue !== true) {
+            updatedCookie += "=" + optionValue;
+        }
+    }
+
+    document.cookie = updatedCookie;
 }

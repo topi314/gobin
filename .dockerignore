@@ -5,5 +5,3 @@ LICENSE
 Dockerfile
 gobin.json
 gobin.json.example
-assets/highlight.min.js
-assets/styles/

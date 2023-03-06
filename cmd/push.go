@@ -35,10 +35,18 @@ You can also update a specific document. For example:
 gobin push -d jis74978
 
 Will update the document with the key of jis74978.`,
+		PreRun: func(cmd *cobra.Command, args []string) {
+			viper.BindPFlag("server", cmd.PersistentFlags().Lookup("server"))
+			viper.BindPFlag("file", cmd.Flags().Lookup("file"))
+			viper.BindPFlag("document", cmd.Flags().Lookup("document"))
+			viper.BindPFlag("token", cmd.Flags().Lookup("token"))
+			viper.BindPFlag("language", cmd.Flags().Lookup("language"))
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			file := viper.GetString("file")
 			documentID := viper.GetString("document")
 			token := viper.GetString("token")
+			language := viper.GetString("language")
 
 			var (
 				r   io.Reader
@@ -83,7 +91,11 @@ Will update the document with the key of jis74978.`,
 			contentReader := strings.NewReader(content)
 			var rs *http.Response
 			if documentID == "" {
-				rs, err = ezhttp.Post("/documents", "", contentReader)
+				path := "/documents"
+				if language != "" {
+					path += "?language=" + language
+				}
+				rs, err = ezhttp.Post(path, contentReader)
 				if err != nil {
 					cmd.PrintErrln("Failed to create document:", err)
 					return
@@ -96,7 +108,11 @@ Will update the document with the key of jis74978.`,
 					cmd.PrintErrln("No token found or provided for document:", documentID)
 					return
 				}
-				rs, err = ezhttp.Patch("/documents/"+documentID, token, "", contentReader)
+				path := "/documents/" + documentID
+				if language != "" {
+					path += "?language=" + language
+				}
+				rs, err = ezhttp.Patch(path, token, contentReader)
 				if err != nil {
 					cmd.PrintErrln("Failed to update document:", err)
 					return
@@ -136,9 +152,5 @@ Will update the document with the key of jis74978.`,
 	cmd.Flags().StringP("file", "f", "", "The file to push")
 	cmd.Flags().StringP("document", "d", "", "The document to update")
 	cmd.Flags().StringP("token", "t", "", "The token for the document to update")
-
-	viper.BindPFlag("server", cmd.PersistentFlags().Lookup("server"))
-	viper.BindPFlag("file", cmd.Flags().Lookup("file"))
-	viper.BindPFlag("document", cmd.Flags().Lookup("document"))
-	viper.BindPFlag("token", cmd.Flags().Lookup("token"))
+	cmd.Flags().StringP("language", "l", "", "The language of the document")
 }

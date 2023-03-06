@@ -26,34 +26,28 @@
 <main>
     <div class="settings">
         <div class="first">
-            <select title="Language" id="language">
-                {{ if and (ne .Language "") (ne .Language "auto") }}
-                    <option value="{{ .Language }}" selected="selected">{{ .Language }}</option>
+            <select title="Language" id="language" autocomplete="off">
+                <option value="auto" {{ if eq $.Language "" }}selected="selected"{{ end }}>auto</option>
+                {{ range $value := .Lexers }}
+                    <option value="{{ $value }}" {{ $value }} {{ if eq $.Language $value}}selected="selected"{{ end }}>{{ $value }}</option>
                 {{ end }}
-                <option value="auto">auto</option>
             </select>
-            <select title="Style" id="style">
-                {{ range $index, $value := .Styles }}
-                    <option value="{{ $value.URL }}">{{ $value.Name }}</option>
+            <select title="Style" id="style" autocomplete="off">
+                {{ range $value := .Styles }}
+                    <option value="{{ $value }}" {{ if eq $.Style $value}}selected="selected"{{ end }}>{{ $value }}</option>
                 {{ end }}
             </select>
         </div>
-        <div>
-            <input id="versions-btn" type="checkbox"/>
-            <label title="Versions" for="versions-btn"></label>
-            <div id="versions">
-                {{ range $version := .Versions }}
-                    <input id="version-{{ $version.Version }}" class="version-btn" type="radio" name="version" value="{{ $version.Version }}" {{ if eq $version.Version .Version}}checked="checked"{{ end }}>
-                    <label for="version-{{ $version.Version }}" class="version" title="{{ $version.Time }}">{{ $version.Label }}</label>
-                {{ end }}
-            </div>
-        </div>
+        <select title="Versions" id="version" autocomplete="off">
+            {{ range $version := .Versions }}
+                <option title="{{ $version.Time }}" value="{{ $version.Version }}" {{ if eq $.Version $version.Version}}selected="selected"{{ end }}>{{ $version.Label }}</option>
+            {{ end }}
+        </select>
     </div>
-    <pre id="code" {{ if eq .ID "" }}style="display: none;"{{ end }}><code id="code-view">{{ .Content }}</code></pre>
-    <textarea id="code-edit" spellcheck="false" {{ if ne .ID "" }}style="display: none;"{{ end }}></textarea>
+    <pre id="code" {{ if eq .ID "" }}style="display: none;"{{ end }}><code id="code-view" class="ch-chroma">{{ .Formatted }}</code></pre>
+    <textarea id="code-edit" spellcheck="false" {{ if ne .ID "" }}style="display: none;"{{ end }}>{{ .Content }}</textarea>
 </main>
 <script src="/assets/theme.js" defer></script>
-<script src="/assets/highlight.min.js" defer></script>
 <script src="/assets/script.js" defer></script>
 </body>
 </html>
