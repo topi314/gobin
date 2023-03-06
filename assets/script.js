@@ -8,7 +8,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     document.querySelector("#nav-btn").checked = false;
-    document.querySelector("#versions-btn").checked = false;
 
     let content = "", language = "";
     if (key) {
@@ -119,27 +118,14 @@ document.querySelector("#save").addEventListener("click", async () => {
     document.querySelector("#code-edit").value = body.data;
     document.querySelector("#language").value = body.language;
 
-    const inputElement = document.createElement("input")
-    const labelElement = document.createElement("label")
+    const optionElement = document.createElement("option")
+    optionElement.value = body.version;
+    optionElement.title = `${body.version_time}`;
+    optionElement.innerText = `${body.version_label}`;
 
-    inputElement.id = `version-${body.version}`;
-    inputElement.classList.add("version-btn");
-    inputElement.type = "radio";
-    inputElement.name = "version";
-    inputElement.value = body.version;
-    inputElement.checked = true;
-
-    labelElement.htmlFor = `version-${body.version}`;
-    labelElement.classList.add("version");
-    labelElement.title = `${body.version_time}`;
-    labelElement.innerText = `${body.version_label}`;
-
-    const versionsElement = document.querySelector("#versions")
-    for (let child of versionsElement.children) {
-        child.checked = false
-    }
-    versionsElement.insertBefore(labelElement, versionsElement.firstChild);
-    versionsElement.insertBefore(inputElement, versionsElement.firstChild);
+    const versionElement = document.querySelector("#version")
+    versionElement.insertBefore(optionElement, versionElement.firstChild);
+    versionElement.value = body.version;
 
     updateCode(newState);
     updatePage(newState);
@@ -274,23 +260,21 @@ document.querySelector("#style").addEventListener("change", async (event) => {
     await fetchDocument(key, version, language);
 });
 
-document.querySelector("#versions").addEventListener("click", async (event) => {
-    if (!event.target || !event.target.matches("input[type='radio'][class='version-btn']")) return;
-
+document.querySelector("#version").addEventListener("change", async (event) => {
     const {key, version} = getState();
     let newVersion = event.target.value;
-    if (event.target.parentElement.children.item(0).value === newVersion) {
+    if (event.target.options.item(0).value === newVersion) {
         newVersion = "";
     }
     if (newVersion === version) return;
 
-    const {newState, url} = fetchDocument(key, newVersion);
+    const {newState, url} = await fetchDocument(key, newVersion);
     updateCode(newState);
     window.history.pushState(newState, "", url);
 })
 
 async function fetchDocument(key, version, language) {
-    const response = await fetch(`/documents/${key}${version ? `/versions/${version}` : ""}?render=html&language=${language}`, {
+    const response = await fetch(`/documents/${key}${version ? `/versions/${version}` : ""}?render=html${language ? `&language=${language}` : ""}`, {
         method: "GET"
     });
 
@@ -298,13 +282,16 @@ async function fetchDocument(key, version, language) {
     if (!response.ok) {
         showErrorPopup(body.message || response.statusText);
         console.error("error fetching document version:", response);
-        return undefined;
+        console.log("AAAAAAAAAAAAAAAAAAAAA");
+        return;
     }
 
     document.querySelector("#code-view").innerHTML = body.formatted;
     document.querySelector("#code-style").innerHTML = body.css;
     document.querySelector("#code-edit").value = body.data;
     document.querySelector("#language").value = body.language;
+
+    console.log(body.version)
 
     return createState(key, `${body.version}`, "view", body.data, body.language);
 }
@@ -392,8 +379,8 @@ function updatePage(state) {
     const copyButton = document.querySelector("#copy");
     const rawButton = document.querySelector("#raw");
     const shareButton = document.querySelector("#share");
-    const versionsButton = document.querySelector("#versions-btn");
-    versionsButton.disabled = document.querySelector("#versions").children.length <= 2;
+    const versionSelect = document.querySelector("#version");
+    versionSelect.disabled = versionSelect.options.length <= 1;
     if (mode === "view") {
         saveButton.disabled = true;
         saveButton.style.display = "none";

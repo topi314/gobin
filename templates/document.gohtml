@@ -38,16 +38,11 @@
                 {{ end }}
             </select>
         </div>
-        <div>
-            <input id="versions-btn" type="checkbox"/>
-            <label title="Versions" for="versions-btn"></label>
-            <div id="versions">
-                {{ range $version := .Versions }}
-                    <input id="version-{{ $version.Version }}" class="version-btn" type="radio" name="version" value="{{ $version.Version }}" {{ if eq $version.Version .Version}}checked="checked"{{ end }}>
-                    <label for="version-{{ $version.Version }}" class="version" title="{{ $version.Time }}">{{ $version.Label }}</label>
-                {{ end }}
-            </div>
-        </div>
+        <select title="Versions" id="version" autocomplete="off">
+            {{ range $version := .Versions }}
+                <option title="{{ $version.Time }}" value="{{ $version.Version }}" {{ if eq $.Version $version.Version}}selected="selected"{{ end }}>{{ $version.Label }}</option>
+            {{ end }}
+        </select>
     </div>
     <pre id="code" {{ if eq .ID "" }}style="display: none;"{{ end }}><code id="code-view" class="ch-chroma">{{ .Formatted }}</code></pre>
     <textarea id="code-edit" spellcheck="false" {{ if ne .ID "" }}style="display: none;"{{ end }}>{{ .Content }}</textarea>

@@ -463,6 +463,12 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	select {
+	case <-r.Context().Done():
+		return
+	default:
+	}
+
 	if s.exceedsMaxDocumentSize(w, r, content) {
 		return
 	}
@@ -533,6 +539,12 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 	}
 
 	content := s.readBody(w, r)
+	select {
+	case <-r.Context().Done():
+		return
+	default:
+	}
+
 	if content == "" {
 		return
 	}
