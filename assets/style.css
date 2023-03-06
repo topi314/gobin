@@ -9,8 +9,6 @@
     --nav-button-bg: #373b41;
     --text-primary: #c8cdd3;
     --text-secondary: #828997;
-
-
     --bg-scrollbar: #373b41;
     --bg-scrollbar-thumb: #1f2228;
     --bg-scrollbar-thumb-hover: #232529;
@@ -37,7 +35,6 @@
     --nav-button-bg: #d1d5da;
     --text-primary: #282c34;
     --text-secondary: #1f2228;
-
     --bg-scrollbar: #ebecef;
     --bg-scrollbar-thumb: #d4d5dc;
     --bg-scrollbar-thumb-hover: #c3c8ce;
@@ -262,12 +259,12 @@ nav {
 }
 
 .button:hover, button:hover {
-    opacity: 0.7;
+    filter: opacity(0.7);
 }
 
 .button:disabled, button:disabled {
     cursor: not-allowed;
-    opacity: 0.2;
+    filter: opacity(0.2);
 }
 
 main {
@@ -313,6 +310,14 @@ main {
     gap: 1rem;
 }
 
+.settings .first > * {
+    flex-shrink: 0;
+}
+
+.settings > * {
+    flex-shrink: 0;
+}
+
 #theme-toggle {
     display: none;
     user-select: none;
@@ -334,7 +339,7 @@ main {
 }
 
 #theme-toggle + label:hover {
-    opacity: 0.7;
+    background-color: var(--nav-button-bg-hover);
 }
 
 select {
@@ -356,12 +361,12 @@ select {
 }
 
 select:hover {
-    opacity: 0.7;
+    filter: opacity(0.7);
 }
 
 select:disabled {
     cursor: not-allowed;
-    opacity: 0.2;
+    filter: opacity(0.2);
 }
 
 #language {
