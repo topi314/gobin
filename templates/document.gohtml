@@ -46,7 +46,9 @@
     </div>
     <pre id="code" {{ if eq .ID "" }}style="display: none;"{{ end }}><code id="code-view" class="ch-chroma">{{ .Formatted }}</code></pre>
     <textarea id="code-edit" spellcheck="false" {{ if ne .ID "" }}style="display: none;"{{ end }}>{{ .Content }}</textarea>
-    <label for="code-edit"></labnel>
+    <label for="code-edit">
+        <span id="code-edit-count">{{ len .Content }}</span>{{ if gt .Max 0 }}/<span id="code-edit-max">{{ .Max }}</span>{{ end }}
+    </labnel>
 </main>
 <script src="/assets/theme.js" defer></script>
 <script src="/assets/script.js" defer></script>

@@ -464,6 +464,16 @@ select:disabled {
     outline: none;
 }
 
+#code-edit + label {
+    color: var(--text-primary);
+    height: 1rem;
+    text-align: right;
+}
+
+#code-edit + label.error {
+    color: var(--bg-error)
+}
+
 @media (min-width: 32rem) {
     nav {
         display: inline-flex;

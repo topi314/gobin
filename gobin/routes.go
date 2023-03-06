@@ -51,6 +51,7 @@ type (
 		Style    string
 		Theme    string
 
+		Max  int
 		Host string
 	}
 	DocumentVersion struct {
@@ -304,6 +305,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		Style:    style,
 		Theme:    theme,
 
+		Max:  s.cfg.MaxDocumentSize,
 		Host: r.Host,
 	}
 	if err = s.tmpl(w, "document.gohtml", vars); err != nil {

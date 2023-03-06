@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     document.querySelector("#nav-btn").checked = false;
+    updateCodeEditCount(document.querySelector("#code-edit").value.length);
 
     let content = "", language = "";
     if (key) {
@@ -36,6 +37,22 @@ document.querySelector("#code-edit").addEventListener("keydown", (event) => {
     event.target.value = event.target.value.substring(0, start) + "\t" + event.target.value.substring(end);
     event.target.selectionStart = event.target.selectionEnd = start + 1;
 });
+
+document.querySelector("#code-edit").addEventListener("input", (event) => {
+    updateCodeEditCount(event.target.value.length);
+})
+
+function updateCodeEditCount(count) {
+    const countElement = document.querySelector("#code-edit-count");
+    countElement.innerHTML = count
+    const maxElement = document.querySelector("#code-edit-max");
+    if (!maxElement) return;
+    if (count > maxElement.innerHTML) {
+        countElement.classList.add("error");
+    } else {
+        countElement.classList.remove("error");
+    }
+}
 
 document.querySelector("#code-edit").addEventListener("paste", (event) => {
     const codeEditElement = document.querySelector("#code-edit");
