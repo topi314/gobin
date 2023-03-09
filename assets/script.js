@@ -100,7 +100,7 @@ document.querySelector("#save").addEventListener("click", async () => {
 
     let response;
     if (key && token) {
-        response = await fetch(`/documents/${key}?render=html${language ? `&language=${language || "auto"}` : ""}`, {
+        response = await fetch(`/documents/${key}?formatter=html${language ? `&language=${language || "auto"}` : ""}`, {
             method: "PATCH",
             body: content,
             headers: {
@@ -108,7 +108,7 @@ document.querySelector("#save").addEventListener("click", async () => {
             }
         });
     } else {
-        response = await fetch(`/documents?render=html${language ? `&language=${language || "auto"}` : ""}`, {
+        response = await fetch(`/documents?formatter=html${language ? `&language=${language || "auto"}` : ""}`, {
             method: "POST",
             body: content,
         });
@@ -288,7 +288,7 @@ document.querySelector("#version").addEventListener("change", async (event) => {
 })
 
 async function fetchDocument(key, version, language) {
-    const response = await fetch(`/documents/${key}${version ? `/versions/${version}` : ""}?render=html${language ? `&language=${language}` : ""}`, {
+    const response = await fetch(`/documents/${key}${version ? `/versions/${version}` : ""}?formatter=html${language ? `&language=${language}` : ""}`, {
         method: "GET"
     });
 

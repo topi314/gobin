@@ -219,7 +219,7 @@ Following endpoints are rate-limited:
 - `PATCH` `/documents/{key}`
 - `DELETE` `/documents/{key}`
 
-`PATCH` and `DELETE` share the same bucket while `POST` has it's own bucket
+`PATCH` and `DELETE` share the same bucket while `POST` has its own bucket
 
 ---
 
@@ -227,17 +227,19 @@ Following endpoints are rate-limited:
 
 Fields marked with `?` are optional and types marked with `?` are nullable.
 
-### Render Enum
+### Formatter Enum
 
-Document rendering is done using [chroma](https://github.com/alecthomas/chroma). The following renderers are available:
+Document formatting is done using [chroma](https://github.com/alecthomas/chroma). The following formatters are available:
 
-| Value       | Description             |
-|-------------|-------------------------|
-| terminal8   | 8-bit terminal colors   |
-| terminal16  | 16-bit terminal colors  |
-| terminal256 | 256-bit terminal colors |
-| terminal16m | true terminal colors    |
-| html        | HTML                    |
+| Value           | Description             |
+|-----------------|-------------------------|
+| terminal8       | 8-bit terminal colors   |
+| terminal16      | 16-bit terminal colors  |
+| terminal256     | 256-bit terminal colors |
+| terminal16m     | true terminal colors    |
+| html            | HTML                    |
+| html-standalone | Standalone HTML         |
+| svg             | SVG                     |
 
 ---
 
@@ -284,10 +286,10 @@ The following languages are available:
 
 To create a paste you have to send a `POST` request to `/documents` with the `content` as `plain/text` body.
 
-| Query Parameter | Type                       | Description                   |
-|-----------------|----------------------------|-------------------------------|
-| language?       | [language](#language-enum) | The language of the document. |
-| render?         | [render](#render-enum)     | How to render the document.   |
+| Query Parameter | Type                         | Description                                  |
+|-----------------|------------------------------|----------------------------------------------|
+| language?       | [language](#language-enum)   | The language of the document.                |
+| formatter?      | [formatter](#formatter-enum) | With which formatter to render the document. |
 
 ```go
 package main
@@ -313,10 +315,10 @@ A successful request will return a `200 OK` response with a JSON body containing
 
 To get a document you have to send a `GET` request to `/documents/{key}`.
 
-| Query Parameter | Type                       | Description                                        |
-|-----------------|----------------------------|----------------------------------------------------|
-| language?       | [language](#language-enum) | In which language the document should be rendered. |
-| render?         | [render](#render-enum)     | How to render the document.                        |
+| Query Parameter | Type                         | Description                                        |
+|-----------------|------------------------------|----------------------------------------------------|
+| language?       | [language](#language-enum)   | In which language the document should be rendered. |
+| formatter?      | [formatter](#formatter-enum) | With which formatter to render the document        |
 
 The response will be a `200 OK` with the document content as `application/json` body.
 
@@ -325,8 +327,8 @@ The response will be a `200 OK` with the document content as `application/json` 
   "key": "hocwr6i6",
   "version": "1",
   "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
-  "formatted": "...", # only if render is set
-  "css": "...", # only if render=html
+  "formatted": "...", # only if formatter is set
+  "css": "...", # only if formatter=html
   "language": "go"
 }
 ```
@@ -337,11 +339,11 @@ The response will be a `200 OK` with the document content as `application/json` 
 
 To get a documents versions you have to send a `GET` request to `/documents/{key}/versions`.
 
-| Query Parameter | Type                       | Description                                        |
-|-----------------|----------------------------|----------------------------------------------------|
-| withData?       | bool                       | If the data should be included in the response.    |
-| language?       | [language](#language-enum) | In which language the document should be rendered. |
-| render?         | [render](#render-enum)     | How to render the document.                        |
+| Query Parameter | Type                         | Description                                        |
+|-----------------|------------------------------|----------------------------------------------------|
+| withData?       | bool                         | If the data should be included in the response.    |
+| language?       | [language](#language-enum)   | In which language the document should be rendered. |
+| formatter?      | [formatter](#formatter-enum) | The formatter to use for rendering the document.   |
 
 The response will be a `200 OK` with the document content as `application/json` body.
 
@@ -350,15 +352,15 @@ The response will be a `200 OK` with the document content as `application/json` 
   {
     "version": 1,
     "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
-    "formatted": "...", # only if render is set
-    "css": "...", # only if render=html
+    "formatted": "...", # only if formatter is set
+    "css": "...", # only if formatter=html
     "language": "go"
   },
   {
     "version": 2,
     "data": "package main\n\nfunc main() {\n    println(\"Hello World2!\")\n}",
-    "formatted": "...", # only if render is set
-    "css": "...", # only if render=html
+    "formatted": "...", # only if formatter is set
+    "css": "...", # only if formatter=html
     "language": "go"
   }
 ]
@@ -368,10 +370,10 @@ The response will be a `200 OK` with the document content as `application/json` 
 
 To get a document version you have to send a `GET` request to `/documents/{key}/versions/{version}`.
 
-| Query Parameter | Type                       | Description                                        |
-|-----------------|----------------------------|----------------------------------------------------|
-| language?       | [language](#language-enum) | In which language the document should be rendered. |
-| render?         | [render](#render-enum)     | How to render the document.                        |
+| Query Parameter | Type                         | Description                                        |
+|-----------------|------------------------------|----------------------------------------------------|
+| language?       | [language](#language-enum)   | In which language the document should be rendered. |
+| formatter?      | [formatter](#formatter-enum) | With which formatter to render the document.       |
 
 The response will be a `200 OK` with the document content as `application/json` body.
 
@@ -380,8 +382,8 @@ The response will be a `200 OK` with the document content as `application/json` 
   "key": "hocwr6i6",
   "version": 1,
   "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
-  "formatted": "...", # only if render is set
-  "css": "...", # only if render=html
+  "formatted": "...", # only if formatter is set
+  "css": "...", # only if formatter=html
   "language": "go"
 }
 ```
@@ -392,10 +394,10 @@ The response will be a `200 OK` with the document content as `application/json` 
 
 To update a paste you have to send a `PATCH` request to `/documents/{key}` with the `content` as `plain/text` body and the `token` as `Authorization` header.
 
-| Query Parameter | Type                       | Description                   |
-|-----------------|----------------------------|-------------------------------|
-| language?       | [language](#language-enum) | The language of the document. |
-| render?         | [render](#render-enum)     | How to render the document.   |
+| Query Parameter | Type                         | Description                                  |
+|-----------------|------------------------------|----------------------------------------------|
+| language?       | [language](#language-enum)   | The language of the document.                |
+| formatter?      | [formatter](#formatter-enum) | With which formatter to render the document. |
 
 ```
 Authorization: kiczgez33j7qkvqdg9f7ksrd8jk88wba
@@ -418,9 +420,9 @@ A successful request will return a `200 OK` response with a JSON body containing
 {
   "key": "hocwr6i6",
   "version": 2,
-  "data": "package main\n\nfunc main() {\n    println(\"Hello World Updated!\")\n}", # only if render is set
-  "formatted": "...", # only if render is set
-  "css": "...", # only if render=html
+  "data": "package main\n\nfunc main() {\n    println(\"Hello World Updated!\")\n}", # only if formatter is set
+  "formatted": "...", # only if formatter is set
+  "css": "...", # only if formatter=html
 }
 ```
 

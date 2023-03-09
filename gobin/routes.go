@@ -397,16 +397,16 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 
 	var formatted template.HTML
 	query := r.URL.Query()
-	render := query.Get("render")
-	if render != "" {
-		if render == "html" {
-			render = "html-standalone"
+	formatter := query.Get("formatter")
+	if formatter != "" {
+		if formatter == "html" {
+			formatter = "html-standalone"
 		}
 		if query.Get("language") != "" {
 			document.Language = query.Get("language")
 		}
 		var err error
-		formatted, _, _, _, err = s.renderDocument(r, *document, render)
+		formatted, _, _, _, err = s.renderDocument(r, *document, formatter)
 		if err != nil {
 			s.log(r, "render document", err)
 			s.error(w, r, err, http.StatusInternalServerError)
@@ -445,13 +445,13 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 		language  string
 	)
 	query := r.URL.Query()
-	render := query.Get("render")
-	if render != "" {
+	formatter := query.Get("formatter")
+	if formatter != "" {
 		if query.Get("language") != "" {
 			document.Language = query.Get("language")
 		}
 		var err error
-		formatted, css, language, _, err = s.renderDocument(r, *document, render)
+		formatted, css, language, _, err = s.renderDocument(r, *document, formatter)
 		if err != nil {
 			s.log(r, "render document", err)
 			s.error(w, r, err, http.StatusInternalServerError)
@@ -514,9 +514,9 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 		css           template.CSS
 		finalLanguage string
 	)
-	render := r.URL.Query().Get("render")
-	if render != "" {
-		formatted, css, finalLanguage, _, err = s.renderDocument(r, document, render)
+	formatter := r.URL.Query().Get("formatter")
+	if formatter != "" {
+		formatted, css, finalLanguage, _, err = s.renderDocument(r, document, formatter)
 		if err != nil {
 			s.log(r, "render document", err)
 			s.error(w, r, err, http.StatusInternalServerError)
@@ -597,9 +597,9 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 		css           template.CSS
 		finalLanguage string
 	)
-	render := r.URL.Query().Get("render")
-	if render != "" {
-		formatted, css, finalLanguage, _, err = s.renderDocument(r, document, render)
+	formatter := r.URL.Query().Get("formatter")
+	if formatter != "" {
+		formatted, css, finalLanguage, _, err = s.renderDocument(r, document, formatter)
 		if err != nil {
 			s.log(r, "render document", err)
 			s.error(w, r, err, http.StatusInternalServerError)

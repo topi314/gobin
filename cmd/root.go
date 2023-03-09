@@ -41,7 +41,7 @@ func Execute(command *cobra.Command) {
 func initConfig(cfgFile string) func() {
 	return func() {
 		viper.SetDefault("server", "https://xgob.in")
-		viper.SetDefault("render", "terminal16m")
+		viper.SetDefault("formatter", "terminal16m")
 		if cfgFile != "" {
 			viper.SetConfigFile(cfgFile)
 		} else {

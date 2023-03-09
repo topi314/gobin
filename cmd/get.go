@@ -34,7 +34,7 @@ Will return the document with the id of jis74978.`,
 			viper.BindPFlag("file", cmd.Flags().Lookup("file"))
 			viper.BindPFlag("version", cmd.Flags().Lookup("version"))
 			viper.BindPFlag("versions", cmd.Flags().Lookup("versions"))
-			viper.BindPFlag("render", cmd.Flags().Lookup("render"))
+			viper.BindPFlag("formatter", cmd.Flags().Lookup("formatter"))
 			viper.BindPFlag("language", cmd.Flags().Lookup("language"))
 			viper.BindPFlag("style", cmd.Flags().Lookup("style"))
 		},
@@ -47,7 +47,7 @@ Will return the document with the id of jis74978.`,
 			file := viper.GetString("file")
 			version := viper.GetString("version")
 			versions := viper.GetBool("versions")
-			render := viper.GetString("render")
+			formatter := viper.GetString("formatter")
 			language := viper.GetString("language")
 			style := viper.GetString("style")
 
@@ -80,8 +80,8 @@ Will return the document with the id of jis74978.`,
 			if version != "" {
 				url += "/versions/" + version
 			}
-			if render != "" {
-				url += "?render=" + render
+			if formatter != "" {
+				url += "?formatter=" + formatter
 				if language != "" {
 					url += "&language=" + language
 				}
@@ -103,7 +103,7 @@ Will return the document with the id of jis74978.`,
 			}
 
 			data := documentRs.Data
-			if render != "" {
+			if formatter != "" {
 				data = string(documentRs.Formatted)
 			}
 
@@ -133,7 +133,7 @@ Will return the document with the id of jis74978.`,
 	cmd.Flags().StringP("file", "f", "", "The file to save the document to")
 	cmd.Flags().StringP("version", "v", "", "The version of the document to get")
 	cmd.Flags().BoolP("versions", "", false, "Get all versions of the document")
-	cmd.Flags().StringP("render", "r", "", "Render the document with syntax highlighting (terminal8, terminal16, terminal256, terminal16m, html, or none)")
+	cmd.Flags().StringP("formatter", "r", "", "Format the document with syntax highlighting (terminal8, terminal16, terminal256, terminal16m, html, html-standalone, svg, or none)")
 	cmd.Flags().StringP("language", "l", "", "The language to render the document with")
 	cmd.Flags().StringP("style", "", "", "The style to render the document with")
 }
