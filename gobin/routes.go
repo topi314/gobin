@@ -28,7 +28,6 @@ const maxUnix = int(^int32(0))
 
 var (
 	ErrDocumentNotFound = errors.New("document not found")
-	ErrUnauthorized     = errors.New("unauthorized")
 	ErrRateLimit        = errors.New("rate limit exceeded")
 	ErrEmptyBody        = errors.New("empty request body")
 	ErrContentTooLarge  = func(maxLength int) error {

@@ -1,6 +1,6 @@
 module github.com/topisenpai/gobin
 
-go 1.18
+go 1.20
 
 require (
 	github.com/alecthomas/chroma/v2 v2.5.0
