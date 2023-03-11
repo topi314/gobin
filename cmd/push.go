@@ -22,7 +22,7 @@ func NewPushCmd(parent *cobra.Command) {
 		Example: `gobin push "hello world!
 		
 Will push "hello world!" to the server`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.RangeArgs(0, 1),
 		PreRun: func(cmd *cobra.Command, args []string) {
 			viper.BindPFlag("server", cmd.PersistentFlags().Lookup("server"))
 			viper.BindPFlag("file", cmd.Flags().Lookup("file"))
