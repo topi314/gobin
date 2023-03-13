@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/alecthomas/chroma/v2/formatters"
@@ -46,20 +47,20 @@ func main() {
 
 	viper.SetDefault("listen_addr", ":80")
 	viper.SetDefault("dev_mode", false)
-	viper.SetDefault("database.type", "sqlite")
-	viper.SetDefault("database.debug", false)
-	viper.SetDefault("database.expire_after", "0")
-	viper.SetDefault("database.cleanup_interval", "1m")
-	viper.SetDefault("database.path", "gobin.db")
-	viper.SetDefault("database.host", "localhost")
-	viper.SetDefault("database.port", 5432)
-	viper.SetDefault("database.username", "gobin")
-	viper.SetDefault("database.password", "password")
-	viper.SetDefault("database.database", "gobin")
-	viper.SetDefault("database.ssl_mode", "disable")
+	viper.SetDefault("database_type", "sqlite")
+	viper.SetDefault("database_debug", false)
+	viper.SetDefault("database_expire_after", "0")
+	viper.SetDefault("database_cleanup_interval", "1m")
+	viper.SetDefault("database_path", "gobin.db")
+	viper.SetDefault("database_host", "localhost")
+	viper.SetDefault("database_port", 5432)
+	viper.SetDefault("database_username", "gobin")
+	viper.SetDefault("database_password", "password")
+	viper.SetDefault("database_database", "gobin")
+	viper.SetDefault("database_ssl_mode", "disable")
 	viper.SetDefault("max_document_size", 0)
-	viper.SetDefault("rate_limit.requests", 10)
-	viper.SetDefault("rate_limit.duration", "1m")
+	viper.SetDefault("rate_limit_requests", 10)
+	viper.SetDefault("rate_limit_duration", "1m")
 
 	if *cfgPath != "" {
 		viper.SetConfigFile(*cfgPath)
@@ -72,6 +73,7 @@ func main() {
 	if err := viper.ReadInConfig(); err != nil {
 		log.Fatalln("Error while reading config:", err)
 	}
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.SetEnvPrefix("gobin")
 	viper.AutomaticEnv()
 

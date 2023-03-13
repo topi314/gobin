@@ -171,7 +171,11 @@ Create a new `gobin.json` file with the following content:
     # number of requests which can be done in the duration
     "requests": 10,
     # the duration of the requests
-    "duration": "1m"
+    "duration": "1m",
+    # a list of ip addresses which are exempt from rate limiting
+    "whitelist": ["127.0.0.1"],
+    # a list of ip addresses which are blocked from rate limited endpoints
+    "blacklist": ["123.456.789.0"]
   }
 }
 ```
