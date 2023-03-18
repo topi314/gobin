@@ -132,7 +132,7 @@ func main() {
 		html.ClassPrefix("ch-"),
 		html.Standalone(false),
 		html.InlineCode(false),
-		html.WithPreWrapper(&gobin.NoopPreWrapper{}),
+		html.WithNopPreWrapper(),
 		html.WithLineNumbers(true),
 		html.WithLinkableLineNumbers(true, "L"),
 		html.TabWidth(4),

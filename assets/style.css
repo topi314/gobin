@@ -432,11 +432,11 @@ select:disabled {
     display: block;
 }
 
-#code-view > div {
+#code-view > .ch-line {
     counter-increment: line-counter;
 }
 
-#code-view > div::before {
+#code-view > .ch-line::before {
     content: counter(line-counter);
     display: inline-block;
     width: 2rem;
@@ -468,6 +468,7 @@ select:disabled {
     color: var(--text-primary);
     height: 1rem;
     text-align: right;
+    user-select: none;
 }
 
 #code-edit + label.error {

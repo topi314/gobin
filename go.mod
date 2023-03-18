@@ -2,6 +2,8 @@ module github.com/topisenpai/gobin
 
 go 1.20
 
+replace github.com/alecthomas/chroma/v2 => github.com/topisenpai/chroma/v2 v2.0.0-20230318020552-97b7d41f24da
+
 require (
 	github.com/alecthomas/chroma/v2 v2.5.0
 	github.com/go-chi/chi/v5 v5.0.8
