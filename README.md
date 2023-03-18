@@ -74,7 +74,7 @@ services:
     container_name: gobin
     restart: unless-stopped
     volumes:
-      - ./gobin.json:/var/lib/gobin/gobin.json
+      - ./gobin.json:/var/lib/gobin/config.json
       # use this for sqlite
       - ./gobin.db:/var/lib/gobin/gobin.db
     ports:

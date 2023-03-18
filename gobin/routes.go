@@ -882,7 +882,7 @@ func (s *Server) prettyError(w http.ResponseWriter, r *http.Request, err error, 
 }
 
 func (s *Server) error(w http.ResponseWriter, r *http.Request, err error, status int) {
-	if status != http.StatusTooManyRequests {
+	if status == http.StatusInternalServerError {
 		s.log(r, "request", err)
 	}
 	s.json(w, r, ErrorResponse{
