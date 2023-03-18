@@ -70,6 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy
+        if: github.ref == 'refs/heads/master'
         uses: fjogeleit/http-request-action@v1
         with:
           url: "https://watchtower.topi.wtf/v1/update?image=ghcr.io/topisenpai/gobin"
