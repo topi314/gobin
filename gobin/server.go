@@ -24,6 +24,11 @@ func NewServer(version string, cfg Config, db *DB, signer jose.Signer, assets ht
 		tmpl:    tmpl,
 	}
 
+	s.server = &http.Server{
+		Addr:    cfg.ListenAddr,
+		Handler: s.Routes(),
+	}
+
 	if cfg.RateLimit != nil && cfg.RateLimit.Requests > 0 && cfg.RateLimit.Duration > 0 {
 		s.rateLimitHandler = httprate.NewRateLimiter(
 			cfg.RateLimit.Requests,
@@ -43,6 +48,7 @@ type Server struct {
 	version          string
 	cfg              Config
 	db               *DB
+	server           *http.Server
 	signer           jose.Signer
 	assets           http.FileSystem
 	tmpl             ExecuteTemplateFunc
@@ -50,8 +56,18 @@ type Server struct {
 }
 
 func (s *Server) Start() {
-	if err := http.ListenAndServe(s.cfg.ListenAddr, s.Routes()); err != nil {
+	if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalln("Error while listening:", err)
+	}
+}
+
+func (s *Server) Close() {
+	if err := s.server.Close(); err != nil {
+		log.Println("Error while closing server:", err)
+	}
+
+	if err := s.db.Close(); err != nil {
+		log.Println("Error while closing database:", err)
 	}
 }
 

@@ -8,7 +8,10 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/alecthomas/chroma/v2/formatters"
@@ -146,5 +149,10 @@ func main() {
 
 	s := gobin.NewServer(gobin.FormatBuildVersion(version, commit, buildTime), cfg, db, signer, assets, tmplFunc)
 	log.Println("Gobin listening on:", cfg.ListenAddr)
-	s.Start()
+	go s.Start()
+	defer s.Close()
+
+	si := make(chan os.Signal, 1)
+	signal.Notify(si, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+	<-si
 }

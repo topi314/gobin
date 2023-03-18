@@ -4,8 +4,6 @@ ARG VERSION
 ARG COMMIT
 ARG BUILD_TIME
 
-RUN apk add --no-cache inkscape
-
 WORKDIR /build
 
 COPY go.mod go.sum ./
@@ -17,6 +15,8 @@ COPY . .
 RUN CGO_ENABLED=0 go build -ldflags="-X 'main.version=$VERSION' -X 'main.commit=$COMMIT' -X 'main.buildTime=$BUILD_TIME'" -o gobin-server github.com/topisenpai/gobin
 
 FROM alpine
+
+RUN apk add --no-cache inkscape
 
 COPY --from=build /build/gobin-server /bin/gobin
 
