@@ -8,19 +8,25 @@
 
     <link rel="stylesheet" type="text/css" href="/assets/style.css">
 
-    <link rel="icon" href="/favicon.png">
+    <link rel="icon" href="/assets/favicon.png">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <meta property="og:title" content="gobin">
     <meta property="og:description" content="gobin is a simple pastebin written in Go.">
     <meta property="og:url" content="https://{{ .Host }}">
     <meta property="og:type" content="website">
+    {{ if and .Preview (ne .ID "") }}
+        <meta property="og:image" content="https://{{ .Host }}/{{ .ID }}{{ if ne .Version 0 }}/{{ .Version }}{{ end }}/preview">
+    {{ end }}
 
     <meta name="twitter:card" content="summary">
     <meta name="twitter:creator" content="@TopiSenpai">
     <meta name="twitter:url" content="https://{{ .Host }}">
     <meta name="twitter:title" content="gobin">
     <meta name="twitter:description" content="gobin is a simple pastebin written in Go.">
+    {{ if and .Preview (ne .ID "") }}
+        <meta name="twitter:image" content="https://{{ .Host }}/{{ .ID }}{{ if ne .Version 0 }}/{{ .Version }}{{ end }}/preview">
+    {{ end }}
     <style id="code-style">
         {{ .CSS }}
     </style>

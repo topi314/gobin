@@ -4,6 +4,8 @@ ARG VERSION
 ARG COMMIT
 ARG BUILD_TIME
 
+RUN apk add --no-cache inkscape
+
 WORKDIR /build
 
 COPY go.mod go.sum ./

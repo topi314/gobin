@@ -50,8 +50,9 @@ type (
 		Style    string
 		Theme    string
 
-		Max  int
-		Host string
+		Max     int
+		Host    string
+		Preview bool
 	}
 	DocumentVersion struct {
 		Version int64
@@ -103,7 +104,7 @@ func (s *Server) Routes() http.Handler {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Heartbeat("/ping"))
 	if s.cfg.RateLimit != nil {
-		r.Use(s.Ratelimit)
+		r.Use(s.RateLimit)
 	}
 	r.Use(s.JWTMiddleware)
 
@@ -112,8 +113,6 @@ func (s *Server) Routes() http.Handler {
 	}
 
 	r.Mount("/assets", http.FileServer(s.assets))
-	r.Handle("/favicon.png", s.file("/assets/favicon.png"))
-	r.Handle("/favicon-light.png", s.file("/assets/favicon-light.png"))
 	r.Handle("/robots.txt", s.file("/assets/robots.txt"))
 	r.Group(func(r chi.Router) {
 		r.Route("/raw/{documentID}", func(r chi.Router) {
@@ -131,20 +130,51 @@ func (s *Server) Routes() http.Handler {
 				r.Patch("/", s.PatchDocument)
 				r.Delete("/", s.DeleteDocument)
 				r.Post("/share", s.PostDocumentShare)
+				if s.cfg.Preview != nil {
+					r.Route("/preview", func(r chi.Router) {
+						r.Get("/", s.GetDocumentPreview)
+						r.Head("/", s.GetDocumentPreview)
+					})
+				}
 				r.Route("/versions", func(r chi.Router) {
 					r.Get("/", s.DocumentVersions)
 					r.Route("/{version}", func(r chi.Router) {
 						r.Get("/", s.GetDocument)
 						r.Delete("/", s.DeleteDocument)
+
+						if s.cfg.Preview != nil {
+							r.Route("/preview", func(r chi.Router) {
+								r.Get("/", s.GetDocumentPreview)
+								r.Head("/", s.GetDocumentPreview)
+							})
+						}
 					})
 				})
 			})
 		})
 		r.Get("/version", s.GetVersion)
-		r.Get("/{documentID}", s.GetPrettyDocument)
-		r.Head("/{documentID}", s.GetPrettyDocument)
-		r.Get("/{documentID}/{version}", s.GetPrettyDocument)
-		r.Head("/{documentID}/{version}", s.GetPrettyDocument)
+		r.Route("/{documentID}", func(r chi.Router) {
+			r.Get("/", s.GetPrettyDocument)
+			r.Head("/", s.GetPrettyDocument)
+
+			if s.cfg.Preview != nil {
+				r.Route("/preview", func(r chi.Router) {
+					r.Get("/", s.GetDocumentPreview)
+					r.Head("/", s.GetDocumentPreview)
+				})
+			}
+
+			r.Route("/{version}", func(r chi.Router) {
+				r.Get("/", s.GetPrettyDocument)
+				r.Head("/", s.GetPrettyDocument)
+				if s.cfg.Preview != nil {
+					r.Route("/preview", func(r chi.Router) {
+						r.Get("/", s.GetDocumentPreview)
+						r.Head("/", s.GetDocumentPreview)
+					})
+				}
+			})
+		})
 		r.Get("/", s.GetPrettyDocument)
 		r.Head("/", s.GetPrettyDocument)
 	})
@@ -294,8 +324,8 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		ID:        document.ID,
 		Version:   document.Version,
 		Content:   template.HTML(document.Content),
-		Formatted: formatted,
-		CSS:       css,
+		Formatted: template.HTML(formatted),
+		CSS:       template.CSS(css),
 		Language:  language,
 
 		Versions: versions,
@@ -304,15 +334,16 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		Style:    style,
 		Theme:    theme,
 
-		Max:  s.cfg.MaxDocumentSize,
-		Host: r.Host,
+		Max:     s.cfg.MaxDocumentSize,
+		Host:    r.Host,
+		Preview: s.cfg.Preview != nil,
 	}
 	if err = s.tmpl(w, "document.gohtml", vars); err != nil {
 		log.Println("error while executing template:", err)
 	}
 }
 
-func (s *Server) renderDocument(r *http.Request, document Document, formatterName string) (template.HTML, template.CSS, string, string, error) {
+func (s *Server) renderDocument(r *http.Request, document Document, formatterName string) (string, string, string, string, error) {
 	var (
 		styleName    string
 		languageName = document.Language
@@ -360,7 +391,7 @@ func (s *Server) renderDocument(r *http.Request, document Document, formatterNam
 	if document.ID == "" {
 		language = "auto"
 	}
-	return template.HTML(buff.String()), template.CSS(cssBuff.String()), language, style.Name, nil
+	return buff.String(), cssBuff.String(), language, style.Name, nil
 }
 
 func (s *Server) GetVersion(w http.ResponseWriter, _ *http.Request) {
@@ -394,7 +425,7 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var formatted template.HTML
+	var formatted string
 	query := r.URL.Query()
 	formatter := query.Get("formatter")
 	if formatter != "" {
@@ -415,7 +446,7 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 
 	content := document.Content
 	if formatted != "" {
-		content = string(formatted)
+		content = formatted
 	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
@@ -433,14 +464,9 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	if r.Method == http.MethodHead {
-		return
-	}
-
 	var (
-		formatted template.HTML
-		css       template.CSS
+		formatted string
+		css       string
 		language  string
 	)
 	query := r.URL.Query()
@@ -467,10 +493,50 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 		Key:       document.ID,
 		Version:   version,
 		Data:      document.Content,
-		Formatted: formatted,
-		CSS:       css,
+		Formatted: template.HTML(formatted),
+		CSS:       template.CSS(css),
 		Language:  language,
 	})
+}
+
+func (s *Server) GetDocumentPreview(w http.ResponseWriter, r *http.Request) {
+	document := s.getDocument(w, r)
+	if document == nil {
+		return
+	}
+
+	var newLines int
+	newLine := strings.IndexFunc(document.Content, func(r rune) bool {
+		if r == '\n' {
+			newLines++
+		}
+		return newLines == s.cfg.Preview.MaxLines
+	})
+
+	if newLine > 0 {
+		document.Content = document.Content[:newLine]
+	}
+
+	formatted, _, _, _, err := s.renderDocument(r, *document, "svg")
+	if err != nil {
+		s.log(r, "preview document", err)
+		s.prettyError(w, r, err, http.StatusInternalServerError)
+		return
+	}
+
+	png, err := s.convertSVG2PNG(formatted)
+	if err != nil {
+		s.log(r, "convert preview", err)
+		s.error(w, r, err, http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	if r.Method == http.MethodHead {
+		w.Header().Set("Content-Length", strconv.Itoa(len(png)))
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	_, _ = w.Write(png)
 }
 
 func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
@@ -509,8 +575,8 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 
 	var (
 		data          string
-		formatted     template.HTML
-		css           template.CSS
+		formatted     string
+		css           string
 		finalLanguage string
 	)
 	formatter := r.URL.Query().Get("formatter")
@@ -538,8 +604,8 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 		VersionLabel: versionLabel,
 		VersionTime:  versionTime,
 		Data:         data,
-		Formatted:    formatted,
-		CSS:          css,
+		Formatted:    template.HTML(formatted),
+		CSS:          template.CSS(css),
 		Language:     finalLanguage,
 		Token:        token,
 	})
@@ -592,8 +658,8 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 
 	var (
 		data          string
-		formatted     template.HTML
-		css           template.CSS
+		formatted     string
+		css           string
 		finalLanguage string
 	)
 	formatter := r.URL.Query().Get("formatter")
@@ -614,8 +680,8 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 		VersionLabel: versionLabel,
 		VersionTime:  versionTime,
 		Data:         data,
-		Formatted:    formatted,
-		CSS:          css,
+		Formatted:    template.HTML(formatted),
+		CSS:          template.CSS(css),
 		Language:     finalLanguage,
 	})
 }
@@ -764,7 +830,7 @@ func (s *Server) rateLimit(w http.ResponseWriter, r *http.Request) {
 	s.error(w, r, ErrRateLimit, http.StatusTooManyRequests)
 }
 
-func (s *Server) Ratelimit(next http.Handler) http.Handler {
+func (s *Server) RateLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Only apply rate limiting to POST, PATCH, and DELETE requests
 		if r.Method != http.MethodPost && r.Method != http.MethodPatch && r.Method != http.MethodDelete {

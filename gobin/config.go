@@ -14,10 +14,11 @@ type Config struct {
 	MaxDocumentSize int              `cfg:"max_document_size"`
 	RateLimit       *RateLimitConfig `cfg:"rate_limit"`
 	JWTSecret       string           `cfg:"jwt_secret"`
+	Preview         *PreviewConfig   `cfg:"preview"`
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("\n DevMode: %t\n Debug: %t\n ListenAddr: %s\n Database: %s\n MaxDocumentSize: %d\n RateLimit: %s\n JWTSecret: %s\n", c.DevMode, c.Debug, c.ListenAddr, c.Database, c.MaxDocumentSize, c.RateLimit, strings.Repeat("*", len(c.JWTSecret)))
+	return fmt.Sprintf("\n DevMode: %t\n Debug: %t\n ListenAddr: %s\n Database: %s\n MaxDocumentSize: %d\n RateLimit: %s\n JWTSecret: %s\n Previews: %s\n", c.DevMode, c.Debug, c.ListenAddr, c.Database, c.MaxDocumentSize, c.RateLimit, strings.Repeat("*", len(c.JWTSecret)), c.Preview)
 }
 
 type DatabaseConfig struct {
@@ -64,4 +65,13 @@ type RateLimitConfig struct {
 
 func (c RateLimitConfig) String() string {
 	return fmt.Sprintf("\n  Requests: %d\n  Duration: %s\n  Whitelist: %v\n  Blacklist: %v", c.Requests, c.Duration, c.Whitelist, c.Blacklist)
+}
+
+type PreviewConfig struct {
+	InkscapePath string `cfg:"inkscape_path"`
+	MaxLines     int    `cfg:"max_lines"`
+}
+
+func (c PreviewConfig) String() string {
+	return fmt.Sprintf("\n  InkscapePath: %s\n  MaxLines: %d", c.InkscapePath, c.MaxLines)
 }

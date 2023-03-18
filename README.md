@@ -45,6 +45,7 @@ gobin is a simple lightweight haste-server alternative written in Go, HTML, JS a
 - Built-in rate-limiting
 - Create, update and delete documents
 - Syntax highlighting
+- Social Media PNG previews
 - Document expiration
 - Supports [PostgreSQL](https://www.postgresql.org/) or [SQLite](https://sqlite.org/)
 - One binary and config file
@@ -176,6 +177,13 @@ Create a new `gobin.json` file with the following content:
     "whitelist": ["127.0.0.1"],
     # a list of ip addresses which are blocked from rate limited endpoints
     "blacklist": ["123.456.789.0"]
+  },
+  # settings for social media previews, omit to disable
+  "previews": {
+    # path to inkscape binary https://inkscape.org/
+    "inkscape_path": "/usr/bin/inkscape",
+    # how many lines should be shown in the preview
+    "max_lines": 10
   }
 }
 ```
@@ -209,6 +217,9 @@ GOBIN_MAX_DOCUMENT_SIZE=0
 
 GOBIN_RATE_LIMIT_REQUESTS=10
 GOBIN_RATE_LIMIT_DURATION=1m
+
+GOBIN_PREVIEW_INKSCAPE_PATH=/usr/bin/inkscape
+GOBIN_PREVIEW_MAX_LINES=10
 ```
 
 </details>
@@ -450,10 +461,12 @@ A successful request will return a `204 No Content` response with an empty body.
 
 ### Other endpoints
 
-- `GET` `/raw/{key}` - Get the raw content of a document, query parameters are the same as for `GET /documents/{key}`
-- `GET` `/raw/{key}/{version}` - Get the raw content of a document version, query parameters are the same as for `GET /documents/{key}/versions/{version}`
-- `HEAD` `/raw/{key}` - Get the raw content of a document without the body, query parameters are the same as for `GET /documents/{key}`
-- `HEAD` `/raw/{key}/{version}` - Get the raw content of a document version without the body, query parameters are the same as for `GET /documents/{key}/versions/{version}`
+- `GET`/`HEAD` `/{key}/preview` - Get the preview of a document, query parameters are the same as for `GET /documents/{key}`
+- `GET`/`HEAD` `/{key}/{version}/preview` - Get the preview of a document version, query parameters are the same as for `GET /documents/{key}/versions/{version}`
+- `GET`/`HEAD` `/documents/{key}/preview` - Get the preview of a document, query parameters are the same as for `GET /documents/{key}`
+- `GET`/`HEAD` `/documents/{key}/versions/{version}/preview` - Get the preview of a document version, query parameters are the same as for `GET /documents/{key}/versions/{version}`
+- `GET`/`HEAD` `/raw/{key}` - Get the raw content of a document, query parameters are the same as for `GET /documents/{key}`
+- `GET`/`HEAD` `/raw/{key}/{version}` - Get the raw content of a document version, query parameters are the same as for `GET /documents/{key}/versions/{version}`
 - `GET` `/ping` - Get the status of the server
 - `GET` `/debug` - Proof debug endpoint (only available in debug mode)
 - `GET` `/version` - Get the version of the server

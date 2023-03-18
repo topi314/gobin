@@ -18,10 +18,10 @@ document.querySelector("#theme-toggle").addEventListener("click", () => {
 function updateFaviconStyle(matches) {
     const faviconElement = document.querySelector(`link[rel="icon"]`)
     if (matches) {
-        faviconElement.href = "/favicon.png";
+        faviconElement.href = "/assets/favicon.png";
         return
     }
-    faviconElement.href = "/favicon-light.png";
+    faviconElement.href = "/assets/favicon-light.png";
 }
 
 function setTheme(theme) {
