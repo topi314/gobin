@@ -20,7 +20,9 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 
 FROM alpine
 
-RUN apk add --no-cache inkscape
+RUN apk add --no-cache  \
+    inkscape \
+    ttf-freefont
 
 COPY --from=build /build/gobin-server /bin/gobin
 
