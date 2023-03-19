@@ -449,7 +449,19 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 		content = formatted
 	}
 
-	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
+	var contentType string
+	switch formatter {
+	case "html", "html-standalone":
+		contentType = "text/html; charset=UTF-8"
+	case "svg":
+		contentType = "image/svg+xml"
+	case "json":
+		contentType = "application/json"
+	default:
+		contentType = "text/plain; charset=UTF-8"
+	}
+
+	w.Header().Set("Content-Type", contentType)
 	if r.Method == http.MethodHead {
 		w.Header().Set("Content-Length", strconv.Itoa(len([]byte(content))))
 		w.WriteHeader(http.StatusOK)
