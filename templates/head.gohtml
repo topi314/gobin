@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <title>gobin</title>
-    <meta name="description" content="gobin is a simple hastebin compatible pastebin written in Go.">
+    <meta name="description" content="gobin is a simple hastebin compatible paste server written in Go.">
 
     <link rel="stylesheet" type="text/css" href="/assets/style.css">
 
@@ -13,21 +13,24 @@
     <meta name="theme-color" content="#1f2228">
 
     <meta property="og:title" content="gobin">
-    <meta property="og:description" content="gobin is a simple pastebin written in Go.">
     <meta property="og:url" content="https://{{ .Host }}">
     <meta property="og:type" content="">
     {{ if and .Preview (ne .ID "") }}
         <meta property="og:image" content="https://{{ .Host }}/{{ .ID }}{{ if ne .Version 0 }}/{{ .Version }}{{ end }}/preview">
+        <meta property="og:image:alt" content="{{ .PreviewAlt }}">
+    {{ else }}
+        <meta property="og:description" content="gobin is a simple hastebin compatible paste server written in Go.">
     {{ end }}
 
     <meta name="twitter:creator" content="@TopiSenpai">
     <meta name="twitter:url" content="https://{{ .Host }}">
     <meta name="twitter:title" content="gobin">
-    <meta name="twitter:description" content="gobin is a simple pastebin written in Go.">
     {{ if and .Preview (ne .ID "") }}
         <meta name="twitter:image" content="https://{{ .Host }}/{{ .ID }}{{ if ne .Version 0 }}/{{ .Version }}{{ end }}/preview">
+        <meta name="twitter:image:alt" content="{{ .PreviewAlt }}">
         <meta name="twitter:card" content="summary_large_image">
     {{ else }}
+        <meta name="twitter:description" content="gobin is a simple hastebin compatible paste server written in Go.">
         <meta name="twitter:card" content="summary">
     {{ end }}
     <style id="code-style">

@@ -50,9 +50,10 @@ type (
 		Style    string
 		Theme    string
 
-		Max     int
-		Host    string
-		Preview bool
+		Max        int
+		Host       string
+		Preview    bool
+		PreviewAlt string
 	}
 	DocumentVersion struct {
 		Version int64
@@ -337,9 +338,10 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		Style:    style,
 		Theme:    theme,
 
-		Max:     s.cfg.MaxDocumentSize,
-		Host:    r.Host,
-		Preview: s.cfg.Preview != nil,
+		Max:        s.cfg.MaxDocumentSize,
+		Host:       r.Host,
+		Preview:    s.cfg.Preview != nil,
+		PreviewAlt: template.HTMLEscapeString(s.shortContent(document.Content)),
 	}
 	if err = s.tmpl(w, "document.gohtml", vars); err != nil {
 		log.Println("error while executing template:", err)
@@ -520,19 +522,7 @@ func (s *Server) GetDocumentPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.cfg.Preview.MaxLines > 0 {
-		var newLines int
-		maxNewLineIndex := strings.IndexFunc(document.Content, func(r rune) bool {
-			if r == '\n' {
-				newLines++
-			}
-			return newLines == s.cfg.Preview.MaxLines
-		})
-
-		if maxNewLineIndex > 0 {
-			document.Content = document.Content[:maxNewLineIndex]
-		}
-	}
+	document.Content = s.shortContent(document.Content)
 
 	formatted, _, _, _, err := s.renderDocument(r, *document, "svg")
 	if err != nil {
@@ -944,4 +934,21 @@ func (s *Server) file(path string) http.HandlerFunc {
 		defer file.Close()
 		_, _ = io.Copy(w, file)
 	}
+}
+
+func (s *Server) shortContent(content string) string {
+	if s.cfg.Preview.MaxLines > 0 {
+		var newLines int
+		maxNewLineIndex := strings.IndexFunc(content, func(r rune) bool {
+			if r == '\n' {
+				newLines++
+			}
+			return newLines == s.cfg.Preview.MaxLines
+		})
+
+		if maxNewLineIndex > 0 {
+			content = content[:maxNewLineIndex]
+		}
+	}
+	return content
 }
