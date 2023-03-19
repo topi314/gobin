@@ -2,6 +2,7 @@
   "dev_mode": false,
   "debug": false,
   "listen_addr": ":80",
+  "jwt_secret": "...",
   "database": {
     // type can be "sqlite" or "postgres"
     "type": "postgres",
@@ -26,5 +27,16 @@
     "duration": "1m",
     "whitelist": [],
     "blacklist": []
+  },
+  "rate_limit": {
+    "requests": 10,
+    "duration": "1m",
+    "whitelist": ["127.0.0.1"],
+    "blacklist": ["123.456.789.0"]
+  },
+  "preview": {
+    "inkscape_path": "inkscape.exe",
+    "max_lines": 0,
+    "dpi": 120
   }
 }

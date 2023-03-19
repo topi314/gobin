@@ -113,6 +113,9 @@ func (s *Server) Routes() http.Handler {
 	}
 
 	r.Mount("/assets", http.FileServer(s.assets))
+	r.Handle("/favicon.ico", s.file("/assets/favicon.png"))
+	r.Handle("/favicon.png", s.file("/assets/favicon.png"))
+	r.Handle("/favicon-light.png", s.file("/assets/favicon-light.png"))
 	r.Handle("/robots.txt", s.file("/assets/robots.txt"))
 	r.Group(func(r chi.Router) {
 		r.Route("/raw/{documentID}", func(r chi.Router) {
@@ -517,16 +520,18 @@ func (s *Server) GetDocumentPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var newLines int
-	newLine := strings.IndexFunc(document.Content, func(r rune) bool {
-		if r == '\n' {
-			newLines++
-		}
-		return newLines == s.cfg.Preview.MaxLines
-	})
+	if s.cfg.Preview.MaxLines > 0 {
+		var newLines int
+		maxNewLineIndex := strings.IndexFunc(document.Content, func(r rune) bool {
+			if r == '\n' {
+				newLines++
+			}
+			return newLines == s.cfg.Preview.MaxLines
+		})
 
-	if newLine > 0 {
-		document.Content = document.Content[:newLine]
+		if maxNewLineIndex > 0 {
+			document.Content = document.Content[:maxNewLineIndex]
+		}
 	}
 
 	formatted, _, _, _, err := s.renderDocument(r, *document, "svg")

@@ -4,13 +4,19 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
+	"strconv"
 )
 
 func (s *Server) convertSVG2PNG(svg string) ([]byte, error) {
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
 
-	cmd := exec.Command(s.cfg.Preview.InkscapePath, "-p", "--export-filename=-", "--export-type=png")
+	dpi := 96
+	if s.cfg.Preview.DPI > 0 {
+		dpi = s.cfg.Preview.DPI
+	}
+
+	cmd := exec.Command(s.cfg.Preview.InkscapePath, "-p", "-d", strconv.Itoa(dpi), "--convert-dpi-method=scale-viewbox", "--export-filename=-", "--export-type=png")
 	cmd.Stdin = bytes.NewReader([]byte(svg))
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr

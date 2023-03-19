@@ -183,7 +183,9 @@ Create a new `gobin.json` file with the following content:
     # path to inkscape binary https://inkscape.org/
     "inkscape_path": "/usr/bin/inkscape",
     # how many lines should be shown in the preview
-    "max_lines": 10
+    "max_lines": 10,
+    # how high the resolution of the preview should be, 96 is the default
+    "dpi": 96
   }
 }
 ```
@@ -220,6 +222,7 @@ GOBIN_RATE_LIMIT_DURATION=1m
 
 GOBIN_PREVIEW_INKSCAPE_PATH=/usr/bin/inkscape
 GOBIN_PREVIEW_MAX_LINES=10
+GOBIN_PREVIEW_DPI=96
 ```
 
 </details>
