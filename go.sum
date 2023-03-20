@@ -215,8 +215,8 @@ github.com/stretchr/testify v1.8.1 h1:w7B6lhMri9wdJUVmEZPGGhZzrYTPvgJArz7wNPgYKs
 github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
 github.com/subosito/gotenv v1.4.2 h1:X1TuBLAMDFbaTAChgCBLu3DU3UPyELpnF2jjJ2cz/S8=
 github.com/subosito/gotenv v1.4.2/go.mod h1:ayKnFf/c6rvx/2iiLrJUk1e6plDbT3edrFNGqEflhK0=
-github.com/topisenpai/chroma/v2 v2.0.0-20230319013213-23271d047ef4 h1:RkbeuSAY0x+cUnnTMLOIQM/c3/mrQBZ9iXzGCmvZkJs=
-github.com/topisenpai/chroma/v2 v2.0.0-20230319013213-23271d047ef4/go.mod h1:yrkMI9807G1ROx13fhe1v6PN2DDeaR73L3d+1nmYQtw=
+github.com/topisenpai/chroma/v2 v2.0.0-20230320013543-58daa432fd2a h1:Cgzu41V8Rva2AitFAhfdnl71eV4Jvda8WBZnOfa5UE0=
+github.com/topisenpai/chroma/v2 v2.0.0-20230320013543-58daa432fd2a/go.mod h1:yrkMI9807G1ROx13fhe1v6PN2DDeaR73L3d+1nmYQtw=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.32/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
