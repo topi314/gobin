@@ -2,6 +2,7 @@ package gobin
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -93,10 +94,11 @@ func (s *Server) Routes() http.Handler {
 	r.Use(middleware.CleanPath)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.RequestID)
-	r.Use(middleware.Timeout(30 * time.Second))
 	r.Use(middleware.Compress(5))
 	r.Use(middleware.Maybe(
-		middleware.Logger,
+		middleware.RequestLogger(&middleware.DefaultLogFormatter{
+			Logger: log.Default(),
+		}),
 		func(r *http.Request) bool {
 			// Don't log requests for assets
 			return !strings.HasPrefix(r.URL.Path, "/assets")
@@ -184,6 +186,9 @@ func (s *Server) Routes() http.Handler {
 	})
 	r.NotFound(s.redirectRoot)
 
+	if s.cfg.HTTPTimeout > 0 {
+		return http.TimeoutHandler(r, s.cfg.HTTPTimeout, "Request timed out")
+	}
 	return r
 }
 
@@ -193,8 +198,7 @@ func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
 
 	versions, err := s.db.GetDocumentVersions(r.Context(), documentID, withContent)
 	if err != nil {
-		s.log(r, "get document versions", err)
-		s.error(w, r, err, http.StatusInternalServerError)
+		s.error(w, r, fmt.Errorf("failed to get document versions: %w", err), http.StatusInternalServerError)
 		return
 	}
 	if len(versions) == 0 {
@@ -225,8 +229,7 @@ func (s *Server) GetDocumentVersion(w http.ResponseWriter, r *http.Request) {
 			s.documentNotFound(w, r)
 			return
 		}
-		s.log(r, "get document version", err)
-		s.error(w, r, err, http.StatusInternalServerError)
+		s.error(w, r, fmt.Errorf("failed to get document version: %w", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -272,8 +275,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 					s.redirectRoot(w, r)
 					return
 				}
-				s.log(r, "get pretty document", err)
-				s.prettyError(w, r, err, http.StatusInternalServerError)
+				s.prettyError(w, r, fmt.Errorf("failed to get pretty document: %w", err), http.StatusInternalServerError)
 				return
 			}
 		} else {
@@ -283,15 +285,13 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 					s.redirectRoot(w, r)
 					return
 				}
-				s.log(r, "get pretty document", err)
-				s.prettyError(w, r, err, http.StatusInternalServerError)
+				s.prettyError(w, r, fmt.Errorf("failed to get pretty document: %w", err), http.StatusInternalServerError)
 				return
 			}
 		}
 		documents, err = s.db.GetDocumentVersions(r.Context(), documentID, false)
 		if err != nil {
-			s.log(r, "get pretty document versions", err)
-			s.prettyError(w, r, err, http.StatusInternalServerError)
+			s.prettyError(w, r, fmt.Errorf("failed to get pretty document versions: %w", err), http.StatusInternalServerError)
 			return
 		}
 	}
@@ -314,8 +314,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 
 	formatted, css, language, style, err := s.renderDocument(r, document, "html")
 	if err != nil {
-		s.log(r, "render document", err)
-		s.prettyError(w, r, err, http.StatusInternalServerError)
+		s.prettyError(w, r, fmt.Errorf("failed to render document: %w", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -344,7 +343,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		PreviewAlt: template.HTMLEscapeString(s.shortContent(document.Content)),
 	}
 	if err = s.tmpl(w, "document.gohtml", vars); err != nil {
-		log.Println("error while executing template:", err)
+		log.Println("failed to execute template:", err)
 	}
 }
 
@@ -443,8 +442,7 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 		var err error
 		formatted, _, _, _, err = s.renderDocument(r, *document, formatter)
 		if err != nil {
-			s.log(r, "render document", err)
-			s.error(w, r, err, http.StatusInternalServerError)
+			s.error(w, r, fmt.Errorf("failed to render raw document: %w", err), http.StatusInternalServerError)
 			return
 		}
 	}
@@ -495,8 +493,7 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 		var err error
 		formatted, css, language, _, err = s.renderDocument(r, *document, formatter)
 		if err != nil {
-			s.log(r, "render document", err)
-			s.error(w, r, err, http.StatusInternalServerError)
+			s.error(w, r, fmt.Errorf("failed to render document: %w", err), http.StatusInternalServerError)
 			return
 		}
 	}
@@ -526,15 +523,13 @@ func (s *Server) GetDocumentPreview(w http.ResponseWriter, r *http.Request) {
 
 	formatted, _, _, _, err := s.renderDocument(r, *document, "svg")
 	if err != nil {
-		s.log(r, "preview document", err)
-		s.prettyError(w, r, err, http.StatusInternalServerError)
+		s.prettyError(w, r, fmt.Errorf("failed to render document preview: %w", err), http.StatusInternalServerError)
 		return
 	}
 
 	png, err := s.convertSVG2PNG(formatted)
 	if err != nil {
-		s.log(r, "convert preview", err)
-		s.error(w, r, err, http.StatusInternalServerError)
+		s.error(w, r, fmt.Errorf("failed to convert document preview: %w", err), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "image/png")
@@ -553,12 +548,6 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	select {
-	case <-r.Context().Done():
-		return
-	default:
-	}
-
 	if s.exceedsMaxDocumentSize(w, r, content) {
 		return
 	}
@@ -575,8 +564,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 
 	document, err := s.db.CreateDocument(r.Context(), content, lexer.Config().Name)
 	if err != nil {
-		s.log(r, "creating document", err)
-		s.error(w, r, err, http.StatusInternalServerError)
+		s.error(w, r, fmt.Errorf("failed to create document: %w", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -590,8 +578,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 	if formatter != "" {
 		formatted, css, finalLanguage, _, err = s.renderDocument(r, document, formatter)
 		if err != nil {
-			s.log(r, "render document", err)
-			s.error(w, r, err, http.StatusInternalServerError)
+			s.error(w, r, fmt.Errorf("failed to render document: %w", err), http.StatusInternalServerError)
 			return
 		}
 		data = document.Content
@@ -599,8 +586,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 
 	token, err := s.NewToken(document.ID, []Permission{PermissionWrite, PermissionDelete, PermissionShare})
 	if err != nil {
-		s.log(r, "creating jwt token", err)
-		s.error(w, r, err, http.StatusInternalServerError)
+		s.error(w, r, fmt.Errorf("failed to create jwt token: %w", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -629,12 +615,6 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 	}
 
 	content := s.readBody(w, r)
-	select {
-	case <-r.Context().Done():
-		return
-	default:
-	}
-
 	if content == "" {
 		return
 	}
@@ -673,8 +653,7 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 	if formatter != "" {
 		formatted, css, finalLanguage, _, err = s.renderDocument(r, document, formatter)
 		if err != nil {
-			s.log(r, "render document", err)
-			s.error(w, r, err, http.StatusInternalServerError)
+			s.error(w, r, fmt.Errorf("failed to render update document"), http.StatusInternalServerError)
 			return
 		}
 		data = document.Content
@@ -726,7 +705,6 @@ func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
 
 	count, err := s.db.GetVersionCount(r.Context(), documentID)
 	if err != nil {
-		s.log(r, "delete document version", err)
 		s.error(w, r, err, http.StatusInternalServerError)
 		return
 	}
@@ -870,11 +848,16 @@ func (s *Server) RateLimit(next http.Handler) http.Handler {
 }
 
 func (s *Server) log(r *http.Request, logType string, err error) {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return
+	}
 	log.Printf("Error while handling %s(%s) %s: %s\n", logType, middleware.GetReqID(r.Context()), r.RequestURI, err)
 }
 
 func (s *Server) prettyError(w http.ResponseWriter, r *http.Request, err error, status int) {
-	s.log(r, "pretty request", err)
+	if status == http.StatusInternalServerError {
+		s.log(r, "pretty request", err)
+	}
 	w.WriteHeader(status)
 
 	vars := map[string]any{
@@ -883,12 +866,15 @@ func (s *Server) prettyError(w http.ResponseWriter, r *http.Request, err error, 
 		"RequestID": middleware.GetReqID(r.Context()),
 		"Path":      r.URL.Path,
 	}
-	if tmplErr := s.tmpl(w, "error.gohtml", vars); tmplErr != nil {
+	if tmplErr := s.tmpl(w, "error.gohtml", vars); tmplErr != nil && tmplErr != http.ErrHandlerTimeout {
 		s.log(r, "template", tmplErr)
 	}
 }
 
 func (s *Server) error(w http.ResponseWriter, r *http.Request, err error, status int) {
+	if errors.Is(err, http.ErrHandlerTimeout) {
+		return
+	}
 	if status == http.StatusInternalServerError {
 		s.log(r, "request", err)
 	}
@@ -911,7 +897,7 @@ func (s *Server) json(w http.ResponseWriter, r *http.Request, v any, status int)
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(v); err != nil {
+	if err := json.NewEncoder(w).Encode(v); err != nil && err != http.ErrHandlerTimeout {
 		s.log(r, "json", err)
 	}
 }

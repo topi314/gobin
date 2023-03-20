@@ -115,7 +115,12 @@ document.querySelector("#save").addEventListener("click", async () => {
     }
     saveButton.classList.remove("loading");
 
-    const body = await response.json();
+    let body = await response.text();
+    try {
+        body = JSON.parse(body);
+    } catch (e) {
+        body = {message: body};
+    }
     if (!response.ok) {
         showErrorPopup(body.message || response.statusText);
         console.error("error saving document:", response);
@@ -166,7 +171,12 @@ document.querySelector("#delete").addEventListener("click", async () => {
     deleteButton.classList.remove("loading");
 
     if (!response.ok) {
-        const body = await response.json();
+        let body = await response.text();
+        try {
+            body = JSON.parse(body);
+        } catch (e) {
+            body = {message: body};
+        }
         showErrorPopup(body.message || response.statusText)
         console.error("error deleting document:", response);
         return;
@@ -292,7 +302,12 @@ async function fetchDocument(key, version, language) {
         method: "GET"
     });
 
-    const body = await response.json();
+    let body = await response.text();
+    try {
+        body = JSON.parse(body);
+    } catch (e) {
+        body = {message: body};
+    }
     if (!response.ok) {
         showErrorPopup(body.message || response.statusText);
         console.error("error fetching document version:", response);

@@ -88,6 +88,10 @@ func main() {
 	}
 	log.Println("Config:", cfg)
 
+	if cfg.Debug {
+		log.SetFlags(log.LstdFlags | log.Lshortfile)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	db, err := gobin.NewDB(ctx, cfg.Database, Schema)

@@ -10,6 +10,7 @@ type Config struct {
 	DevMode         bool             `cfg:"dev_mode"`
 	Debug           bool             `cfg:"debug"`
 	ListenAddr      string           `cfg:"listen_addr"`
+	HTTPTimeout     time.Duration    `cfg:"http_timeout"`
 	Database        DatabaseConfig   `cfg:"database"`
 	MaxDocumentSize int              `cfg:"max_document_size"`
 	RateLimit       *RateLimitConfig `cfg:"rate_limit"`
@@ -18,7 +19,7 @@ type Config struct {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("\n DevMode: %t\n Debug: %t\n ListenAddr: %s\n Database: %s\n MaxDocumentSize: %d\n RateLimit: %s\n JWTSecret: %s\n Previews: %s\n", c.DevMode, c.Debug, c.ListenAddr, c.Database, c.MaxDocumentSize, c.RateLimit, strings.Repeat("*", len(c.JWTSecret)), c.Preview)
+	return fmt.Sprintf("\n DevMode: %t\n Debug: %t\n ListenAddr: %s\n HTTPTimeout: %s\n Database: %s\n MaxDocumentSize: %d\n RateLimit: %s\n JWTSecret: %s\n Previews: %s\n", c.DevMode, c.Debug, c.ListenAddr, c.HTTPTimeout, c.Database, c.MaxDocumentSize, c.RateLimit, strings.Repeat("*", len(c.JWTSecret)), c.Preview)
 }
 
 type DatabaseConfig struct {
