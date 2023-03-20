@@ -443,6 +443,7 @@ select:disabled {
     text-align: right;
     margin-right: 1rem;
     color: var(--text-secondary);
+    flex-shrink: 0;
 }
 
 #code-view:first-child {
