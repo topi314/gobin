@@ -9,9 +9,10 @@ import (
 
 func NewRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "gobin",
-		Short: "gobin let's you upload and download documents from the gobin server",
-		Long:  "",
+		Use:          "gobin",
+		Short:        "gobin let's you upload and download documents from the gobin server",
+		Long:         "",
+		SilenceUsage: true,
 	}
 	cmd.AddGroup(&cobra.Group{
 		ID:    "actions",
@@ -21,6 +22,7 @@ func NewRootCmd() *cobra.Command {
 	var cfgFile string
 	cmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.gobin)")
 	cmd.PersistentFlags().BoolP("help", "h", false, "help for gobin")
+	cmd.CompletionOptions.DisableDescriptions = true
 	cobra.OnInitialize(initConfig(cfgFile))
 
 	return cmd

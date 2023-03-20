@@ -27,7 +27,8 @@ Version: dev
 Commit: b1fd421
 Build Time: Thu Jan  1 00:00:00 1970
 OS/Arch: windows/amd64`,
-		Args: cobra.NoArgs,
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			return viper.BindPFlag("server", cmd.Flags().Lookup("server"))
 		},

@@ -12,20 +12,19 @@ var completionInstallCommands = map[string]string{
 If it is not installed already, you can install it via your OS's package manager.
 
 ### Linux
-$ ${name} completion bash --i
-$ ${name} completion bash > /etc/bash_completion.d/${name}
+$ ${name} completion bash -i=/etc/bash_completion.d/${name}
 
 ### macOS
-$ ${name} completion bash > $(brew --prefix)/etc/bash_completion.d/${name}`,
+$ ${name} completion bash -i=$(brew --prefix)/etc/bash_completion.d/${name}`,
 	"zsh": `Enable bash completion in Zsh:
 % echo "autoload -U compinit; compinit" >> ~/.zshrc
 
 ### Linux:
-% ${name} completion zsh > "${fpath[1]}/_${name}"
+% ${name} completion zsh -i="${fpath[1]}/_${name}"
 ### macOS:
-% ${name} completion zsh > $(brew --prefix)/share/zsh/site-functions/_${name}`,
+% ${name} completion zsh -i=$(brew --prefix)/share/zsh/site-functions/_${name}`,
 	"fish": `Run the following command to enable fish completion:
-> ${name} completion fish > ~/.config/fish/completions/${name}.fish`,
+> ${name} completion fish -i=~/.config/fish/completions/${name}.fish`,
 	"powershell": `Run the following command to enable powershell completion:
 > ${name} completion powershell | Out-String | Invoke-Expression`,
 }
