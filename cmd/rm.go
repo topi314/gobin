@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -20,15 +21,18 @@ func NewRmCmd(parent *cobra.Command) {
 
 Will delete the jis74978 from the server.`,
 		Args: cobra.ExactArgs(1),
-		PreRun: func(cmd *cobra.Command, args []string) {
-			viper.BindPFlag("server", cmd.PersistentFlags().Lookup("server"))
-			viper.BindPFlag("version", cmd.Flags().Lookup("version"))
-			viper.BindPFlag("token", cmd.Flags().Lookup("token"))
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if err := viper.BindPFlag("server", cmd.Flags().Lookup("server")); err != nil {
+				return err
+			}
+			if err := viper.BindPFlag("version", cmd.Flags().Lookup("version")); err != nil {
+				return err
+			}
+			return viper.BindPFlag("token", cmd.Flags().Lookup("token"))
 		},
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				cmd.PrintErrln("document id is required")
-				return
+				return fmt.Errorf("document id is required")
 			}
 			documentID := args[0]
 			version := viper.GetString("version")
@@ -43,32 +47,27 @@ Will delete the jis74978 from the server.`,
 				token = viper.GetString("tokens_" + documentID)
 			}
 			if token == "" {
-				cmd.PrintErrln("No token found or provided for document:", documentID)
-				return
+				return fmt.Errorf("no token found or provided for document: %s", documentID)
 			}
 
 			rs, err := ezhttp.Delete(path, token)
 			if err != nil {
-				cmd.PrintErrln("Failed to create document:", err)
-				return
+				return fmt.Errorf("failed to create document: %w", err)
 			}
 			defer rs.Body.Close()
 
 			if rs.StatusCode != 200 && rs.StatusCode != 204 {
 				var errRs gobin.ErrorResponse
 				if err = json.NewDecoder(rs.Body).Decode(&errRs); err != nil {
-					cmd.PrintErrln("Failed to decode error response:", err)
-					return
+					return fmt.Errorf("failed to decode error response: %w", err)
 				}
-				cmd.PrintErrln("Failed to remove document:", errRs.Message)
-				return
+				return fmt.Errorf("failed to remove document: %s", errRs.Message)
 			}
 
 			var deleteRs gobin.DeleteResponse
 			if version != "" {
 				if err = json.NewDecoder(rs.Body).Decode(&deleteRs); err != nil {
-					cmd.PrintErrln("Failed to decode delete response:", err)
-					return
+					return fmt.Errorf("failed to decode delete response: %w", err)
 				}
 				cmd.Printf("Removed version: %s from document: %s\n", version, documentID)
 			} else {
@@ -76,17 +75,17 @@ Will delete the jis74978 from the server.`,
 
 			}
 			if deleteRs.Versions > 0 {
-				return
+				return nil
 			}
 
 			path, err = cfg.Update(func(m map[string]string) {
 				delete(m, "TOKENS_"+documentID)
 			})
 			if err != nil {
-				cmd.PrintErrln("Failed to update config:", err)
-				return
+				return fmt.Errorf("failed to update config: %w", err)
 			}
 			cmd.Printf("Removed document: %s from config: %s\n", documentID, path)
+			return nil
 		},
 	}
 

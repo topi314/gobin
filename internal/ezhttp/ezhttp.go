@@ -2,11 +2,11 @@ package ezhttp
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"github.com/topisenpai/gobin/gobin"
@@ -44,19 +44,16 @@ func Delete(path string, token string) (*http.Response, error) {
 	return Do(http.MethodDelete, path, token, nil)
 }
 
-func ProcessBody(cmd *cobra.Command, method string, rs *http.Response, body any) bool {
+func ProcessBody(method string, rs *http.Response, body any) error {
 	if rs.StatusCode >= 200 && rs.StatusCode <= 299 {
 		if err := json.NewDecoder(rs.Body).Decode(body); err != nil {
-			cmd.PrintErrln("Failed to decode response:", err)
-			return false
+			return fmt.Errorf("failed to decode response: %w", err)
 		}
-		return true
+		return nil
 	}
 	var errRs gobin.ErrorResponse
 	if err := json.NewDecoder(rs.Body).Decode(&errRs); err != nil {
-		cmd.PrintErrln("Failed to decode error response:", err)
-		return false
+		return fmt.Errorf("failed to decode error response: %w", err)
 	}
-	cmd.PrintErrf("Failed to %s: %s\n", method, errRs.Message)
-	return false
+	return fmt.Errorf("failed to %s: %s", method, errRs.Message)
 }

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/spf13/cobra"
@@ -27,28 +28,28 @@ Commit: b1fd421
 Build Time: Thu Jan  1 00:00:00 1970
 OS/Arch: windows/amd64`,
 		Args: cobra.NoArgs,
-		PreRun: func(cmd *cobra.Command, args []string) {
-			viper.BindPFlag("server", cmd.PersistentFlags().Lookup("server"))
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			return viper.BindPFlag("server", cmd.Flags().Lookup("server"))
 		},
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			server := viper.GetString("server")
 			cmd.Println(version)
 
-			if server != "" {
-				rs, err := ezhttp.Get("/version")
-				if err != nil {
-					cmd.PrintErrln("Failed to get server version:", err)
-					return
-				}
-				defer rs.Body.Close()
-
-				data, err := io.ReadAll(rs.Body)
-				if err != nil {
-					cmd.PrintErrln("Failed to read server version:", err)
-					return
-				}
-				cmd.Printf("Server: %s\n%s\n", server, data)
+			if server == "" {
+				return nil
 			}
+			rs, err := ezhttp.Get("/version")
+			if err != nil {
+				return fmt.Errorf("failed to get server version: %w", err)
+			}
+			defer rs.Body.Close()
+
+			data, err := io.ReadAll(rs.Body)
+			if err != nil {
+				return fmt.Errorf("failed to read server version: %w", err)
+			}
+			cmd.Printf("Server: %s\n%s\n", server, data)
+			return nil
 		},
 	}
 

@@ -29,19 +29,30 @@ Will return the document with the id of jis74978.`,
 			}
 			return tokens, cobra.ShellCompDirectiveNoFileComp
 		},
-		PreRun: func(cmd *cobra.Command, args []string) {
-			viper.BindPFlag("server", cmd.PersistentFlags().Lookup("server"))
-			viper.BindPFlag("file", cmd.Flags().Lookup("file"))
-			viper.BindPFlag("version", cmd.Flags().Lookup("version"))
-			viper.BindPFlag("versions", cmd.Flags().Lookup("versions"))
-			viper.BindPFlag("formatter", cmd.Flags().Lookup("formatter"))
-			viper.BindPFlag("language", cmd.Flags().Lookup("language"))
-			viper.BindPFlag("style", cmd.Flags().Lookup("style"))
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if err := viper.BindPFlag("server", cmd.Flags().Lookup("server")); err != nil {
+				return err
+			}
+			if err := viper.BindPFlag("file", cmd.Flags().Lookup("file")); err != nil {
+				return err
+			}
+			if err := viper.BindPFlag("version", cmd.Flags().Lookup("version")); err != nil {
+				return err
+			}
+			if err := viper.BindPFlag("versions", cmd.Flags().Lookup("versions")); err != nil {
+				return err
+			}
+			if err := viper.BindPFlag("formatter", cmd.Flags().Lookup("formatter")); err != nil {
+				return err
+			}
+			if err := viper.BindPFlag("language", cmd.Flags().Lookup("language")); err != nil {
+				return err
+			}
+			return viper.BindPFlag("style", cmd.Flags().Lookup("style"))
 		},
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				cmd.PrintErrln("document id is required")
-				return
+				return fmt.Errorf("document id is required")
 			}
 			documentID := args[0]
 			file := viper.GetString("file")
@@ -55,14 +66,13 @@ Will return the document with the id of jis74978.`,
 				url := "/documents/" + documentID + "/versions"
 				rs, err := ezhttp.Get(url)
 				if err != nil {
-					cmd.PrintErrln("Failed to get document versions:", err)
-					return
+					return fmt.Errorf("failed to get document versions: %w", err)
 				}
 				defer rs.Body.Close()
 
 				var documentVersionsRs []gobin.DocumentResponse
-				if ok := ezhttp.ProcessBody(cmd, "get document versions", rs, &documentVersionsRs); !ok {
-					return
+				if err = ezhttp.ProcessBody("get document versions", rs, &documentVersionsRs); err != nil {
+					return err
 				}
 
 				now := time.Now()
@@ -73,7 +83,7 @@ Will return the document with the id of jis74978.`,
 				}
 
 				cmd.Printf("Document versions(%d):\n%s", len(documentVersions), documentVersions)
-				return
+				return nil
 			}
 
 			url := "/documents/" + documentID
@@ -92,14 +102,13 @@ Will return the document with the id of jis74978.`,
 
 			rs, err := ezhttp.Get(url)
 			if err != nil {
-				cmd.PrintErrln("Failed to get document:", err)
-				return
+				return fmt.Errorf("failed to get document: %w", err)
 			}
 			defer rs.Body.Close()
 
 			var documentRs gobin.DocumentResponse
-			if ok := ezhttp.ProcessBody(cmd, "get document", rs, &documentRs); !ok {
-				return
+			if err = ezhttp.ProcessBody("get document", rs, &documentRs); err != nil {
+				return err
 			}
 
 			data := documentRs.Data
@@ -109,21 +118,20 @@ Will return the document with the id of jis74978.`,
 
 			if file == "" {
 				cmd.Println(data)
-				return
+				return nil
 			}
 			documentFile, err := os.Create(file)
 			if err != nil {
-				cmd.PrintErrln("Failed to create file to write document:", err)
-				return
+				return fmt.Errorf("failed to create file to write document: %w", err)
 			}
 			defer documentFile.Close()
 
 			_, err = documentFile.WriteString(data)
 			if err != nil {
-				cmd.PrintErrln("Failed to write document to file:", err)
-				return
+				return fmt.Errorf("failed to write document to file: %w", err)
 			}
 			cmd.Println("Document saved to file:", file)
+			return nil
 		},
 	}
 
