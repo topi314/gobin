@@ -148,9 +148,10 @@ body {
 header {
     background: var(--bg-secondary);
     display: flex;
-    row-gap: 1rem;
+    gap: 1rem;
     align-items: center;
     height: 4rem;
+    padding: 1rem;
 }
 
 #nav-btn {
@@ -158,7 +159,7 @@ header {
 }
 
 #title {
-    padding: 1rem;
+    padding: 0;
     font-size: 2rem;
     font-weight: bold;
     text-decoration: none;
@@ -227,6 +228,7 @@ header {
 nav {
     position: fixed;
     top: 4rem;
+    left: 0;
     display: flex;
     justify-content: space-between;
     gap: 1rem;
@@ -239,7 +241,7 @@ nav {
     transition: height 0.2s ease-out, padding-top 0.2s ease-out;
 }
 
-.button, button {
+.icon-btn {
     flex-shrink: 0;
     border: none;
     border-radius: 1rem;
@@ -253,18 +255,32 @@ nav {
     color: var(--text-primary);
 }
 
-#share-copy {
-    width: fit-content;
-    padding: 0.5rem;
-}
-
-.button:hover, button:hover {
+.icon-btn:hover {
     filter: opacity(0.7);
 }
 
-.button:disabled, button:disabled {
+.icon-btn:disabled {
     cursor: not-allowed;
     filter: opacity(0.2);
+}
+
+#share-copy {
+    border: none;
+    border-radius: 1rem;
+    background-color: var(--nav-button-bg);
+    color: var(--text-primary);
+    padding: 0.5rem;
+    cursor: pointer;
+    font-size: 1.1rem;
+    font-weight: bold;
+}
+
+#share-copy:hover {
+    filter: opacity(0.7);
+}
+
+#theme-toggle {
+    display: none;
 }
 
 main {
@@ -316,30 +332,6 @@ main {
 
 .settings > * {
     flex-shrink: 0;
-}
-
-#theme-toggle {
-    display: none;
-    user-select: none;
-}
-
-#theme-toggle + label {
-    margin-left: 1rem;
-    border: none;
-    border-radius: 1rem;
-    width: 2rem;
-    height: 2rem;
-    background-image: var(--theme);
-    background-color: var(--nav-button-bg);
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: 1rem;
-    cursor: pointer;
-    user-select: none;
-}
-
-#theme-toggle + label:hover {
-    background-color: var(--nav-button-bg-hover);
 }
 
 select {
@@ -413,6 +405,10 @@ select:disabled {
     background-image: var(--share);
 }
 
+#theme-toggle + label {
+    background-image: var(--theme);
+}
+
 .loading {
     background-image: url(/assets/icons/loading.gif) !important;
 }
@@ -484,9 +480,7 @@ select:disabled {
         height: 4rem;
         border: none;
 
-        padding-top: 1rem;
-        padding-bottom: 1rem;
-        padding-left: 0;
+        padding: 1rem 0;
         position: relative;
         top: unset;
         background-color: transparent;
@@ -511,20 +505,4 @@ select:disabled {
     #version {
         background-image: var(--arrow-down), var(--version);
     }
-}
-
-.hljs-ln-numbers {
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-
-    text-align: right;
-    border-right: 1px solid var(--text-secondary);
-    padding-right: 0.3rem !important;
-}
-
-.hljs-ln-code {
-    padding-left: 0.3rem !important;
 }

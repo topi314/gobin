@@ -1,21 +1,21 @@
 <header>
     <a title="gobin" id="title" href="/">gobin</a>
 
-    <a title="GitHub" id="github" class="button" href="https://github.com/TopiSenpai/gobin" target="_blank"></a>
+    <a title="GitHub" id="github" class="icon-btn" href="https://github.com/TopiSenpai/gobin" target="_blank"></a>
 
-    <input id="theme-toggle" class="button" type="checkbox">
-    <label title="Toggle Theme" for="theme-toggle"></label>
+    <input id="theme-toggle" type="checkbox">
+    <label title="Toggle Theme" class="icon-btn" for="theme-toggle"></label>
 
     <input id="nav-btn" type="checkbox" />
     <label title="Open Navigation" class="hamb" for="nav-btn"><span></span></label>
 
     <nav>
-        <a title="New" id="new" class="button" href="/" target="_blank"></a>
-        <button title="Save" id="save" disabled="disabled" {{ if ne .Content "" }}style="display: none"{{ end }}></button>
-        <button title="Edit" id="edit" disabled="disabled" {{ if eq .Content "" }}style="display: none"{{ end }}></button>
-        <button title="Delete" id="delete" disabled="disabled"></button>
-        <button title="Copy" id="copy" disabled="disabled"></button>
-        <button title="Raw" id="raw" disabled="disabled"></button>
-        <button title="Share" id="share" disabled="disabled"></button>
+        <a title="New" id="new" class="icon-btn" href="/" target="_blank"></a>
+        <button title="Save" id="save" class="icon-btn" disabled="disabled" {{ if ne .Content "" }}style="display: none"{{ end }}></button>
+        <button title="Edit" id="edit" class="icon-btn" disabled="disabled" {{ if eq .Content "" }}style="display: none"{{ end }}></button>
+        <button title="Delete" id="delete" class="icon-btn" disabled="disabled"></button>
+        <button title="Copy" id="copy" class="icon-btn" disabled="disabled"></button>
+        <button title="Raw" id="raw" class="icon-btn" disabled="disabled"></button>
+        <button title="Share" id="share" class="icon-btn" disabled="disabled"></button>
     </nav>
 </header>
