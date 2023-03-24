@@ -18,7 +18,6 @@ jobs:
         with:
           images: |
             ghcr.io/topisenpai/gobin
-#            git.topi.wtf/topi/gobin
           tags: |
             type=ref,event=branch
             type=ref,event=tag
@@ -37,13 +36,6 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-#      - name: Login to Gitea Container Registry
-#        uses: docker/login-action@v2
-#        with:
-#          registry: git.topi.wtf
-#          username: ${{ secrets.GITEA_USER }}
-#          password: ${{ secrets.GITEA_TOKEN }}
 
       - name: Prepare Version Info
         run: |

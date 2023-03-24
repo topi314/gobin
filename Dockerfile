@@ -16,7 +16,10 @@ ARG BUILD_TIME
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg \
-    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags="-X 'main.version=$VERSION' -X 'main.commit=$COMMIT' -X 'main.buildTime=$BUILD_TIME'" -o gobin-server github.com/topisenpai/gobin
+    CGO_ENABLED=0 \
+    GOOS=$TARGETOS \
+    GOARCH=$TARGETARCH \
+    go build -ldflags="-X 'main.version=$VERSION' -X 'main.commit=$COMMIT' -X 'main.buildTime=$BUILD_TIME'" -o gobin-server github.com/topisenpai/gobin
 
 FROM alpine
 
@@ -30,4 +33,4 @@ EXPOSE 80
 
 ENTRYPOINT ["/bin/gobin"]
 
-CMD ["-config", "/var/lib/gobin/config.json"]
+CMD ["-config", "/var/lib/gobin/gobin.json"]

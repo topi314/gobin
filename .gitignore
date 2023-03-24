@@ -2,6 +2,5 @@
 gobin.json
 .gobin
 gobin.db
-completions/
 go.work
 go.work.sum

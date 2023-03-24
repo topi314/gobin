@@ -105,7 +105,7 @@ docker-compose up -d
 
 #### Requirements
 
-- Go 1.18 or higher
+- Go 1.20 or higher
 - PostgreSQL 13 or higher
 
 #### Build
@@ -125,7 +125,7 @@ go install github.com/TopiSenpai/gobin@latest
 #### Run
 
 ```bash
-gobin --config=config.json
+gobin --config=gobin.json
 ```
 
 ---
@@ -185,7 +185,11 @@ Create a new `gobin.json` file with the following content:
     # how many lines should be shown in the preview
     "max_lines": 10,
     # how high the resolution of the preview should be, 96 is the default
-    "dpi": 96
+    "dpi": 96,
+    # how many previews should be maximally cached
+    "cache_size": 1024,
+    # how long should previews be cached
+    "cache_duration": "1h"
   }
 }
 ```
@@ -223,6 +227,8 @@ GOBIN_RATE_LIMIT_DURATION=1m
 GOBIN_PREVIEW_INKSCAPE_PATH=/usr/bin/inkscape
 GOBIN_PREVIEW_MAX_LINES=10
 GOBIN_PREVIEW_DPI=96
+GOBIN_PREVIEW_CACHE_SIZE=1024
+GOBIN_PREVIEW_CACHE_TTL=1h
 ```
 
 </details>

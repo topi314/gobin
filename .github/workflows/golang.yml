@@ -6,27 +6,6 @@ on:
     types: [published]
 
 jobs:
-  cli-completions:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Generate Completions
-        run: sh completions.sh
-
-      - name: Upload
-        uses: actions/upload-artifact@v3
-        with:
-          name: completions
-          path: completions/*
-
-      - name: Release
-        if: ${{ github.event_name == 'release' }}
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: completions/*
-          allowUpdates: true
   cli-build:
     needs: cli-completions
     runs-on: ubuntu-latest

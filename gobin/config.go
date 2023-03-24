@@ -19,7 +19,16 @@ type Config struct {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("\n DevMode: %t\n Debug: %t\n ListenAddr: %s\n HTTPTimeout: %s\n Database: %s\n MaxDocumentSize: %d\n RateLimit: %s\n JWTSecret: %s\n Previews: %s\n", c.DevMode, c.Debug, c.ListenAddr, c.HTTPTimeout, c.Database, c.MaxDocumentSize, c.RateLimit, strings.Repeat("*", len(c.JWTSecret)), c.Preview)
+	return fmt.Sprintf("\n DevMode: %t\n Debug: %t\n ListenAddr: %s\n HTTPTimeout: %s\n Database: %s\n MaxDocumentSize: %d\n RateLimit: %s\n JWTSecret: %s\n Preview: %s\n",
+		c.DevMode,
+		c.Debug,
+		c.ListenAddr,
+		c.HTTPTimeout,
+		c.Database,
+		c.MaxDocumentSize,
+		c.RateLimit, strings.Repeat("*", len(c.JWTSecret)),
+		c.Preview,
+	)
 }
 
 type DatabaseConfig struct {
@@ -41,10 +50,22 @@ type DatabaseConfig struct {
 }
 
 func (c DatabaseConfig) String() string {
-	str := fmt.Sprintf("\n  Type: %s\n  Debug: %t\n  ExpireAfter: %s\n  CleanupInterval: %s\n  ", c.Type, c.Debug, c.ExpireAfter, c.CleanupInterval)
+	str := fmt.Sprintf("\n  Type: %s\n  Debug: %t\n  ExpireAfter: %s\n  CleanupInterval: %s\n  ",
+		c.Type,
+		c.Debug,
+		c.ExpireAfter,
+		c.CleanupInterval,
+	)
 	switch c.Type {
 	case "postgres":
-		str += fmt.Sprintf("Host: %s\n  Port: %d\n  Username: %s\n  Password: %s\n  Database: %s\n  SSLMode: %s", c.Host, c.Port, c.Username, strings.Repeat("*", len(c.Password)), c.Database, c.SSLMode)
+		str += fmt.Sprintf("Host: %s\n  Port: %d\n  Username: %s\n  Password: %s\n  Database: %s\n  SSLMode: %s",
+			c.Host,
+			c.Port,
+			c.Username,
+			strings.Repeat("*", len(c.Password)),
+			c.Database,
+			c.SSLMode,
+		)
 	case "sqlite":
 		str += fmt.Sprintf("Path: %s", c.Path)
 	default:
@@ -54,7 +75,14 @@ func (c DatabaseConfig) String() string {
 }
 
 func (c DatabaseConfig) PostgresDataSourceName() string {
-	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s", c.Host, c.Port, c.Username, c.Password, c.Database, c.SSLMode)
+	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+		c.Host,
+		c.Port,
+		c.Username,
+		c.Password,
+		c.Database,
+		c.SSLMode,
+	)
 }
 
 type RateLimitConfig struct {
@@ -65,7 +93,12 @@ type RateLimitConfig struct {
 }
 
 func (c RateLimitConfig) String() string {
-	return fmt.Sprintf("\n  Requests: %d\n  Duration: %s\n  Whitelist: %v\n  Blacklist: %v", c.Requests, c.Duration, c.Whitelist, c.Blacklist)
+	return fmt.Sprintf("\n  Requests: %d\n  Duration: %s\n  Whitelist: %v\n  Blacklist: %v",
+		c.Requests,
+		c.Duration,
+		c.Whitelist,
+		c.Blacklist,
+	)
 }
 
 type PreviewConfig struct {
@@ -77,5 +110,11 @@ type PreviewConfig struct {
 }
 
 func (c PreviewConfig) String() string {
-	return fmt.Sprintf("\n  InkscapePath: %s\n  MaxLines: %d", c.InkscapePath, c.MaxLines)
+	return fmt.Sprintf("\n  InkscapePath: %s\n  MaxLines: %d\n  DPI: %d\n  CacheSize: %d\n  CacheTTL: %s",
+		c.InkscapePath,
+		c.MaxLines,
+		c.DPI,
+		c.CacheSize,
+		c.CacheTTL,
+	)
 }

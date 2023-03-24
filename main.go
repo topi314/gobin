@@ -50,6 +50,7 @@ func main() {
 
 	viper.SetDefault("listen_addr", ":80")
 	viper.SetDefault("dev_mode", false)
+	viper.SetDefault("debug", false)
 	viper.SetDefault("database_type", "sqlite")
 	viper.SetDefault("database_debug", false)
 	viper.SetDefault("database_expire_after", "0")
@@ -58,12 +59,9 @@ func main() {
 	viper.SetDefault("database_host", "localhost")
 	viper.SetDefault("database_port", 5432)
 	viper.SetDefault("database_username", "gobin")
-	viper.SetDefault("database_password", "password")
 	viper.SetDefault("database_database", "gobin")
 	viper.SetDefault("database_ssl_mode", "disable")
 	viper.SetDefault("max_document_size", 0)
-	viper.SetDefault("rate_limit_requests", 10)
-	viper.SetDefault("rate_limit_duration", "1m")
 
 	if *cfgPath != "" {
 		viper.SetConfigFile(*cfgPath)
