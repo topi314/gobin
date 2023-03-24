@@ -69,9 +69,11 @@ func (c RateLimitConfig) String() string {
 }
 
 type PreviewConfig struct {
-	InkscapePath string `cfg:"inkscape_path"`
-	MaxLines     int    `cfg:"max_lines"`
-	DPI          int    `cfg:"dpi"`
+	InkscapePath string        `cfg:"inkscape_path"`
+	MaxLines     int           `cfg:"max_lines"`
+	DPI          int           `cfg:"dpi"`
+	CacheSize    int           `cfg:"cache_size"`
+	CacheTTL     time.Duration `cfg:"cache_ttl"`
 }
 
 func (c PreviewConfig) String() string {

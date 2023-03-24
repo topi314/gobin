@@ -22,6 +22,7 @@ import (
 	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/stampede"
 	"golang.org/x/exp/slices"
 )
 
@@ -115,6 +116,11 @@ func (s *Server) Routes() http.Handler {
 		r.Mount("/debug", middleware.Profiler())
 	}
 
+	var previewCache func(http.Handler) http.Handler
+	if s.cfg.Preview != nil && s.cfg.Preview.CacheSize > 0 && s.cfg.Preview.CacheTTL > 0 {
+		previewCache = stampede.HandlerWithKey(s.cfg.Preview.CacheSize, s.cfg.Preview.CacheTTL, s.cacheKeyFunc)
+	}
+
 	r.Mount("/assets", http.FileServer(s.assets))
 	r.Handle("/favicon.ico", s.file("/assets/favicon.png"))
 	r.Handle("/favicon.png", s.file("/assets/favicon.png"))
@@ -138,6 +144,9 @@ func (s *Server) Routes() http.Handler {
 				r.Post("/share", s.PostDocumentShare)
 				if s.cfg.Preview != nil {
 					r.Route("/preview", func(r chi.Router) {
+						if previewCache != nil {
+							r.Use(previewCache)
+						}
 						r.Get("/", s.GetDocumentPreview)
 						r.Head("/", s.GetDocumentPreview)
 					})
@@ -147,9 +156,11 @@ func (s *Server) Routes() http.Handler {
 					r.Route("/{version}", func(r chi.Router) {
 						r.Get("/", s.GetDocument)
 						r.Delete("/", s.DeleteDocument)
-
 						if s.cfg.Preview != nil {
 							r.Route("/preview", func(r chi.Router) {
+								if previewCache != nil {
+									r.Use(previewCache)
+								}
 								r.Get("/", s.GetDocumentPreview)
 								r.Head("/", s.GetDocumentPreview)
 							})
@@ -162,9 +173,11 @@ func (s *Server) Routes() http.Handler {
 		r.Route("/{documentID}", func(r chi.Router) {
 			r.Get("/", s.GetPrettyDocument)
 			r.Head("/", s.GetPrettyDocument)
-
 			if s.cfg.Preview != nil {
 				r.Route("/preview", func(r chi.Router) {
+					if previewCache != nil {
+						r.Use(previewCache)
+					}
 					r.Get("/", s.GetDocumentPreview)
 					r.Head("/", s.GetDocumentPreview)
 				})
@@ -175,6 +188,9 @@ func (s *Server) Routes() http.Handler {
 				r.Head("/", s.GetPrettyDocument)
 				if s.cfg.Preview != nil {
 					r.Route("/preview", func(r chi.Router) {
+						if previewCache != nil {
+							r.Use(previewCache)
+						}
 						r.Get("/", s.GetDocumentPreview)
 						r.Head("/", s.GetDocumentPreview)
 					})
@@ -190,6 +206,10 @@ func (s *Server) Routes() http.Handler {
 		return http.TimeoutHandler(r, s.cfg.HTTPTimeout, "Request timed out")
 	}
 	return r
+}
+
+func (s *Server) cacheKeyFunc(r *http.Request) uint64 {
+	return stampede.BytesToHash([]byte(chi.URLParam(r, "documentID")), []byte(chi.URLParam(r, "version")), []byte(r.URL.RawQuery))
 }
 
 func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
@@ -923,7 +943,7 @@ func (s *Server) file(path string) http.HandlerFunc {
 }
 
 func (s *Server) shortContent(content string) string {
-	if s.cfg.Preview.MaxLines > 0 {
+	if s.cfg.Preview != nil && s.cfg.Preview.MaxLines > 0 {
 		var newLines int
 		maxNewLineIndex := strings.IndexFunc(content, func(r rune) bool {
 			if r == '\n' {
