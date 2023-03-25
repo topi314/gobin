@@ -2,8 +2,6 @@ name: CLI
 
 on:
   push:
-  release:
-    types: [published]
 
 jobs:
   cli-build:
