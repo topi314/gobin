@@ -10,16 +10,18 @@ import (
 
 	"github.com/go-chi/httprate"
 	"github.com/go-jose/go-jose/v3"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type ExecuteTemplateFunc func(wr io.Writer, name string, data any) error
 
-func NewServer(version string, cfg Config, db *DB, signer jose.Signer, assets http.FileSystem, tmpl ExecuteTemplateFunc) *Server {
+func NewServer(version string, cfg Config, db *DB, signer jose.Signer, tracer trace.Tracer, assets http.FileSystem, tmpl ExecuteTemplateFunc) *Server {
 	s := &Server{
 		version: version,
 		cfg:     cfg,
 		db:      db,
 		signer:  signer,
+		tracer:  tracer,
 		assets:  assets,
 		tmpl:    tmpl,
 	}
@@ -50,6 +52,7 @@ type Server struct {
 	db               *DB
 	server           *http.Server
 	signer           jose.Signer
+	tracer           trace.Tracer
 	assets           http.FileSystem
 	tmpl             ExecuteTemplateFunc
 	rateLimitHandler func(http.Handler) http.Handler

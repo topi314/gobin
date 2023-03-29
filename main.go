@@ -12,7 +12,6 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/alecthomas/chroma/v2/formatters"
 	"github.com/alecthomas/chroma/v2/formatters/html"
@@ -90,9 +89,7 @@ func main() {
 		log.SetFlags(log.LstdFlags | log.Lshortfile)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	db, err := gobin.NewDB(ctx, cfg.Database, Schema)
+	db, err := gobin.NewDB(context.Background(), cfg.Database, Schema)
 	if err != nil {
 		log.Fatalln("Error while connecting to database:", err)
 	}
@@ -106,6 +103,20 @@ func main() {
 	if err != nil {
 		log.Fatalln("Error while creating signer:", err)
 	}
+
+	ctx := context.Background()
+	exporter, err := newExporter(ctx)
+	if err != nil {
+		log.Fatalln("Error while creating exporter:", err)
+	}
+
+	defer func() {
+		if err = exporter.Shutdown(ctx); err != nil {
+			log.Fatal(err)
+		}
+	}()
+	traceProvider := newTraceProvider(exporter)
+	tracer := traceProvider.Tracer("gobin")
 
 	var (
 		tmplFunc gobin.ExecuteTemplateFunc
@@ -149,7 +160,7 @@ func main() {
 		html.TabWidth(4),
 	))
 
-	s := gobin.NewServer(gobin.FormatBuildVersion(version, commit, buildTime), cfg, db, signer, assets, tmplFunc)
+	s := gobin.NewServer(gobin.FormatBuildVersion(version, commit, buildTime), cfg, db, signer, tracer, assets, tmplFunc)
 	log.Println("Gobin listening on:", cfg.ListenAddr)
 	go s.Start()
 	defer s.Close()

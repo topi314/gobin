@@ -23,6 +23,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/stampede"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"golang.org/x/exp/slices"
 )
 
@@ -205,7 +206,7 @@ func (s *Server) Routes() http.Handler {
 	if s.cfg.HTTPTimeout > 0 {
 		return http.TimeoutHandler(r, s.cfg.HTTPTimeout, "Request timed out")
 	}
-	return r
+	return otelhttp.NewHandler(r, "gobin-http")
 }
 
 func (s *Server) cacheKeyFunc(r *http.Request) uint64 {
