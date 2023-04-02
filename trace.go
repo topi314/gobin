@@ -8,29 +8,26 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.18.0"
+	"go.opentelemetry.io/otel/semconv/v1.18.0"
 )
 
 func newExporter(ctx context.Context) (*otlptrace.Exporter, error) {
-	return otlptracehttp.New(ctx)
+	return otlptracehttp.New(ctx,
+		otlptracehttp.WithEndpoint("192.168.178.73:4318"),
+		otlptracehttp.WithInsecure(),
+	)
 }
 
 func newTraceProvider(exp sdktrace.SpanExporter) *sdktrace.TracerProvider {
-	r, err := resource.Merge(
-		resource.Default(),
-		resource.NewWithAttributes(
-			semconv.SchemaURL,
-			semconv.ServiceName("gobin-server"),
-			semconv.ServiceVersion(version),
-		),
-	)
-	if err != nil {
-		panic(err)
-	}
-
 	provider := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exp),
-		sdktrace.WithResource(r),
+		sdktrace.WithResource(resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceName("gobin-server"),
+			semconv.ServiceNamespace("github.com/topisenpai/gobin"),
+			semconv.ServiceInstanceID("gobin-server"),
+			semconv.ServiceVersion("v0.0.1"),
+		)),
 	)
 	otel.SetTracerProvider(provider)
 	return provider

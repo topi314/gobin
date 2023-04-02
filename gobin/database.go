@@ -10,12 +10,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/stdlib"
-	"github.com/jackc/pgx/v5/tracelog"
-	"github.com/uptrace/opentelemetry-go-extra/otelsql"
-
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/jmoiron/sqlx"
 	"modernc.org/sqlite"
 	_ "modernc.org/sqlite"
@@ -55,12 +53,10 @@ func NewDB(ctx context.Context, cfg DatabaseConfig, schema string) (*DB, error) 
 	default:
 		return nil, errors.New("invalid database type, must be one of: postgres, sqlite")
 	}
-	otelDB, err := otelsql.Open(driverName, dataSourceName)
+	dbx, err := sqlx.ConnectContext(ctx, driverName, dataSourceName)
 	if err != nil {
 		return nil, err
 	}
-
-	dbx := sqlx.NewDb(otelDB, driverName)
 
 	// execute schema
 	if _, err = dbx.ExecContext(ctx, schema); err != nil {
