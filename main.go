@@ -13,6 +13,9 @@ import (
 	"strings"
 	"syscall"
 
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/alecthomas/chroma/v2/formatters"
 	"github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/alecthomas/chroma/v2/lexers"
@@ -26,6 +29,9 @@ import (
 
 // These variables are set via the -ldflags option in go build
 var (
+	serviceName      = "gobin"
+	serviceNamespace = "github.com/topisenpai/gobin"
+
 	version   = "unknown"
 	commit    = "unknown"
 	buildTime = "unknown"
@@ -89,34 +95,35 @@ func main() {
 		log.SetFlags(log.LstdFlags | log.Lshortfile)
 	}
 
+	var (
+		tracer trace.Tracer
+		meter  metric.Meter
+		err    error
+	)
+	if cfg.Otel != nil {
+		tracer, err = newTracer(*cfg.Otel)
+		if err != nil {
+			log.Fatalln("Error while creating tracer:", err)
+		}
+		meter, err = newMeter(*cfg.Otel)
+		if err != nil {
+			log.Fatalln("Error while creating meter:", err)
+		}
+	}
+
 	db, err := gobin.NewDB(context.Background(), cfg.Database, Schema)
 	if err != nil {
 		log.Fatalln("Error while connecting to database:", err)
 	}
 	defer db.Close()
 
-	key := jose.SigningKey{
+	signer, err := jose.NewSigner(jose.SigningKey{
 		Algorithm: jose.HS512,
 		Key:       []byte(cfg.JWTSecret),
-	}
-	signer, err := jose.NewSigner(key, nil)
+	}, nil)
 	if err != nil {
 		log.Fatalln("Error while creating signer:", err)
 	}
-
-	ctx := context.Background()
-	exporter, err := newExporter(ctx)
-	if err != nil {
-		log.Fatalln("Error while creating exporter:", err)
-	}
-
-	defer func() {
-		if err = exporter.Shutdown(ctx); err != nil {
-			log.Fatal(err)
-		}
-	}()
-	traceProvider := newTraceProvider(exporter)
-	tracer := traceProvider.Tracer("gobin")
 
 	var (
 		tmplFunc gobin.ExecuteTemplateFunc
@@ -160,7 +167,7 @@ func main() {
 		html.TabWidth(4),
 	))
 
-	s := gobin.NewServer(gobin.FormatBuildVersion(version, commit, buildTime), cfg, db, signer, tracer, assets, tmplFunc)
+	s := gobin.NewServer(gobin.FormatBuildVersion(version, commit, buildTime), cfg, db, signer, tracer, meter, assets, tmplFunc)
 	log.Println("Gobin listening on:", cfg.ListenAddr)
 	go s.Start()
 	defer s.Close()

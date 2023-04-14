@@ -9,26 +9,27 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/XSAM/otelsql"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/jmoiron/sqlx"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"modernc.org/sqlite"
 	_ "modernc.org/sqlite"
 )
 
 var chars = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
 func NewDB(ctx context.Context, cfg DatabaseConfig, schema string) (*DB, error) {
 	var (
 		driverName     string
 		dataSourceName string
+		dbSystem       attribute.KeyValue
 	)
 	switch cfg.Type {
 	case "postgres":
@@ -53,11 +54,20 @@ func NewDB(ctx context.Context, cfg DatabaseConfig, schema string) (*DB, error) 
 	default:
 		return nil, errors.New("invalid database type, must be one of: postgres, sqlite")
 	}
-	dbx, err := sqlx.ConnectContext(ctx, driverName, dataSourceName)
+
+	sqlDB, err := otelsql.Open(driverName, dataSourceName, otelsql.WithAttributes(dbSystem), otelsql.WithSQLCommenter(true))
 	if err != nil {
 		return nil, err
 	}
 
+	if err = otelsql.RegisterDBStatsMetrics(sqlDB, otelsql.WithAttributes(dbSystem)); err != nil {
+		return nil, err
+	}
+
+	dbx := sqlx.NewDb(sqlDB, driverName)
+	if err = dbx.PingContext(ctx); err != nil {
+		return nil, err
+	}
 	// execute schema
 	if _, err = dbx.ExecContext(ctx, schema); err != nil {
 		return nil, err
@@ -67,6 +77,7 @@ func NewDB(ctx context.Context, cfg DatabaseConfig, schema string) (*DB, error) 
 	db := &DB{
 		dbx:           dbx,
 		cleanupCancel: cancel,
+		rand:          rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 
 	go db.cleanup(cleanupContext, cfg.CleanupInterval, cfg.ExpireAfter)
@@ -84,6 +95,8 @@ type Document struct {
 type DB struct {
 	dbx           *sqlx.DB
 	cleanupCancel context.CancelFunc
+	rand          *rand.Rand
+	tracer        trace.Tracer
 }
 
 func (d *DB) Close() error {
@@ -145,7 +158,7 @@ func (d *DB) createDocument(ctx context.Context, content string, language string
 	}
 	now := time.Now().Unix()
 	doc := Document{
-		ID:       randomString(8),
+		ID:       d.randomString(8),
 		Content:  content,
 		Language: language,
 		Version:  now,
@@ -227,21 +240,29 @@ func (d *DB) cleanup(ctx context.Context, cleanUpInterval time.Duration, expireA
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			err := d.DeleteExpiredDocuments(ctx, expireAfter)
-			if errors.Is(err, context.Canceled) {
-				return
-			}
-			if err != nil {
-				log.Println("failed to delete expired documents:", err)
-			}
+			d.doCleanup(expireAfter)
 		}
 	}
 }
 
-func randomString(length int) string {
+func (d *DB) doCleanup(expireAfter time.Duration) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	ctx, span := d.tracer.Start(ctx, "doCleanup")
+	defer span.End()
+
+	if err := d.DeleteExpiredDocuments(ctx, expireAfter); err != nil && !errors.Is(err, context.Canceled) {
+		span.SetStatus(codes.Error, "failed to delete expired documents")
+		span.RecordError(err)
+		log.Println("failed to delete expired documents:", err)
+	}
+}
+
+func (d *DB) randomString(length int) string {
 	b := make([]rune, length)
 	for i := range b {
-		b[i] = chars[rand.Intn(len(chars))]
+		b[i] = chars[d.rand.Intn(len(chars))]
 	}
 	return string(b)
 }

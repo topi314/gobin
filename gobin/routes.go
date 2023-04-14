@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/riandyrn/otelchi"
+
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/formatters"
 	"github.com/alecthomas/chroma/v2/formatters/html"
@@ -23,7 +25,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/stampede"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"golang.org/x/exp/slices"
 )
 
@@ -57,6 +58,12 @@ type (
 		Host       string
 		Preview    bool
 		PreviewAlt string
+	}
+	TemplateErrorVariables struct {
+		Error     string
+		Status    int
+		RequestID string
+		Path      string
 	}
 	DocumentVersion struct {
 		Version int64
@@ -93,6 +100,7 @@ type (
 
 func (s *Server) Routes() http.Handler {
 	r := chi.NewRouter()
+	r.Use(otelchi.Middleware("gobin", otelchi.WithChiRoutes(r)))
 	r.Use(middleware.CleanPath)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.RequestID)
@@ -205,7 +213,7 @@ func (s *Server) Routes() http.Handler {
 	if s.cfg.HTTPTimeout > 0 {
 		return http.TimeoutHandler(r, s.cfg.HTTPTimeout, "Request timed out")
 	}
-	return otelhttp.NewHandler(r, "gobin-http")
+	return r
 }
 
 func (s *Server) cacheKeyFunc(r *http.Request) uint64 {
@@ -547,7 +555,7 @@ func (s *Server) GetDocumentPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	png, err := s.convertSVG2PNG(formatted)
+	png, err := s.convertSVG2PNG(r.Context(), formatted)
 	if err != nil {
 		s.error(w, r, fmt.Errorf("failed to convert document preview: %w", err), http.StatusInternalServerError)
 		return
@@ -880,11 +888,11 @@ func (s *Server) prettyError(w http.ResponseWriter, r *http.Request, err error, 
 	}
 	w.WriteHeader(status)
 
-	vars := map[string]any{
-		"Error":     err.Error(),
-		"Status":    status,
-		"RequestID": middleware.GetReqID(r.Context()),
-		"Path":      r.URL.Path,
+	vars := TemplateErrorVariables{
+		Error:     err.Error(),
+		Status:    status,
+		RequestID: middleware.GetReqID(r.Context()),
+		Path:      r.URL.Path,
 	}
 	if tmplErr := s.tmpl(w, "error.gohtml", vars); tmplErr != nil && tmplErr != http.ErrHandlerTimeout {
 		s.log(r, "template", tmplErr)

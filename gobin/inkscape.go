@@ -2,12 +2,20 @@ package gobin
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strconv"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
 
-func (s *Server) convertSVG2PNG(svg string) ([]byte, error) {
+func (s *Server) convertSVG2PNG(ctx context.Context, svg string) ([]byte, error) {
+	ctx, span := s.tracer.Start(ctx, "convertSVG2PNG")
+	defer span.End()
+
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
 
@@ -15,18 +23,25 @@ func (s *Server) convertSVG2PNG(svg string) ([]byte, error) {
 	if s.cfg.Preview.DPI > 0 {
 		dpi = s.cfg.Preview.DPI
 	}
+	span.SetAttributes(attribute.Int("dpi", dpi))
+	span.SetAttributes(attribute.String("inkscape", s.cfg.Preview.InkscapePath))
 
-	cmd := exec.Command(s.cfg.Preview.InkscapePath, "-p", "-d", strconv.Itoa(dpi), "--convert-dpi-method=scale-viewbox", "--export-filename=-", "--export-type=png")
+	cmd := exec.CommandContext(ctx, s.cfg.Preview.InkscapePath, "-p", "-d", strconv.Itoa(dpi), "--convert-dpi-method=scale-viewbox", "--export-filename=-", "--export-type=png")
 	cmd.Stdin = bytes.NewReader([]byte(svg))
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 
 	if err := cmd.Run(); err != nil {
+		span.SetStatus(codes.Error, "failed to convert svg to png")
+		span.RecordError(err)
 		return nil, fmt.Errorf("error while converting scg: %s %w", stderr.String(), err)
 	}
 
 	if stdout.Len() == 0 {
-		return nil, fmt.Errorf("no data from inkscape")
+		err := errors.New("no data from inkscape")
+		span.SetStatus(codes.Error, "failed to convert svg to png")
+		span.RecordError(err)
+		return nil, err
 	}
 
 	return stdout.Bytes(), nil

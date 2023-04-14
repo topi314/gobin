@@ -16,10 +16,11 @@ type Config struct {
 	RateLimit       *RateLimitConfig `cfg:"rate_limit"`
 	JWTSecret       string           `cfg:"jwt_secret"`
 	Preview         *PreviewConfig   `cfg:"preview"`
+	Otel            *OtelConfig      `cfg:"otel"`
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("\n DevMode: %t\n Debug: %t\n ListenAddr: %s\n HTTPTimeout: %s\n Database: %s\n MaxDocumentSize: %d\n RateLimit: %s\n JWTSecret: %s\n Preview: %s\n",
+	return fmt.Sprintf("\n DevMode: %t\n Debug: %t\n ListenAddr: %s\n HTTPTimeout: %s\n Database: %s\n MaxDocumentSize: %d\n RateLimit: %s\n JWTSecret: %s\n Preview: %s\n Otel: %s\n",
 		c.DevMode,
 		c.Debug,
 		c.ListenAddr,
@@ -28,6 +29,7 @@ func (c Config) String() string {
 		c.MaxDocumentSize,
 		c.RateLimit, strings.Repeat("*", len(c.JWTSecret)),
 		c.Preview,
+		c.Otel,
 	)
 }
 
@@ -116,5 +118,41 @@ func (c PreviewConfig) String() string {
 		c.DPI,
 		c.CacheSize,
 		c.CacheTTL,
+	)
+}
+
+type OtelConfig struct {
+	InstanceID string         `cfg:"instance_id"`
+	Trace      *TraceConfig   `cfg:"trace"`
+	Metrics    *MetricsConfig `cfg:"metrics"`
+}
+
+func (c OtelConfig) String() string {
+	return fmt.Sprintf("\n  InstanceID: %s\n  Trace: %s\n  Metrics: %s",
+		c.InstanceID,
+		c.Trace,
+		c.Metrics,
+	)
+}
+
+type TraceConfig struct {
+	Endpoint string `cfg:"endpoint"`
+	Insecure bool   `cfg:"insecure"`
+}
+
+func (c TraceConfig) String() string {
+	return fmt.Sprintf("\n   Endpoint: %s\n   Insecure: %t",
+		c.Endpoint,
+		c.Insecure,
+	)
+}
+
+type MetricsConfig struct {
+	ListenAddr string `cfg:"listen_addr"`
+}
+
+func (c MetricsConfig) String() string {
+	return fmt.Sprintf("\n   ListenAddr: %s",
+		c.ListenAddr,
 	)
 }

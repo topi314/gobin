@@ -45,7 +45,10 @@ var ClaimsKey = claimsKey{}
 
 func (s *Server) JWTMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tokenString := TokenFromHeader(r)
+		tokenString := r.Header.Get("Authorization")
+		if len(tokenString) > 7 && strings.ToUpper(tokenString[0:6]) == "BEARER" {
+			tokenString = tokenString[7:]
+		}
 
 		var claims Claims
 		if tokenString == "" {
@@ -86,12 +89,4 @@ func newClaims(documentID string, permissions []Permission) Claims {
 		},
 		Permissions: permissions,
 	}
-}
-
-func TokenFromHeader(r *http.Request) string {
-	bearer := r.Header.Get("Authorization")
-	if len(bearer) > 7 && strings.ToUpper(bearer[0:6]) == "BEARER" {
-		return bearer[7:]
-	}
-	return ""
 }

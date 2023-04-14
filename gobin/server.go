@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"time"
 
+	"go.opentelemetry.io/otel/metric"
+
 	"github.com/go-chi/httprate"
 	"github.com/go-jose/go-jose/v3"
 	"go.opentelemetry.io/otel/trace"
@@ -15,13 +17,14 @@ import (
 
 type ExecuteTemplateFunc func(wr io.Writer, name string, data any) error
 
-func NewServer(version string, cfg Config, db *DB, signer jose.Signer, tracer trace.Tracer, assets http.FileSystem, tmpl ExecuteTemplateFunc) *Server {
+func NewServer(version string, cfg Config, db *DB, signer jose.Signer, tracer trace.Tracer, meter metric.Meter, assets http.FileSystem, tmpl ExecuteTemplateFunc) *Server {
 	s := &Server{
 		version: version,
 		cfg:     cfg,
 		db:      db,
 		signer:  signer,
 		tracer:  tracer,
+		meter:   meter,
 		assets:  assets,
 		tmpl:    tmpl,
 	}
@@ -53,6 +56,7 @@ type Server struct {
 	server           *http.Server
 	signer           jose.Signer
 	tracer           trace.Tracer
+	meter            metric.Meter
 	assets           http.FileSystem
 	tmpl             ExecuteTemplateFunc
 	rateLimitHandler func(http.Handler) http.Handler
