@@ -96,7 +96,6 @@ func (s *Server) Routes() http.Handler {
 	r.Use(middleware.CleanPath)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.RequestID)
-	r.Use(middleware.Compress(5))
 	r.Use(middleware.Maybe(
 		middleware.RequestLogger(&middleware.DefaultLogFormatter{
 			Logger: log.Default(),
@@ -210,7 +209,7 @@ func (s *Server) Routes() http.Handler {
 }
 
 func (s *Server) cacheKeyFunc(r *http.Request) uint64 {
-	return stampede.BytesToHash([]byte(chi.URLParam(r, "documentID")), []byte(chi.URLParam(r, "version")), []byte(r.URL.RawQuery))
+	return stampede.BytesToHash([]byte(r.Method), []byte(chi.URLParam(r, "documentID")), []byte(chi.URLParam(r, "version")), []byte(r.URL.RawQuery))
 }
 
 func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
