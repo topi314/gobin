@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/dustin/go-humanize"
 	"html/template"
 	"io"
 	"log"
@@ -36,6 +37,8 @@ var (
 		return fmt.Errorf("content too large, must be less than %d chars", maxLength)
 	}
 )
+
+var VersionTimeFormat = "2006-01-02 15:04:05"
 
 type (
 	TemplateVariables struct {
@@ -321,13 +324,12 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	}
 
 	versions := make([]DocumentVersion, 0, len(documents))
-	now := time.Now()
 	for _, documentVersion := range documents {
-		label, timeStr := FormatDocumentVersion(now, documentVersion.Version)
+		versionTime := time.Unix(documentVersion.Version, 0)
 		versions = append(versions, DocumentVersion{
 			Version: documentVersion.Version,
-			Label:   label,
-			Time:    timeStr,
+			Label:   versionTime.Format(VersionTimeFormat),
+			Time:    humanize.Time(versionTime),
 		})
 	}
 
@@ -419,27 +421,6 @@ func (s *Server) renderDocument(r *http.Request, document Document, formatterNam
 
 func (s *Server) GetVersion(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write([]byte(s.version))
-}
-
-func FormatDocumentVersion(now time.Time, versionRaw int64) (string, string) {
-	version := time.Unix(versionRaw, 0)
-	timeStr := version.Format("02/01/2006 15:04:05")
-	if version.Year() < now.Year() {
-		return fmt.Sprintf("%d years ago", now.Year()-version.Year()), timeStr
-	}
-	if version.Month() < now.Month() {
-		return fmt.Sprintf("%d months ago", now.Month()-version.Month()), timeStr
-	}
-	if version.Day() < now.Day() {
-		return fmt.Sprintf("%d days ago", now.Day()-version.Day()), timeStr
-	}
-	if version.Hour() < now.Hour() {
-		return fmt.Sprintf("%d hours ago", now.Hour()-version.Hour()), timeStr
-	}
-	if version.Minute() < now.Minute() {
-		return fmt.Sprintf("%d minutes ago", now.Minute()-version.Minute()), timeStr
-	}
-	return fmt.Sprintf("%d seconds ago", now.Second()-version.Second()), timeStr
 }
 
 func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
@@ -609,12 +590,12 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	versionLabel, versionTime := FormatDocumentVersion(time.Now(), document.Version)
+	versionTime := time.Unix(document.Version, 0)
 	s.ok(w, r, DocumentResponse{
 		Key:          document.ID,
 		Version:      document.Version,
-		VersionLabel: versionLabel,
-		VersionTime:  versionTime,
+		VersionLabel: versionTime.Format(VersionTimeFormat),
+		VersionTime:  humanize.Time(versionTime),
 		Data:         data,
 		Formatted:    template.HTML(formatted),
 		CSS:          template.CSS(css),
@@ -678,12 +659,12 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 		data = document.Content
 	}
 
-	versionLabel, versionTime := FormatDocumentVersion(time.Now(), document.Version)
+	versionTime := time.Unix(document.Version, 0)
 	s.ok(w, r, DocumentResponse{
 		Key:          document.ID,
 		Version:      document.Version,
-		VersionLabel: versionLabel,
-		VersionTime:  versionTime,
+		VersionLabel: versionTime.Format(VersionTimeFormat),
+		VersionTime:  humanize.Time(versionTime),
 		Data:         data,
 		Formatted:    template.HTML(formatted),
 		CSS:          template.CSS(css),
