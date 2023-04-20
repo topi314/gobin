@@ -278,8 +278,9 @@ document.querySelector("#language").addEventListener("change", async (event) => 
 });
 
 document.querySelector("#style").addEventListener("change", async (event) => {
-    const {key, version, language} = getState();
+    const {key, version, mode, language} = getState();
     setCookie("style", event.target.value);
+    if (!key || mode === "edit") return;
     await fetchDocument(key, version, language);
 });
 
