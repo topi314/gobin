@@ -55,9 +55,8 @@ function updateCodeEditCount(count) {
 }
 
 document.querySelector("#code-edit").addEventListener("paste", (event) => {
-    const codeEditElement = document.querySelector("#code-edit");
-    const {key, version, language} = getState();
-    const {newState, url} = createState(key, version, "edit", codeEditElement.value, language);
+    const {key, version, mode, language} = getState();
+    const {newState, url} = createState(key, version, mode, event.target.value, language);
     updatePage(newState);
     window.history.replaceState(newState, "", url);
 })
