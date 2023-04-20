@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/dustin/go-humanize"
 	"html/template"
 	"io"
 	"log"
@@ -15,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/dustin/go-humanize"
 
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/formatters"
@@ -328,8 +329,8 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		versionTime := time.Unix(documentVersion.Version, 0)
 		versions = append(versions, DocumentVersion{
 			Version: documentVersion.Version,
-			Label:   versionTime.Format(VersionTimeFormat),
-			Time:    humanize.Time(versionTime),
+			Label:   humanize.Time(versionTime),
+			Time:    versionTime.Format(VersionTimeFormat),
 		})
 	}
 
@@ -594,8 +595,8 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 	s.ok(w, r, DocumentResponse{
 		Key:          document.ID,
 		Version:      document.Version,
-		VersionLabel: versionTime.Format(VersionTimeFormat),
-		VersionTime:  humanize.Time(versionTime),
+		VersionLabel: humanize.Time(versionTime),
+		VersionTime:  versionTime.Format(VersionTimeFormat),
 		Data:         data,
 		Formatted:    template.HTML(formatted),
 		CSS:          template.CSS(css),
@@ -663,8 +664,8 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 	s.ok(w, r, DocumentResponse{
 		Key:          document.ID,
 		Version:      document.Version,
-		VersionLabel: versionTime.Format(VersionTimeFormat),
-		VersionTime:  humanize.Time(versionTime),
+		VersionLabel: humanize.Time(versionTime),
+		VersionTime:  versionTime.Format(VersionTimeFormat),
 		Data:         data,
 		Formatted:    template.HTML(formatted),
 		CSS:          template.CSS(css),

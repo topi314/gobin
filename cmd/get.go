@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/dustin/go-humanize"
 	"os"
 	"time"
+
+	"github.com/dustin/go-humanize"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
