@@ -351,7 +351,10 @@ func (s *Server) renderDocument(r *http.Request, document Document, formatterNam
 		style = styles.Fallback
 	}
 	var lexer chroma.Lexer
-	if extension != "" {
+
+	if s.cfg.MaxHighlightSize > 0 && len([]rune(document.Content)) > s.cfg.MaxHighlightSize {
+		lexer = lexers.Get("plaintext")
+	} else if extension != "" {
 		lexer = lexers.Match(fmt.Sprintf("%s.%s", document.ID, extension))
 	} else {
 		lexer = lexers.Get(languageName)
