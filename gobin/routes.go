@@ -163,7 +163,7 @@ func (s *Server) cacheKeyFunc(r *http.Request) uint64 {
 }
 
 func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
-	documentID := chi.URLParam(r, "documentID")
+	documentID, _ := parseDocumentID(r)
 	withContent := r.URL.Query().Get("withData") == "true"
 
 	versions, err := s.db.GetDocumentVersions(r.Context(), documentID, withContent)
@@ -187,7 +187,7 @@ func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) GetDocumentVersion(w http.ResponseWriter, r *http.Request) {
-	documentID := chi.URLParam(r, "documentID")
+	documentID, _ := parseDocumentID(r)
 	version := parseDocumentVersion(r, s, w)
 	if version == -1 {
 		return
@@ -225,8 +225,25 @@ func parseDocumentVersion(r *http.Request, s *Server, w http.ResponseWriter) int
 	return int64Version
 }
 
-func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
+func parseDocumentID(r *http.Request) (string, string) {
 	documentID := chi.URLParam(r, "documentID")
+	if documentID == "" {
+		return "", ""
+	}
+
+	// get the filename and extension from the documentID
+	filename := documentID
+	extension := ""
+	if index := strings.LastIndex(documentID, "."); index != -1 {
+		filename = documentID[:index]
+		extension = documentID[index+1:]
+	}
+
+	return filename, extension
+}
+
+func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
+	documentID, extension := parseDocumentID(r)
 	version := parseDocumentVersion(r, s, w)
 	if version == -1 {
 		return
@@ -281,7 +298,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	formatted, css, language, style, err := s.renderDocument(r, document, "html")
+	formatted, css, language, style, err := s.renderDocument(r, document, "html", extension)
 	if err != nil {
 		s.prettyError(w, r, fmt.Errorf("failed to render document: %w", err), http.StatusInternalServerError)
 		return
@@ -316,7 +333,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) renderDocument(r *http.Request, document Document, formatterName string) (string, string, string, string, error) {
+func (s *Server) renderDocument(r *http.Request, document Document, formatterName string, extension string) (string, string, string, string, error) {
 	var (
 		styleName    string
 		languageName = document.Language
@@ -333,7 +350,12 @@ func (s *Server) renderDocument(r *http.Request, document Document, formatterNam
 	if style == nil {
 		style = styles.Fallback
 	}
-	lexer := lexers.Get(languageName)
+	var lexer chroma.Lexer
+	if extension != "" {
+		lexer = lexers.Match(fmt.Sprintf("%s.%s", document.ID, extension))
+	} else {
+		lexer = lexers.Get(languageName)
+	}
 	if lexer == nil {
 		lexer = lexers.Fallback
 	}
@@ -372,7 +394,7 @@ func (s *Server) GetVersion(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
-	document := s.getDocument(w, r)
+	document, extension := s.getDocument(w, r)
 	if document == nil {
 		return
 	}
@@ -388,7 +410,7 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 			document.Language = query.Get("language")
 		}
 		var err error
-		formatted, _, _, _, err = s.renderDocument(r, *document, formatter)
+		formatted, _, _, _, err = s.renderDocument(r, *document, formatter, extension)
 		if err != nil {
 			s.error(w, r, fmt.Errorf("failed to render raw document: %w", err), http.StatusInternalServerError)
 			return
@@ -422,7 +444,7 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
-	document := s.getDocument(w, r)
+	document, extension := s.getDocument(w, r)
 	if document == nil {
 		return
 	}
@@ -439,7 +461,7 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 			document.Language = query.Get("language")
 		}
 		var err error
-		formatted, css, language, _, err = s.renderDocument(r, *document, formatter)
+		formatted, css, language, _, err = s.renderDocument(r, *document, formatter, extension)
 		if err != nil {
 			s.error(w, r, fmt.Errorf("failed to render document: %w", err), http.StatusInternalServerError)
 			return
@@ -462,14 +484,14 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) GetDocumentPreview(w http.ResponseWriter, r *http.Request) {
-	document := s.getDocument(w, r)
+	document, extension := s.getDocument(w, r)
 	if document == nil {
 		return
 	}
 
 	document.Content = s.shortContent(document.Content)
 
-	formatted, _, _, _, err := s.renderDocument(r, *document, "svg")
+	formatted, _, _, _, err := s.renderDocument(r, *document, "svg", extension)
 	if err != nil {
 		s.prettyError(w, r, fmt.Errorf("failed to render document preview: %w", err), http.StatusInternalServerError)
 		return
@@ -524,7 +546,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 	)
 	formatter := r.URL.Query().Get("formatter")
 	if formatter != "" {
-		formatted, css, finalLanguage, _, err = s.renderDocument(r, document, formatter)
+		formatted, css, finalLanguage, _, err = s.renderDocument(r, document, formatter, "")
 		if err != nil {
 			s.error(w, r, fmt.Errorf("failed to render document: %w", err), http.StatusInternalServerError)
 			return
@@ -553,7 +575,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
-	documentID := chi.URLParam(r, "documentID")
+	documentID, extension := parseDocumentID(r)
 	language := r.URL.Query().Get("language")
 
 	claims := s.GetClaims(r)
@@ -573,7 +595,11 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 
 	var lexer chroma.Lexer
 	if language == "auto" || language == "" {
-		lexer = lexers.Analyse(content)
+		if extension != "" {
+			lexer = lexers.Match(extension)
+		} else {
+			lexer = lexers.Analyse(content)
+		}
 	} else {
 		lexer = lexers.Get(language)
 	}
@@ -599,7 +625,7 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 	)
 	formatter := r.URL.Query().Get("formatter")
 	if formatter != "" {
-		formatted, css, finalLanguage, _, err = s.renderDocument(r, document, formatter)
+		formatted, css, finalLanguage, _, err = s.renderDocument(r, document, formatter, "")
 		if err != nil {
 			s.error(w, r, fmt.Errorf("failed to render update document"), http.StatusInternalServerError)
 			return
@@ -621,7 +647,7 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
-	documentID := chi.URLParam(r, "documentID")
+	documentID, _ := parseDocumentID(r)
 	version := parseDocumentVersion(r, s, w)
 	if version == -1 {
 		return
@@ -662,7 +688,7 @@ func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) PostDocumentShare(w http.ResponseWriter, r *http.Request) {
-	documentID := chi.URLParam(r, "documentID")
+	documentID, _ := parseDocumentID(r)
 
 	var shareRequest ShareRequest
 	if err := json.NewDecoder(r.Body).Decode(&shareRequest); err != nil {
@@ -706,15 +732,15 @@ func (s *Server) PostDocumentShare(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) getDocument(w http.ResponseWriter, r *http.Request) *Document {
-	documentID := chi.URLParam(r, "documentID")
+func (s *Server) getDocument(w http.ResponseWriter, r *http.Request) (*Document, string) {
+	documentID, extension := parseDocumentID(r)
 	if documentID == "" {
-		return &Document{}
+		return &Document{}, ""
 	}
 
 	version := parseDocumentVersion(r, s, w)
 	if version == -1 {
-		return nil
+		return nil, ""
 	}
 
 	var (
@@ -729,12 +755,12 @@ func (s *Server) getDocument(w http.ResponseWriter, r *http.Request) *Document {
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			s.documentNotFound(w, r)
-			return nil
+			return nil, ""
 		}
 		s.error(w, r, err, http.StatusInternalServerError)
-		return nil
+		return nil, ""
 	}
-	return &document
+	return &document, extension
 }
 
 func (s *Server) readBody(w http.ResponseWriter, r *http.Request) string {

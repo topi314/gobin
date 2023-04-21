@@ -1,6 +1,9 @@
 document.addEventListener("DOMContentLoaded", async () => {
     const path = window.location.pathname === "/" ? [] : window.location.pathname.slice(1).split("/")
-    const key = path.length > 0 ? path[0] : ""
+    let key = path.length > 0 ? path[0] : ""
+    if (key.lastIndexOf(".") > 0) {
+        key = key.substring(0, key.lastIndexOf("."));
+    }
     const version = path.length > 1 ? path[1] : ""
     const params = new URLSearchParams(window.location.search);
     if (params.has("token")) {
