@@ -7,26 +7,28 @@ import (
 )
 
 type Config struct {
-	DevMode         bool             `cfg:"dev_mode"`
-	Debug           bool             `cfg:"debug"`
-	ListenAddr      string           `cfg:"listen_addr"`
-	HTTPTimeout     time.Duration    `cfg:"http_timeout"`
-	Database        DatabaseConfig   `cfg:"database"`
-	MaxDocumentSize int              `cfg:"max_document_size"`
-	RateLimit       *RateLimitConfig `cfg:"rate_limit"`
-	JWTSecret       string           `cfg:"jwt_secret"`
-	Preview         *PreviewConfig   `cfg:"preview"`
-	Otel            *OtelConfig      `cfg:"otel"`
+	DevMode          bool             `cfg:"dev_mode"`
+	Debug            bool             `cfg:"debug"`
+	ListenAddr       string           `cfg:"listen_addr"`
+	HTTPTimeout      time.Duration    `cfg:"http_timeout"`
+	Database         DatabaseConfig   `cfg:"database"`
+	MaxDocumentSize  int              `cfg:"max_document_size"`
+	MaxHighlightSize int              `cfg:"max_highlight_size"`
+	RateLimit        *RateLimitConfig `cfg:"rate_limit"`
+	JWTSecret        string           `cfg:"jwt_secret"`
+	Preview          *PreviewConfig   `cfg:"preview"`
+	Otel             *OtelConfig      `cfg:"otel"`
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("\n DevMode: %t\n Debug: %t\n ListenAddr: %s\n HTTPTimeout: %s\n Database: %s\n MaxDocumentSize: %d\n RateLimit: %s\n JWTSecret: %s\n Preview: %s\n Otel: %s\n",
+	return fmt.Sprintf("\n DevMode: %t\n Debug: %t\n ListenAddr: %s\n HTTPTimeout: %s\n Database: %s\n MaxDocumentSize: %d\n MaxHighlightSize: %d\n RateLimit: %s\n JWTSecret: %s\n Preview: %s\n Otel: %s\n",
 		c.DevMode,
 		c.Debug,
 		c.ListenAddr,
 		c.HTTPTimeout,
 		c.Database,
 		c.MaxDocumentSize,
+		c.MaxHighlightSize,
 		c.RateLimit, strings.Repeat("*", len(c.JWTSecret)),
 		c.Preview,
 		c.Otel,

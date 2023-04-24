@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dustin/go-humanize"
 	"github.com/riandyrn/otelchi"
 
 	"github.com/alecthomas/chroma/v2"
@@ -39,64 +40,7 @@ var (
 	}
 )
 
-type (
-	TemplateVariables struct {
-		ID        string
-		Version   int64
-		Content   template.HTML
-		Formatted template.HTML
-		CSS       template.CSS
-		Language  string
-
-		Versions []DocumentVersion
-		Lexers   []string
-		Styles   []string
-		Style    string
-		Theme    string
-
-		Max        int
-		Host       string
-		Preview    bool
-		PreviewAlt string
-	}
-	TemplateErrorVariables struct {
-		Error     string
-		Status    int
-		RequestID string
-		Path      string
-	}
-	DocumentVersion struct {
-		Version int64
-		Label   string
-		Time    string
-	}
-	DocumentResponse struct {
-		Key          string        `json:"key,omitempty"`
-		Version      int64         `json:"version"`
-		VersionLabel string        `json:"version_label,omitempty"`
-		VersionTime  string        `json:"version_time,omitempty"`
-		Data         string        `json:"data,omitempty"`
-		Formatted    template.HTML `json:"formatted,omitempty"`
-		CSS          template.CSS  `json:"css,omitempty"`
-		Language     string        `json:"language"`
-		Token        string        `json:"token,omitempty"`
-	}
-	ShareRequest struct {
-		Permissions []Permission `json:"permissions"`
-	}
-	ShareResponse struct {
-		Token string `json:"token"`
-	}
-	DeleteResponse struct {
-		Versions int `json:"versions"`
-	}
-	ErrorResponse struct {
-		Message   string `json:"message"`
-		Status    int    `json:"status"`
-		Path      string `json:"path"`
-		RequestID string `json:"request_id"`
-	}
-)
+var VersionTimeFormat = "2006-01-02 15:04:05"
 
 func (s *Server) Routes() http.Handler {
 	r := chi.NewRouter()
@@ -221,7 +165,7 @@ func (s *Server) cacheKeyFunc(r *http.Request) uint64 {
 }
 
 func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
-	documentID := chi.URLParam(r, "documentID")
+	documentID, _ := parseDocumentID(r)
 	withContent := r.URL.Query().Get("withData") == "true"
 
 	versions, err := s.db.GetDocumentVersions(r.Context(), documentID, withContent)
@@ -245,7 +189,7 @@ func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) GetDocumentVersion(w http.ResponseWriter, r *http.Request) {
-	documentID := chi.URLParam(r, "documentID")
+	documentID, _ := parseDocumentID(r)
 	version := parseDocumentVersion(r, s, w)
 	if version == -1 {
 		return
@@ -283,8 +227,25 @@ func parseDocumentVersion(r *http.Request, s *Server, w http.ResponseWriter) int
 	return int64Version
 }
 
-func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
+func parseDocumentID(r *http.Request) (string, string) {
 	documentID := chi.URLParam(r, "documentID")
+	if documentID == "" {
+		return "", ""
+	}
+
+	// get the filename and extension from the documentID
+	filename := documentID
+	extension := ""
+	if index := strings.LastIndex(documentID, "."); index != -1 {
+		filename = documentID[:index]
+		extension = documentID[index+1:]
+	}
+
+	return filename, extension
+}
+
+func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
+	documentID, extension := parseDocumentID(r)
 	version := parseDocumentVersion(r, s, w)
 	if version == -1 {
 		return
@@ -330,17 +291,16 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	}
 
 	versions := make([]DocumentVersion, 0, len(documents))
-	now := time.Now()
 	for _, documentVersion := range documents {
-		label, timeStr := FormatDocumentVersion(now, documentVersion.Version)
+		versionTime := time.Unix(documentVersion.Version, 0)
 		versions = append(versions, DocumentVersion{
 			Version: documentVersion.Version,
-			Label:   label,
-			Time:    timeStr,
+			Label:   humanize.Time(versionTime),
+			Time:    versionTime.Format(VersionTimeFormat),
 		})
 	}
 
-	formatted, css, language, style, err := s.renderDocument(r, document, "html")
+	formatted, css, language, style, err := s.renderDocument(r, document, "html", extension)
 	if err != nil {
 		s.prettyError(w, r, fmt.Errorf("failed to render document: %w", err), http.StatusInternalServerError)
 		return
@@ -375,7 +335,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) renderDocument(r *http.Request, document Document, formatterName string) (string, string, string, string, error) {
+func (s *Server) renderDocument(r *http.Request, document Document, formatterName string, extension string) (string, string, string, string, error) {
 	var (
 		styleName    string
 		languageName = document.Language
@@ -392,7 +352,15 @@ func (s *Server) renderDocument(r *http.Request, document Document, formatterNam
 	if style == nil {
 		style = styles.Fallback
 	}
-	lexer := lexers.Get(languageName)
+	var lexer chroma.Lexer
+
+	if s.cfg.MaxHighlightSize > 0 && len([]rune(document.Content)) > s.cfg.MaxHighlightSize {
+		lexer = lexers.Get("plaintext")
+	} else if extension != "" {
+		lexer = lexers.Match(fmt.Sprintf("%s.%s", document.ID, extension))
+	} else {
+		lexer = lexers.Get(languageName)
+	}
 	if lexer == nil {
 		lexer = lexers.Fallback
 	}
@@ -430,29 +398,8 @@ func (s *Server) GetVersion(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write([]byte(s.version))
 }
 
-func FormatDocumentVersion(now time.Time, versionRaw int64) (string, string) {
-	version := time.Unix(versionRaw, 0)
-	timeStr := version.Format("02/01/2006 15:04:05")
-	if version.Year() < now.Year() {
-		return fmt.Sprintf("%d years ago", now.Year()-version.Year()), timeStr
-	}
-	if version.Month() < now.Month() {
-		return fmt.Sprintf("%d months ago", now.Month()-version.Month()), timeStr
-	}
-	if version.Day() < now.Day() {
-		return fmt.Sprintf("%d days ago", now.Day()-version.Day()), timeStr
-	}
-	if version.Hour() < now.Hour() {
-		return fmt.Sprintf("%d hours ago", now.Hour()-version.Hour()), timeStr
-	}
-	if version.Minute() < now.Minute() {
-		return fmt.Sprintf("%d minutes ago", now.Minute()-version.Minute()), timeStr
-	}
-	return fmt.Sprintf("%d seconds ago", now.Second()-version.Second()), timeStr
-}
-
 func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
-	document := s.getDocument(w, r)
+	document, extension := s.getDocument(w, r)
 	if document == nil {
 		return
 	}
@@ -468,7 +415,7 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 			document.Language = query.Get("language")
 		}
 		var err error
-		formatted, _, _, _, err = s.renderDocument(r, *document, formatter)
+		formatted, _, _, _, err = s.renderDocument(r, *document, formatter, extension)
 		if err != nil {
 			s.error(w, r, fmt.Errorf("failed to render raw document: %w", err), http.StatusInternalServerError)
 			return
@@ -502,7 +449,7 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
-	document := s.getDocument(w, r)
+	document, extension := s.getDocument(w, r)
 	if document == nil {
 		return
 	}
@@ -519,7 +466,7 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 			document.Language = query.Get("language")
 		}
 		var err error
-		formatted, css, language, _, err = s.renderDocument(r, *document, formatter)
+		formatted, css, language, _, err = s.renderDocument(r, *document, formatter, extension)
 		if err != nil {
 			s.error(w, r, fmt.Errorf("failed to render document: %w", err), http.StatusInternalServerError)
 			return
@@ -542,14 +489,14 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) GetDocumentPreview(w http.ResponseWriter, r *http.Request) {
-	document := s.getDocument(w, r)
+	document, extension := s.getDocument(w, r)
 	if document == nil {
 		return
 	}
 
 	document.Content = s.shortContent(document.Content)
 
-	formatted, _, _, _, err := s.renderDocument(r, *document, "svg")
+	formatted, _, _, _, err := s.renderDocument(r, *document, "svg", extension)
 	if err != nil {
 		s.prettyError(w, r, fmt.Errorf("failed to render document preview: %w", err), http.StatusInternalServerError)
 		return
@@ -604,7 +551,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 	)
 	formatter := r.URL.Query().Get("formatter")
 	if formatter != "" {
-		formatted, css, finalLanguage, _, err = s.renderDocument(r, document, formatter)
+		formatted, css, finalLanguage, _, err = s.renderDocument(r, document, formatter, "")
 		if err != nil {
 			s.error(w, r, fmt.Errorf("failed to render document: %w", err), http.StatusInternalServerError)
 			return
@@ -618,12 +565,12 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	versionLabel, versionTime := FormatDocumentVersion(time.Now(), document.Version)
+	versionTime := time.Unix(document.Version, 0)
 	s.ok(w, r, DocumentResponse{
 		Key:          document.ID,
 		Version:      document.Version,
-		VersionLabel: versionLabel,
-		VersionTime:  versionTime,
+		VersionLabel: humanize.Time(versionTime),
+		VersionTime:  versionTime.Format(VersionTimeFormat),
 		Data:         data,
 		Formatted:    template.HTML(formatted),
 		CSS:          template.CSS(css),
@@ -633,7 +580,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
-	documentID := chi.URLParam(r, "documentID")
+	documentID, extension := parseDocumentID(r)
 	language := r.URL.Query().Get("language")
 
 	claims := s.GetClaims(r)
@@ -653,7 +600,11 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 
 	var lexer chroma.Lexer
 	if language == "auto" || language == "" {
-		lexer = lexers.Analyse(content)
+		if extension != "" {
+			lexer = lexers.Match(extension)
+		} else {
+			lexer = lexers.Analyse(content)
+		}
 	} else {
 		lexer = lexers.Get(language)
 	}
@@ -679,7 +630,7 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 	)
 	formatter := r.URL.Query().Get("formatter")
 	if formatter != "" {
-		formatted, css, finalLanguage, _, err = s.renderDocument(r, document, formatter)
+		formatted, css, finalLanguage, _, err = s.renderDocument(r, document, formatter, "")
 		if err != nil {
 			s.error(w, r, fmt.Errorf("failed to render update document"), http.StatusInternalServerError)
 			return
@@ -687,12 +638,12 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 		data = document.Content
 	}
 
-	versionLabel, versionTime := FormatDocumentVersion(time.Now(), document.Version)
+	versionTime := time.Unix(document.Version, 0)
 	s.ok(w, r, DocumentResponse{
 		Key:          document.ID,
 		Version:      document.Version,
-		VersionLabel: versionLabel,
-		VersionTime:  versionTime,
+		VersionLabel: humanize.Time(versionTime),
+		VersionTime:  versionTime.Format(VersionTimeFormat),
 		Data:         data,
 		Formatted:    template.HTML(formatted),
 		CSS:          template.CSS(css),
@@ -701,7 +652,7 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
-	documentID := chi.URLParam(r, "documentID")
+	documentID, _ := parseDocumentID(r)
 	version := parseDocumentVersion(r, s, w)
 	if version == -1 {
 		return
@@ -742,7 +693,7 @@ func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) PostDocumentShare(w http.ResponseWriter, r *http.Request) {
-	documentID := chi.URLParam(r, "documentID")
+	documentID, _ := parseDocumentID(r)
 
 	var shareRequest ShareRequest
 	if err := json.NewDecoder(r.Body).Decode(&shareRequest); err != nil {
@@ -786,15 +737,15 @@ func (s *Server) PostDocumentShare(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) getDocument(w http.ResponseWriter, r *http.Request) *Document {
-	documentID := chi.URLParam(r, "documentID")
+func (s *Server) getDocument(w http.ResponseWriter, r *http.Request) (*Document, string) {
+	documentID, extension := parseDocumentID(r)
 	if documentID == "" {
-		return &Document{}
+		return &Document{}, ""
 	}
 
 	version := parseDocumentVersion(r, s, w)
 	if version == -1 {
-		return nil
+		return nil, ""
 	}
 
 	var (
@@ -809,12 +760,12 @@ func (s *Server) getDocument(w http.ResponseWriter, r *http.Request) *Document {
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			s.documentNotFound(w, r)
-			return nil
+			return nil, ""
 		}
 		s.error(w, r, err, http.StatusInternalServerError)
-		return nil
+		return nil, ""
 	}
-	return &document
+	return &document, extension
 }
 
 func (s *Server) readBody(w http.ResponseWriter, r *http.Request) string {

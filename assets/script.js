@@ -1,6 +1,9 @@
 document.addEventListener("DOMContentLoaded", async () => {
     const path = window.location.pathname === "/" ? [] : window.location.pathname.slice(1).split("/")
-    const key = path.length > 0 ? path[0] : ""
+    let key = path.length > 0 ? path[0] : ""
+    if (key.lastIndexOf(".") > 0) {
+        key = key.substring(0, key.lastIndexOf("."));
+    }
     const version = path.length > 1 ? path[1] : ""
     const params = new URLSearchParams(window.location.search);
     if (params.has("token")) {
@@ -55,9 +58,8 @@ function updateCodeEditCount(count) {
 }
 
 document.querySelector("#code-edit").addEventListener("paste", (event) => {
-    const codeEditElement = document.querySelector("#code-edit");
-    const {key, version, language} = getState();
-    const {newState, url} = createState(key, version, "edit", codeEditElement.value, language);
+    const {key, version, mode, language} = getState();
+    const {newState, url} = createState(key, version, mode, event.target.value, language);
     updatePage(newState);
     window.history.replaceState(newState, "", url);
 })
@@ -278,8 +280,9 @@ document.querySelector("#language").addEventListener("change", async (event) => 
 });
 
 document.querySelector("#style").addEventListener("change", async (event) => {
-    const {key, version, language} = getState();
+    const {key, version, mode, language} = getState();
     setCookie("style", event.target.value);
+    if (!key || mode === "edit") return;
     await fetchDocument(key, version, language);
 });
 

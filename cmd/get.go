@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/dustin/go-humanize"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -75,11 +77,9 @@ Will return the document with the id of jis74978.`,
 					return err
 				}
 
-				now := time.Now()
 				var documentVersions string
 				for _, documentVersion := range documentVersionsRs {
-					relative, _ := gobin.FormatDocumentVersion(now, documentVersion.Version)
-					documentVersions += fmt.Sprintf("%d: %s\n", documentVersion.Version, relative)
+					documentVersions += fmt.Sprintf("%d: %s\n", documentVersion.Version, humanize.Time(time.Unix(documentVersion.Version, 0)))
 				}
 
 				cmd.Printf("Document versions(%d):\n%s", len(documentVersions), documentVersions)
