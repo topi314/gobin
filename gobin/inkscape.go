@@ -22,7 +22,7 @@ func (s *Server) convertSVG2PNG(svg string) ([]byte, error) {
 	cmd.Stderr = stderr
 
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("error while converting scg: %s %w", stderr.String(), err)
+		return nil, fmt.Errorf("error while converting svg: %s %w", stderr.String(), err)
 	}
 
 	if stdout.Len() == 0 {
