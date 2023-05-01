@@ -18,6 +18,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/semconv/v1.18.0"
 	"go.opentelemetry.io/otel/trace"
 	"modernc.org/sqlite"
 	_ "modernc.org/sqlite"
@@ -34,6 +35,7 @@ func NewDB(ctx context.Context, cfg DatabaseConfig, schema string) (*DB, error) 
 	switch cfg.Type {
 	case "postgres":
 		driverName = "pgx"
+		dbSystem = semconv.DBSystemPostgreSQL
 		pgCfg, err := pgx.ParseConfig(cfg.PostgresDataSourceName())
 		if err != nil {
 			return nil, err
@@ -50,6 +52,7 @@ func NewDB(ctx context.Context, cfg DatabaseConfig, schema string) (*DB, error) 
 		dataSourceName = stdlib.RegisterConnConfig(pgCfg)
 	case "sqlite":
 		driverName = "sqlite"
+		dbSystem = semconv.DBSystemSqlite
 		dataSourceName = cfg.Path
 	default:
 		return nil, errors.New("invalid database type, must be one of: postgres, sqlite")
