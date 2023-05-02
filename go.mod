@@ -4,7 +4,7 @@ go 1.20
 
 replace (
 	github.com/alecthomas/chroma/v2 => github.com/topisenpai/chroma/v2 v2.0.0-20230324233532-b14d693aac4a
-	github.com/riandyrn/otelchi => github.com/TopiSenpai/otelchi v0.0.0-20230414141715-b42cdf8c6062
+	github.com/riandyrn/otelchi => github.com/TopiSenpai/otelchi v0.0.0-20230502153208-000734fa627a
 )
 
 require (
