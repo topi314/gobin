@@ -57,6 +57,7 @@ func (s *Server) Routes() http.Handler {
 			return !strings.HasPrefix(r.URL.Path, "/assets")
 		},
 	))
+	r.Use(cacheControl)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Heartbeat("/ping"))
 	if s.cfg.RateLimit != nil {
@@ -69,8 +70,20 @@ func (s *Server) Routes() http.Handler {
 	}
 
 	var previewCache func(http.Handler) http.Handler
+	previewHandler := func(r chi.Router) {}
 	if s.cfg.Preview != nil && s.cfg.Preview.CacheSize > 0 && s.cfg.Preview.CacheTTL > 0 {
 		previewCache = stampede.HandlerWithKey(s.cfg.Preview.CacheSize, s.cfg.Preview.CacheTTL, s.cacheKeyFunc)
+	}
+	if s.cfg.Preview != nil {
+		previewHandler = func(r chi.Router) {
+			r.Route("/preview", func(r chi.Router) {
+				if previewCache != nil {
+					r.Use(previewCache)
+				}
+				r.Get("/", s.GetDocumentPreview)
+				r.Head("/", s.GetDocumentPreview)
+			})
+		}
 	}
 
 	r.Mount("/assets", http.FileServer(s.assets))
@@ -78,80 +91,50 @@ func (s *Server) Routes() http.Handler {
 	r.Handle("/favicon.png", s.file("/assets/favicon.png"))
 	r.Handle("/favicon-light.png", s.file("/assets/favicon-light.png"))
 	r.Handle("/robots.txt", s.file("/assets/robots.txt"))
-	r.Group(func(r chi.Router) {
-		r.Route("/raw/{documentID}", func(r chi.Router) {
+
+	r.Get("/version", s.GetVersion)
+
+	r.Route("/raw/{documentID}", func(r chi.Router) {
+		r.Get("/", s.GetRawDocument)
+		r.Head("/", s.GetRawDocument)
+		r.Route("/versions/{version}", func(r chi.Router) {
 			r.Get("/", s.GetRawDocument)
 			r.Head("/", s.GetRawDocument)
-			r.Route("/versions/{version}", func(r chi.Router) {
-				r.Get("/", s.GetRawDocument)
-				r.Head("/", s.GetRawDocument)
-			})
 		})
-		r.Route("/documents", func(r chi.Router) {
-			r.Post("/", s.PostDocument)
-			r.Route("/{documentID}", func(r chi.Router) {
-				r.Get("/", s.GetDocument)
-				r.Patch("/", s.PatchDocument)
-				r.Delete("/", s.DeleteDocument)
-				r.Post("/share", s.PostDocumentShare)
-				if s.cfg.Preview != nil {
-					r.Route("/preview", func(r chi.Router) {
-						if previewCache != nil {
-							r.Use(previewCache)
-						}
-						r.Get("/", s.GetDocumentPreview)
-						r.Head("/", s.GetDocumentPreview)
-					})
-				}
-				r.Route("/versions", func(r chi.Router) {
-					r.Get("/", s.DocumentVersions)
-					r.Route("/{version}", func(r chi.Router) {
-						r.Get("/", s.GetDocument)
-						r.Delete("/", s.DeleteDocument)
-						if s.cfg.Preview != nil {
-							r.Route("/preview", func(r chi.Router) {
-								if previewCache != nil {
-									r.Use(previewCache)
-								}
-								r.Get("/", s.GetDocumentPreview)
-								r.Head("/", s.GetDocumentPreview)
-							})
-						}
-					})
-				})
-			})
-		})
-		r.Get("/version", s.GetVersion)
-		r.Route("/{documentID}", func(r chi.Router) {
-			r.Get("/", s.GetPrettyDocument)
-			r.Head("/", s.GetPrettyDocument)
-			if s.cfg.Preview != nil {
-				r.Route("/preview", func(r chi.Router) {
-					if previewCache != nil {
-						r.Use(previewCache)
-					}
-					r.Get("/", s.GetDocumentPreview)
-					r.Head("/", s.GetDocumentPreview)
-				})
-			}
+	})
 
-			r.Route("/{version}", func(r chi.Router) {
-				r.Get("/", s.GetPrettyDocument)
-				r.Head("/", s.GetPrettyDocument)
-				if s.cfg.Preview != nil {
-					r.Route("/preview", func(r chi.Router) {
-						if previewCache != nil {
-							r.Use(previewCache)
-						}
-						r.Get("/", s.GetDocumentPreview)
-						r.Head("/", s.GetDocumentPreview)
-					})
-				}
+	r.Route("/documents", func(r chi.Router) {
+		r.Post("/", s.PostDocument)
+		r.Route("/{documentID}", func(r chi.Router) {
+			r.Get("/", s.GetDocument)
+			r.Patch("/", s.PatchDocument)
+			r.Delete("/", s.DeleteDocument)
+			r.Post("/share", s.PostDocumentShare)
+			previewHandler(r)
+			r.Route("/versions", func(r chi.Router) {
+				r.Get("/", s.DocumentVersions)
+				r.Route("/{version}", func(r chi.Router) {
+					r.Get("/", s.GetDocument)
+					r.Delete("/", s.DeleteDocument)
+					previewHandler(r)
+				})
 			})
 		})
+	})
+
+	r.Route("/{documentID}", func(r chi.Router) {
 		r.Get("/", s.GetPrettyDocument)
 		r.Head("/", s.GetPrettyDocument)
+		previewHandler(r)
+		r.Route("/{version}", func(r chi.Router) {
+			r.Get("/", s.GetPrettyDocument)
+			r.Head("/", s.GetPrettyDocument)
+			previewHandler(r)
+		})
 	})
+	r.Get("/", s.GetPrettyDocument)
+	r.Head("/", s.GetPrettyDocument)
+
 	r.NotFound(s.redirectRoot)
 
 	if s.cfg.HTTPTimeout > 0 {

@@ -34,7 +34,7 @@ func (s *Server) convertSVG2PNG(ctx context.Context, svg string) ([]byte, error)
 	if err := cmd.Run(); err != nil {
 		span.SetStatus(codes.Error, "failed to convert svg to png")
 		span.RecordError(err)
-		return nil, fmt.Errorf("error while converting scg: %s %w", stderr.String(), err)
+		return nil, fmt.Errorf("error while converting svg: %s %w", stderr.String(), err)
 	}
 
 	if stdout.Len() == 0 {
