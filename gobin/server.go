@@ -9,10 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"go.opentelemetry.io/otel/metric"
-
 	"github.com/go-chi/httprate"
 	"github.com/go-jose/go-jose/v3"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 )
 
