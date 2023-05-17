@@ -8,7 +8,6 @@ import (
 
 type Config struct {
 	DevMode          bool             `cfg:"dev_mode"`
-	Debug            bool             `cfg:"debug"`
 	ListenAddr       string           `cfg:"listen_addr"`
 	HTTPTimeout      time.Duration    `cfg:"http_timeout"`
 	Database         DatabaseConfig   `cfg:"database"`
@@ -21,9 +20,8 @@ type Config struct {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("\n DevMode: %t\n Debug: %t\n ListenAddr: %s\n HTTPTimeout: %s\n Database: %s\n MaxDocumentSize: %d\n MaxHighlightSize: %d\n RateLimit: %s\n JWTSecret: %s\n Preview: %s\n Otel: %s\n",
+	return fmt.Sprintf("\n DevMode: %t\n ListenAddr: %s\n HTTPTimeout: %s\n Database: %s\n MaxDocumentSize: %d\n MaxHighlightSize: %d\n RateLimit: %s\n JWTSecret: %s\n Preview: %s\n Otel: %s\n",
 		c.DevMode,
-		c.Debug,
 		c.ListenAddr,
 		c.HTTPTimeout,
 		c.Database,

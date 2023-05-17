@@ -2,9 +2,10 @@ package gobin
 
 import (
 	"fmt"
+	"golang.org/x/exp/slog"
 	"io"
-	"log"
 	"net/http"
+	"os"
 	"runtime"
 	"strings"
 	"time"
@@ -17,9 +18,10 @@ import (
 
 type ExecuteTemplateFunc func(wr io.Writer, name string, data any) error
 
-func NewServer(version string, cfg Config, db *DB, signer jose.Signer, tracer trace.Tracer, meter metric.Meter, assets http.FileSystem, tmpl ExecuteTemplateFunc) *Server {
+func NewServer(version string, debug bool, cfg Config, db *DB, signer jose.Signer, tracer trace.Tracer, meter metric.Meter, assets http.FileSystem, tmpl ExecuteTemplateFunc) *Server {
 	s := &Server{
 		version: version,
+		debug:   debug,
 		cfg:     cfg,
 		db:      db,
 		signer:  signer,
@@ -51,6 +53,7 @@ func NewServer(version string, cfg Config, db *DB, signer jose.Signer, tracer tr
 
 type Server struct {
 	version          string
+	debug            bool
 	cfg              Config
 	db               *DB
 	server           *http.Server
@@ -64,31 +67,29 @@ type Server struct {
 
 func (s *Server) Start() {
 	if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatalln("Error while listening:", err)
+		slog.Error("Error while listening", slog.Any("err", err))
+		os.Exit(1)
 	}
 }
 
 func (s *Server) Close() {
 	if err := s.server.Close(); err != nil {
-		log.Println("Error while closing server:", err)
+		slog.Error("Error while closing server", slog.Any("err", err))
 	}
 
 	if err := s.db.Close(); err != nil {
-		log.Println("Error while closing database:", err)
+		slog.Error("Error while closing database", slog.Any("err", err))
 	}
 }
 
-func FormatBuildVersion(version string, commit string, buildTime string) string {
+func FormatBuildVersion(version string, commit string, buildTime time.Time) string {
 	if len(commit) > 7 {
 		commit = commit[:7]
 	}
 
 	buildTimeStr := "unknown"
-	if buildTime != "unknown" {
-		parsedTime, _ := time.Parse(time.RFC3339, buildTime)
-		if !parsedTime.IsZero() {
-			buildTimeStr = parsedTime.Format(time.ANSIC)
-		}
+	if !buildTime.IsZero() {
+		buildTimeStr = buildTime.Format(time.ANSIC)
 	}
 	return fmt.Sprintf("Go Version: %s\nVersion: %s\nCommit: %s\nBuild Time: %s\nOS/Arch: %s/%s\n", runtime.Version(), version, commit, buildTimeStr, runtime.GOOS, runtime.GOARCH)
 }

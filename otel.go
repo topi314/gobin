@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"golang.org/x/exp/slog"
 	"net/http"
 	"time"
 
@@ -21,12 +21,20 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+func resources(cfg gobin.OtelConfig) *resource.Resource {
+	return resource.NewWithAttributes(
+		semconv.SchemaURL,
+		semconv.ServiceName(Name),
+		semconv.ServiceNamespace(Namespace),
+		semconv.ServiceInstanceID(cfg.InstanceID),
+		semconv.ServiceVersion(Version),
+	)
+}
+
 func newTracer(cfg gobin.OtelConfig) (trace.Tracer, error) {
 	if cfg.Trace == nil {
 		return nil, nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
 
 	opts := []otlptracehttp.Option{
 		otlptracehttp.WithEndpoint(cfg.Trace.Endpoint),
@@ -34,43 +42,37 @@ func newTracer(cfg gobin.OtelConfig) (trace.Tracer, error) {
 	if cfg.Trace.Insecure {
 		opts = append(opts, otlptracehttp.WithInsecure())
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	exp, err := otlptracehttp.New(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
+
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exp),
-		sdktrace.WithResource(resource.NewWithAttributes(
-			semconv.SchemaURL,
-			semconv.ServiceName(serviceName),
-			semconv.ServiceNamespace(serviceNamespace),
-			semconv.ServiceInstanceID(cfg.InstanceID),
-			semconv.ServiceVersion(version),
-		)),
+		sdktrace.WithResource(resources(cfg)),
 	)
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 
-	return otel.Tracer(serviceName), nil
+	return otel.Tracer(Name), nil
 }
 
 func newMeter(cfg gobin.OtelConfig) (metric.Meter, error) {
 	if cfg.Metrics == nil {
 		return nil, nil
 	}
+
 	exp, err := prometheus.New()
 	if err != nil {
 		return nil, err
 	}
+
 	mp := sdkmetric.NewMeterProvider(
 		sdkmetric.WithReader(exp),
-		sdkmetric.WithResource(resource.NewWithAttributes(
-			semconv.SchemaURL,
-			semconv.ServiceName(serviceName),
-			semconv.ServiceNamespace(serviceNamespace),
-			semconv.ServiceInstanceID(cfg.InstanceID),
-			semconv.ServiceVersion(version),
-		)),
+		sdkmetric.WithResource(resources(cfg)),
 	)
 	global.SetMeterProvider(mp)
 
@@ -80,9 +82,9 @@ func newMeter(cfg gobin.OtelConfig) (metric.Meter, error) {
 			Handler: promhttp.Handler(),
 		}
 		if listenErr := server.ListenAndServe(); listenErr != nil && listenErr != http.ErrServerClosed {
-			log.Println("failed to listen metrics server:", listenErr)
+			slog.Error("failed to listen metrics server", slog.Any("err", listenErr))
 		}
 	}()
 
-	return mp.Meter(serviceName), nil
+	return mp.Meter(Name), nil
 }

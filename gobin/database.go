@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	_ "embed"
 	"errors"
-	"log"
+	"golang.org/x/exp/slog"
 	"math/rand"
 	"time"
 
@@ -44,7 +44,11 @@ func NewDB(ctx context.Context, cfg DatabaseConfig, schema string) (*DB, error) 
 		if cfg.Debug {
 			pgCfg.Tracer = &tracelog.TraceLog{
 				Logger: tracelog.LoggerFunc(func(ctx context.Context, level tracelog.LogLevel, msg string, data map[string]any) {
-					log.Println(msg, data)
+					args := make([]slog.Attr, 0, len(data))
+					for k, v := range data {
+						args = append(args, slog.Any(k, v))
+					}
+					slog.DebugCtx(ctx, msg, slog.Group("data", args...))
 				}),
 				LogLevel: tracelog.LogLevelDebug,
 			}
@@ -233,10 +237,10 @@ func (d *DB) cleanup(ctx context.Context, cleanUpInterval time.Duration, expireA
 	if cleanUpInterval <= 0 {
 		cleanUpInterval = 10 * time.Minute
 	}
-	log.Println("Starting document cleanup...")
+	slog.Info("Starting document cleanup...")
 	ticker := time.NewTicker(cleanUpInterval)
 	defer ticker.Stop()
-	defer log.Println("document cleanup stopped")
+	defer slog.Info("document cleanup stopped")
 
 	for {
 		select {
@@ -258,7 +262,7 @@ func (d *DB) doCleanup(expireAfter time.Duration) {
 	if err := d.DeleteExpiredDocuments(ctx, expireAfter); err != nil && !errors.Is(err, context.Canceled) {
 		span.SetStatus(codes.Error, "failed to delete expired documents")
 		span.RecordError(err)
-		log.Println("failed to delete expired documents:", err)
+		slog.Error("failed to delete expired documents", slog.Any("err", err))
 	}
 }
 
