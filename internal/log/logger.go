@@ -23,8 +23,12 @@ func (l *structuredLogger) NewLogEntry(r *http.Request) middleware.LogEntry {
 		logFields = append(logFields, slog.String("req_id", reqID))
 	}
 
-	if span := trace.SpanContextFromContext(r.Context()); span.HasTraceID() {
+	span := trace.SpanContextFromContext(r.Context())
+	if span.HasTraceID() {
 		logFields = append(logFields, slog.String("trace_id", span.TraceID().String()))
+	}
+	if span.HasSpanID() {
+		logFields = append(logFields, slog.String("span_id", span.SpanID().String()))
 	}
 
 	scheme := "http"
