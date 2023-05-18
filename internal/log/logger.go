@@ -3,10 +3,12 @@ package log
 import (
 	"context"
 	"fmt"
-	"github.com/go-chi/chi/v5/middleware"
-	"golang.org/x/exp/slog"
 	"net/http"
 	"time"
+
+	"github.com/go-chi/chi/v5/middleware"
+	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/exp/slog"
 )
 
 var StructuredLogger = middleware.RequestLogger(&structuredLogger{})
@@ -19,6 +21,10 @@ func (l *structuredLogger) NewLogEntry(r *http.Request) middleware.LogEntry {
 
 	if reqID := middleware.GetReqID(r.Context()); reqID != "" {
 		logFields = append(logFields, slog.String("req_id", reqID))
+	}
+
+	if span := trace.SpanContextFromContext(r.Context()); span.HasTraceID() {
+		logFields = append(logFields, slog.String("trace_id", span.TraceID().String()))
 	}
 
 	scheme := "http"

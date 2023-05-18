@@ -2,7 +2,6 @@ package gobin
 
 import (
 	"fmt"
-	"golang.org/x/exp/slog"
 	"io"
 	"net/http"
 	"os"
@@ -14,6 +13,7 @@ import (
 	"github.com/go-jose/go-jose/v3"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/exp/slog"
 )
 
 type ExecuteTemplateFunc func(wr io.Writer, name string, data any) error

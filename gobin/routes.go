@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/topisenpai/gobin/internal/log"
-	"golang.org/x/exp/slog"
 	"html/template"
 	"io"
 	"net/http"
@@ -25,7 +23,9 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/stampede"
 	"github.com/riandyrn/otelchi"
+	"github.com/topisenpai/gobin/internal/log"
 	"golang.org/x/exp/slices"
+	"golang.org/x/exp/slog"
 )
 
 const maxUnix = int(^int32(0))
@@ -825,7 +825,7 @@ func (s *Server) error(w http.ResponseWriter, r *http.Request, err error, status
 		return
 	}
 	if status == http.StatusInternalServerError {
-		slog.
+		slog.ErrorCtx(r.Context(), "internal server error", slog.Any("err", err))
 	}
 	s.json(w, r, ErrorResponse{
 		Message:   err.Error(),

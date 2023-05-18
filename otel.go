@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"golang.org/x/exp/slog"
 	"net/http"
 	"time"
 
@@ -19,6 +18,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/semconv/v1.18.0"
 	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/exp/slog"
 )
 
 func resources(cfg gobin.OtelConfig) *resource.Resource {

@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	_ "embed"
 	"errors"
-	"golang.org/x/exp/slog"
 	"math/rand"
 	"time"
 
@@ -20,6 +19,7 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/semconv/v1.18.0"
 	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/exp/slog"
 	"modernc.org/sqlite"
 	_ "modernc.org/sqlite"
 )

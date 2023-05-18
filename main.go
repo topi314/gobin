@@ -4,7 +4,6 @@ import (
 	"context"
 	"embed"
 	"flag"
-	"golang.org/x/exp/slog"
 	"html/template"
 	"io"
 	"net/http"
@@ -14,9 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/trace"
-
 	"github.com/alecthomas/chroma/v2/formatters"
 	"github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/alecthomas/chroma/v2/lexers"
@@ -24,8 +20,10 @@ import (
 	"github.com/go-jose/go-jose/v3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
-
 	"github.com/topisenpai/gobin/gobin"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/exp/slog"
 )
 
 // These variables are set via the -ldflags option in go build
