@@ -61,7 +61,7 @@ func main() {
 	logLevel := flag.String("log-level", "info", "log level, one of: debug, info, warn, error")
 	flag.Parse()
 
-	setupLogger(*debug, *logType, *logLevel)
+	setupLogger(*debug, *logLevel, *logType)
 
 	buildTime, _ := time.Parse(time.RFC3339, BuildTime)
 	slog.Info("Starting Gobin...", slog.String("version", Version), slog.String("commit", Commit), slog.Time("build-time", buildTime))
