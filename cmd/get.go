@@ -6,10 +6,8 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-
 	"github.com/topisenpai/gobin/gobin"
 	"github.com/topisenpai/gobin/internal/ezhttp"
 )

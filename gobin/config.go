@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"golang.org/x/exp/slog"
 )
 
 type Config struct {
-	DevMode          bool             `cfg:"dev_mode"`
+	Log              LogConfig        `cfg:"log"`
 	Debug            bool             `cfg:"debug"`
+	DevMode          bool             `cfg:"dev_mode"`
 	ListenAddr       string           `cfg:"listen_addr"`
 	HTTPTimeout      time.Duration    `cfg:"http_timeout"`
 	Database         DatabaseConfig   `cfg:"database"`
@@ -17,12 +20,14 @@ type Config struct {
 	RateLimit        *RateLimitConfig `cfg:"rate_limit"`
 	JWTSecret        string           `cfg:"jwt_secret"`
 	Preview          *PreviewConfig   `cfg:"preview"`
+	Otel             *OtelConfig      `cfg:"otel"`
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("\n DevMode: %t\n Debug: %t\n ListenAddr: %s\n HTTPTimeout: %s\n Database: %s\n MaxDocumentSize: %d\n MaxHighlightSize: %d\n RateLimit: %s\n JWTSecret: %s\n Preview: %s\n",
-		c.DevMode,
+	return fmt.Sprintf("\n Log: %s\n Debug: %t\n DevMode: %t\n ListenAddr: %s\n HTTPTimeout: %s\n Database: %s\n MaxDocumentSize: %d\n MaxHighlightSize: %d\n RateLimit: %s\n JWTSecret: %s\n Preview: %s\n Otel: %s\n",
+		c.Log,
 		c.Debug,
+		c.DevMode,
 		c.ListenAddr,
 		c.HTTPTimeout,
 		c.Database,
@@ -30,6 +35,21 @@ func (c Config) String() string {
 		c.MaxHighlightSize,
 		c.RateLimit, strings.Repeat("*", len(c.JWTSecret)),
 		c.Preview,
+		c.Otel,
+	)
+}
+
+type LogConfig struct {
+	Level     slog.Level `cfg:"level"`
+	Format    string     `cfg:"format"`
+	AddSource bool       `cfg:"add_source"`
+}
+
+func (c LogConfig) String() string {
+	return fmt.Sprintf("\n  Level: %s\n  Format: %s\n  AddSource: %t\n",
+		c.Level,
+		c.Format,
+		c.AddSource,
 	)
 }
 
@@ -118,5 +138,41 @@ func (c PreviewConfig) String() string {
 		c.DPI,
 		c.CacheSize,
 		c.CacheTTL,
+	)
+}
+
+type OtelConfig struct {
+	InstanceID string         `cfg:"instance_id"`
+	Trace      *TraceConfig   `cfg:"trace"`
+	Metrics    *MetricsConfig `cfg:"metrics"`
+}
+
+func (c OtelConfig) String() string {
+	return fmt.Sprintf("\n  InstanceID: %s\n  Trace: %s\n  Metrics: %s",
+		c.InstanceID,
+		c.Trace,
+		c.Metrics,
+	)
+}
+
+type TraceConfig struct {
+	Endpoint string `cfg:"endpoint"`
+	Insecure bool   `cfg:"insecure"`
+}
+
+func (c TraceConfig) String() string {
+	return fmt.Sprintf("\n   Endpoint: %s\n   Insecure: %t",
+		c.Endpoint,
+		c.Insecure,
+	)
+}
+
+type MetricsConfig struct {
+	ListenAddr string `cfg:"listen_addr"`
+}
+
+func (c MetricsConfig) String() string {
+	return fmt.Sprintf("\n   ListenAddr: %s",
+		c.ListenAddr,
 	)
 }

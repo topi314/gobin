@@ -1,15 +1,17 @@
 package main
 
 import (
+	"time"
+
 	"github.com/topisenpai/gobin/cmd"
 	"github.com/topisenpai/gobin/gobin"
 )
 
 // These variables are set via the -ldflags option in go build
 var (
-	version   = "unknown"
-	commit    = "unknown"
-	buildTime = "unknown"
+	Version   = "unknown"
+	Commit    = "unknown"
+	BuildTime = "unknown"
 )
 
 func main() {
@@ -17,7 +19,8 @@ func main() {
 	cmd.NewGetCmd(rootCmd)
 	cmd.NewPushCmd(rootCmd)
 	cmd.NewRmCmd(rootCmd)
-	cmd.NewVersionCmd(rootCmd, gobin.FormatBuildVersion(version, commit, buildTime))
+	buildTime, _ := time.Parse(time.RFC3339, BuildTime)
+	cmd.NewVersionCmd(rootCmd, gobin.FormatBuildVersion(Version, Commit, buildTime))
 	cmd.NewCompletionCmd(rootCmd)
 	cmd.Execute(rootCmd)
 }

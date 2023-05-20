@@ -3,37 +3,41 @@ package gobin
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	_ "embed"
 	"errors"
-	"log"
+	"fmt"
 	"math/rand"
 	"time"
 
+	"github.com/XSAM/otelsql"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/stdlib"
-	"github.com/jackc/pgx/v5/tracelog"
-
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/jmoiron/sqlx"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/semconv/v1.18.0"
+	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/exp/slog"
 	"modernc.org/sqlite"
 	_ "modernc.org/sqlite"
 )
 
 var chars = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
 func NewDB(ctx context.Context, cfg DatabaseConfig, schema string) (*DB, error) {
 	var (
 		driverName     string
 		dataSourceName string
+		dbSystem       attribute.KeyValue
 	)
 	switch cfg.Type {
 	case "postgres":
 		driverName = "pgx"
+		dbSystem = semconv.DBSystemPostgreSQL
 		pgCfg, err := pgx.ParseConfig(cfg.PostgresDataSourceName())
 		if err != nil {
 			return nil, err
@@ -42,7 +46,11 @@ func NewDB(ctx context.Context, cfg DatabaseConfig, schema string) (*DB, error) 
 		if cfg.Debug {
 			pgCfg.Tracer = &tracelog.TraceLog{
 				Logger: tracelog.LoggerFunc(func(ctx context.Context, level tracelog.LogLevel, msg string, data map[string]any) {
-					log.Println(msg, data)
+					args := make([]any, 0, len(data))
+					for k, v := range data {
+						args = append(args, slog.Any(k, v))
+					}
+					slog.DebugCtx(ctx, msg, slog.Group("data", args...))
 				}),
 				LogLevel: tracelog.LogLevelDebug,
 			}
@@ -50,15 +58,44 @@ func NewDB(ctx context.Context, cfg DatabaseConfig, schema string) (*DB, error) 
 		dataSourceName = stdlib.RegisterConnConfig(pgCfg)
 	case "sqlite":
 		driverName = "sqlite"
+		dbSystem = semconv.DBSystemSqlite
 		dataSourceName = cfg.Path
 	default:
 		return nil, errors.New("invalid database type, must be one of: postgres, sqlite")
 	}
-	dbx, err := sqlx.ConnectContext(ctx, driverName, dataSourceName)
+
+	sqlDB, err := otelsql.Open(driverName, dataSourceName,
+		otelsql.WithAttributes(dbSystem),
+		otelsql.WithSQLCommenter(true),
+		otelsql.WithAttributesGetter(func(ctx context.Context, method otelsql.Method, query string, args []driver.NamedValue) []attribute.KeyValue {
+			attrs := []attribute.KeyValue{
+				semconv.DBOperationKey.String(string(method)),
+				attribute.String("db.statement", query),
+			}
+			for _, arg := range args {
+				name := "db.statement.args."
+				if arg.Name == "" {
+					name += fmt.Sprintf("$%d", arg.Ordinal)
+				} else {
+					name += arg.Name
+				}
+				attrs = append(attrs, attribute.String(name, fmt.Sprintf("%v", arg.Value)))
+			}
+			return attrs
+		}),
+	)
 	if err != nil {
 		return nil, err
 	}
 
+	if err = otelsql.RegisterDBStatsMetrics(sqlDB, otelsql.WithAttributes(dbSystem)); err != nil {
+		return nil, err
+	}
+
+	dbx := sqlx.NewDb(sqlDB, driverName)
+	if err = dbx.PingContext(ctx); err != nil {
+		return nil, err
+	}
 	// execute schema
 	if _, err = dbx.ExecContext(ctx, schema); err != nil {
 		return nil, err
@@ -68,6 +105,7 @@ func NewDB(ctx context.Context, cfg DatabaseConfig, schema string) (*DB, error) 
 	db := &DB{
 		dbx:           dbx,
 		cleanupCancel: cancel,
+		rand:          rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 
 	go db.cleanup(cleanupContext, cfg.CleanupInterval, cfg.ExpireAfter)
@@ -85,6 +123,8 @@ type Document struct {
 type DB struct {
 	dbx           *sqlx.DB
 	cleanupCancel context.CancelFunc
+	rand          *rand.Rand
+	tracer        trace.Tracer
 }
 
 func (d *DB) Close() error {
@@ -104,8 +144,10 @@ func (d *DB) GetDocumentVersion(ctx context.Context, documentID string, version 
 }
 
 func (d *DB) GetDocumentVersions(ctx context.Context, documentID string, withContent bool) ([]Document, error) {
-	var docs []Document
-	var sqlString string
+	var (
+		docs      []Document
+		sqlString string
+	)
 	if withContent {
 		sqlString = "SELECT id, version, content, language FROM documents where id = $1 ORDER BY version DESC"
 	} else {
@@ -146,7 +188,7 @@ func (d *DB) createDocument(ctx context.Context, content string, language string
 	}
 	now := time.Now().Unix()
 	doc := Document{
-		ID:       randomString(8),
+		ID:       d.randomString(8),
 		Content:  content,
 		Language: language,
 		Version:  now,
@@ -218,31 +260,39 @@ func (d *DB) cleanup(ctx context.Context, cleanUpInterval time.Duration, expireA
 	if cleanUpInterval <= 0 {
 		cleanUpInterval = 10 * time.Minute
 	}
-	log.Println("Starting document cleanup...")
+	slog.Info("Starting document cleanup...")
 	ticker := time.NewTicker(cleanUpInterval)
 	defer ticker.Stop()
-	defer log.Println("document cleanup stopped")
+	defer slog.Info("document cleanup stopped")
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			err := d.DeleteExpiredDocuments(ctx, expireAfter)
-			if errors.Is(err, context.Canceled) {
-				return
-			}
-			if err != nil {
-				log.Println("failed to delete expired documents:", err)
-			}
+			d.doCleanup(expireAfter)
 		}
 	}
 }
 
-func randomString(length int) string {
+func (d *DB) doCleanup(expireAfter time.Duration) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	ctx, span := d.tracer.Start(ctx, "doCleanup")
+	defer span.End()
+
+	if err := d.DeleteExpiredDocuments(ctx, expireAfter); err != nil && !errors.Is(err, context.Canceled) {
+		span.SetStatus(codes.Error, "failed to delete expired documents")
+		span.RecordError(err)
+		slog.Error("failed to delete expired documents", slog.Any("err", err))
+	}
+}
+
+func (d *DB) randomString(length int) string {
 	b := make([]rune, length)
 	for i := range b {
-		b[i] = chars[rand.Intn(len(chars))]
+		b[i] = chars[d.rand.Intn(len(chars))]
 	}
 	return string(b)
 }

@@ -2,30 +2,30 @@ package gobin
 
 import (
 	"bytes"
-	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
 	"io"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/dustin/go-humanize"
 
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/formatters"
 	"github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/alecthomas/chroma/v2/styles"
+	"github.com/dustin/go-humanize"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/stampede"
+	"github.com/riandyrn/otelchi"
+	"github.com/topisenpai/gobin/internal/log"
 	"golang.org/x/exp/slices"
+	"golang.org/x/exp/slog"
 )
 
 const maxUnix = int(^int32(0))
@@ -43,13 +43,12 @@ var VersionTimeFormat = "2006-01-02 15:04:05"
 
 func (s *Server) Routes() http.Handler {
 	r := chi.NewRouter()
+	r.Use(otelchi.Middleware("gobin", otelchi.WithChiRoutes(r)))
 	r.Use(middleware.CleanPath)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Maybe(
-		middleware.RequestLogger(&middleware.DefaultLogFormatter{
-			Logger: log.Default(),
-		}),
+		log.StructuredLogger,
 		func(r *http.Request) bool {
 			// Don't log requests for assets
 			return !strings.HasPrefix(r.URL.Path, "/assets")
@@ -312,7 +311,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		PreviewAlt: template.HTMLEscapeString(s.shortContent(document.Content)),
 	}
 	if err = s.tmpl(w, "document.gohtml", vars); err != nil {
-		log.Println("failed to execute template:", err)
+		slog.Error("failed to execute template", slog.Any("err", err))
 	}
 }
 
@@ -483,7 +482,7 @@ func (s *Server) GetDocumentPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	png, err := s.convertSVG2PNG(formatted)
+	png, err := s.convertSVG2PNG(r.Context(), formatted)
 	if err != nil {
 		s.error(w, r, fmt.Errorf("failed to convert document preview: %w", err), http.StatusInternalServerError)
 		return
@@ -807,27 +806,17 @@ func (s *Server) RateLimit(next http.Handler) http.Handler {
 	})
 }
 
-func (s *Server) log(r *http.Request, logType string, err error) {
-	if errors.Is(err, context.DeadlineExceeded) {
-		return
-	}
-	log.Printf("Error while handling %s(%s) %s: %s\n", logType, middleware.GetReqID(r.Context()), r.RequestURI, err)
-}
-
 func (s *Server) prettyError(w http.ResponseWriter, r *http.Request, err error, status int) {
-	if status == http.StatusInternalServerError {
-		s.log(r, "pretty request", err)
-	}
 	w.WriteHeader(status)
 
-	vars := map[string]any{
-		"Error":     err.Error(),
-		"Status":    status,
-		"RequestID": middleware.GetReqID(r.Context()),
-		"Path":      r.URL.Path,
+	vars := TemplateErrorVariables{
+		Error:     err.Error(),
+		Status:    status,
+		RequestID: middleware.GetReqID(r.Context()),
+		Path:      r.URL.Path,
 	}
 	if tmplErr := s.tmpl(w, "error.gohtml", vars); tmplErr != nil && tmplErr != http.ErrHandlerTimeout {
-		s.log(r, "template", tmplErr)
+		slog.ErrorCtx(r.Context(), "failed to execute error template", slog.Any("err", tmplErr))
 	}
 }
 
@@ -836,7 +825,7 @@ func (s *Server) error(w http.ResponseWriter, r *http.Request, err error, status
 		return
 	}
 	if status == http.StatusInternalServerError {
-		s.log(r, "request", err)
+		slog.ErrorCtx(r.Context(), "internal server error", slog.Any("err", err))
 	}
 	s.json(w, r, ErrorResponse{
 		Message:   err.Error(),
@@ -858,7 +847,7 @@ func (s *Server) json(w http.ResponseWriter, r *http.Request, v any, status int)
 	}
 
 	if err := json.NewEncoder(w).Encode(v); err != nil && err != http.ErrHandlerTimeout {
-		s.log(r, "json", err)
+		slog.ErrorCtx(r.Context(), "failed to encode json", slog.Any("err", err))
 	}
 }
 

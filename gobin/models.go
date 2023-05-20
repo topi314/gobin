@@ -23,6 +23,13 @@ type (
 		PreviewAlt string
 	}
 
+	TemplateErrorVariables struct {
+		Error     string
+		Status    int
+		RequestID string
+		Path      string
+	}
+
 	DocumentVersion struct {
 		Version int64
 		Label   string

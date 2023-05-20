@@ -6,7 +6,6 @@ import (
 	"flag"
 	"html/template"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -21,15 +20,20 @@ import (
 	"github.com/go-jose/go-jose/v3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
-
 	"github.com/topisenpai/gobin/gobin"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/exp/slog"
 )
 
 // These variables are set via the -ldflags option in go build
 var (
-	version   = "unknown"
-	commit    = "unknown"
-	buildTime = "unknown"
+	Name      = "gobin"
+	Namespace = "github.com/topisenpai/gobin"
+
+	Version   = "unknown"
+	Commit    = "unknown"
+	BuildTime = "unknown"
 )
 
 var (
@@ -44,13 +48,15 @@ var (
 )
 
 func main() {
-	log.Printf("Starting Gobin with version: %s (commit: %s, build time: %s)...", version, commit, buildTime)
 	cfgPath := flag.String("config", "", "path to gobin.json")
 	flag.Parse()
 
+	viper.SetDefault("log_level", "info")
+	viper.SetDefault("log_format", "json")
+	viper.SetDefault("log_add_source", false)
 	viper.SetDefault("listen_addr", ":80")
-	viper.SetDefault("dev_mode", false)
 	viper.SetDefault("debug", false)
+	viper.SetDefault("dev_mode", false)
 	viper.SetDefault("database_type", "sqlite")
 	viper.SetDefault("database_debug", false)
 	viper.SetDefault("database_expire_after", "0")
@@ -72,7 +78,8 @@ func main() {
 		viper.AddConfigPath("/etc/gobin/")
 	}
 	if err := viper.ReadInConfig(); err != nil {
-		log.Fatalln("Error while reading config:", err)
+		slog.Error("Error while reading config", slog.Any("err", err))
+		os.Exit(1)
 	}
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.SetEnvPrefix("gobin")
@@ -82,29 +89,47 @@ func main() {
 	if err := viper.Unmarshal(&cfg, func(config *mapstructure.DecoderConfig) {
 		config.TagName = "cfg"
 	}); err != nil {
-		log.Fatalln("Error while unmarshalling config:", err)
-	}
-	log.Println("Config:", cfg)
-
-	if cfg.Debug {
-		log.SetFlags(log.LstdFlags | log.Lshortfile)
+		slog.Error("Error while unmarshalling config", slog.Any("err", err))
+		os.Exit(1)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	db, err := gobin.NewDB(ctx, cfg.Database, Schema)
+	setupLogger(cfg.Log)
+	buildTime, _ := time.Parse(time.RFC3339, BuildTime)
+	slog.Info("Starting Gobin...", slog.String("version", Version), slog.String("commit", Commit), slog.Time("build-time", buildTime))
+	slog.Info("Config", slog.String("config", cfg.String()))
+
+	var (
+		tracer trace.Tracer
+		meter  metric.Meter
+		err    error
+	)
+	if cfg.Otel != nil {
+		tracer, err = newTracer(*cfg.Otel)
+		if err != nil {
+			slog.Error("Error while creating tracer", slog.Any("err", err))
+			os.Exit(1)
+		}
+		meter, err = newMeter(*cfg.Otel)
+		if err != nil {
+			slog.Error("Error while creating meter", slog.Any("err", err))
+			os.Exit(1)
+		}
+	}
+
+	db, err := gobin.NewDB(context.Background(), cfg.Database, Schema)
 	if err != nil {
-		log.Fatalln("Error while connecting to database:", err)
+		slog.Error("Error while connecting to database", slog.Any("err", err))
+		os.Exit(1)
 	}
 	defer db.Close()
 
-	key := jose.SigningKey{
+	signer, err := jose.NewSigner(jose.SigningKey{
 		Algorithm: jose.HS512,
 		Key:       []byte(cfg.JWTSecret),
-	}
-	signer, err := jose.NewSigner(key, nil)
+	}, nil)
 	if err != nil {
-		log.Fatalln("Error while creating signer:", err)
+		slog.Error("Error while creating signer", slog.Any("err", err))
+		os.Exit(1)
 	}
 
 	var (
@@ -112,7 +137,7 @@ func main() {
 		assets   http.FileSystem
 	)
 	if cfg.DevMode {
-		log.Println("Development mode enabled")
+		slog.Info("Development mode enabled")
 		tmplFunc = func(wr io.Writer, name string, data any) error {
 			tmpl, err := template.New("").ParseGlob("templates/*")
 			if err != nil {
@@ -124,7 +149,8 @@ func main() {
 	} else {
 		tmpl, err := template.New("").ParseFS(Templates, "templates/*")
 		if err != nil {
-			log.Fatalln("Error while parsing templates:", err)
+			slog.Error("Error while parsing templates", slog.Any("err", err))
+			os.Exit(1)
 		}
 		tmplFunc = tmpl.ExecuteTemplate
 		assets = http.FS(Assets)
@@ -149,12 +175,26 @@ func main() {
 		html.TabWidth(4),
 	))
 
-	s := gobin.NewServer(gobin.FormatBuildVersion(version, commit, buildTime), cfg, db, signer, assets, tmplFunc)
-	log.Println("Gobin listening on:", cfg.ListenAddr)
+	s := gobin.NewServer(gobin.FormatBuildVersion(Version, Commit, buildTime), cfg.DevMode, cfg, db, signer, tracer, meter, assets, tmplFunc)
+	slog.Info("Gobin started...", slog.String("address", cfg.ListenAddr))
 	go s.Start()
 	defer s.Close()
 
 	si := make(chan os.Signal, 1)
 	signal.Notify(si, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-si
+}
+
+func setupLogger(cfg gobin.LogConfig) {
+	opts := &slog.HandlerOptions{
+		AddSource: cfg.AddSource,
+		Level:     cfg.Level,
+	}
+	var handler slog.Handler
+	if cfg.Format == "json" {
+		handler = slog.NewJSONHandler(os.Stdout, opts)
+	} else {
+		handler = slog.NewTextHandler(os.Stdout, opts)
+	}
+	slog.SetDefault(slog.New(handler))
 }

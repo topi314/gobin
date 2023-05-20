@@ -26,7 +26,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.18.x
+          go-version: 1.20.x
           cache: true
 
       - name: File Extension Windows
@@ -47,7 +47,7 @@ jobs:
           CGO_ENABLED=0
           GOOS=${{ matrix.goos }}
           GOARCH=${{ matrix.goarch }}
-          go build -ldflags="-X 'main.version=${{ env.VERSION }}' -X 'main.commit=${{ env.COMMIT }}' -X 'main.buildTime=${{ env.BUILD_TIME }}'" -o dist/gobin-${{ matrix.goos }}-${{ matrix.goarch }}${{ env.file_name }} github.com/topisenpai/gobin/cli
+          go build -ldflags="-X 'main.Version=${{ env.VERSION }}' -X 'main.Commit=${{ env.COMMIT }}' -X 'main.BuildTime=${{ env.BUILD_TIME }}'" -o dist/gobin-${{ matrix.goos }}-${{ matrix.goarch }}${{ env.file_name }} github.com/topisenpai/gobin/cli
 
       - name: Upload
         uses: actions/upload-artifact@v3
