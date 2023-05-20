@@ -65,8 +65,9 @@ document.querySelector("#code-edit").addEventListener("paste", (event) => {
 })
 
 document.addEventListener("keydown", (event) => {
-    if (!event.ctrlKey || !["s", "n", "e", "d"].includes(event.key)) return;
-    doKeyboardAction(event, event.key);
+    const shortcuts = {s: "save", n: "new", e: "edit", d: "duplicate"};
+    if (!event.ctrlKey || !(event.key in shortcuts)) return;
+    doKeyboardAction(event, shortcuts[event.key]);
 })
 
 const doKeyboardAction = (event, elementName) => {
