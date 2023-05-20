@@ -4,9 +4,13 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"golang.org/x/exp/slog"
 )
 
 type Config struct {
+	Log              LogConfig        `cfg:"log"`
+	Debug            bool             `cfg:"debug"`
 	DevMode          bool             `cfg:"dev_mode"`
 	ListenAddr       string           `cfg:"listen_addr"`
 	HTTPTimeout      time.Duration    `cfg:"http_timeout"`
@@ -20,7 +24,9 @@ type Config struct {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("\n DevMode: %t\n ListenAddr: %s\n HTTPTimeout: %s\n Database: %s\n MaxDocumentSize: %d\n MaxHighlightSize: %d\n RateLimit: %s\n JWTSecret: %s\n Preview: %s\n Otel: %s\n",
+	return fmt.Sprintf("\n Log: %s\n Debug: %t\n DevMode: %t\n ListenAddr: %s\n HTTPTimeout: %s\n Database: %s\n MaxDocumentSize: %d\n MaxHighlightSize: %d\n RateLimit: %s\n JWTSecret: %s\n Preview: %s\n Otel: %s\n",
+		c.Log,
+		c.Debug,
 		c.DevMode,
 		c.ListenAddr,
 		c.HTTPTimeout,
@@ -30,6 +36,20 @@ func (c Config) String() string {
 		c.RateLimit, strings.Repeat("*", len(c.JWTSecret)),
 		c.Preview,
 		c.Otel,
+	)
+}
+
+type LogConfig struct {
+	Level     slog.Level `cfg:"level"`
+	Format    string     `cfg:"format"`
+	AddSource bool       `cfg:"add_source"`
+}
+
+func (c LogConfig) String() string {
+	return fmt.Sprintf("\n  Level: %s\n  Format: %s\n  AddSource: %t\n",
+		c.Level,
+		c.Format,
+		c.AddSource,
 	)
 }
 

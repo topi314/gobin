@@ -141,8 +141,18 @@ Create a new `gobin.json` file with the following content:
 
 ```yml
 {
-  "dev_mode": false,
+  "log": {
+    # log level, either "debug", "info", "warn" or "error"
+    "level": "info",
+    # log format, either "json" or "text"
+    "format": "text",
+    # whether to add the source file and line to the log output
+    "add_source": false
+  },
+  # enable or disable debug profiler endpoint
   "debug": false,
+  # enable or disable hot reload of templates and assets
+  "dev_mode": false,
   "listen_addr": "0.0.0.0:80",
   # secret for jwt tokens, replace with a long random string
   "jwt_secret": "...",
@@ -200,8 +210,12 @@ Alternatively you can use environment variables to configure gobin. The environm
 <summary>Here is a list of all environment variables</summary>
 
 ```env
-GOBIN_DEV_MODE=false
+GOBIN_LOG_LEVEL=info
+GOBIN_LOG_FORMAT=text
+GOBIN_LOG_ADD_SOURCE=false
+
 GOBIN_DEBUG=false
+GOBIN_DEV_MODE=false
 GOBIN_LISTEN_ADDR=0.0.0.0:80
 GOBIN_JWT_SECRET=...
 

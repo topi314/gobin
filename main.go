@@ -47,26 +47,15 @@ var (
 	Schema string
 )
 
-var levels = map[string]slog.Level{
-	"debug": slog.LevelDebug,
-	"info":  slog.LevelInfo,
-	"warn":  slog.LevelWarn,
-	"error": slog.LevelError,
-}
-
 func main() {
 	cfgPath := flag.String("config", "", "path to gobin.json")
-	debug := flag.Bool("debug", false, "debug mode")
-	logType := flag.String("log", "json", "log format, one of: json, text")
-	logLevel := flag.String("log-level", "info", "log level, one of: debug, info, warn, error")
 	flag.Parse()
 
-	setupLogger(*debug, *logLevel, *logType)
-
-	buildTime, _ := time.Parse(time.RFC3339, BuildTime)
-	slog.Info("Starting Gobin...", slog.String("version", Version), slog.String("commit", Commit), slog.Time("build-time", buildTime))
-
+	viper.SetDefault("log_level", "info")
+	viper.SetDefault("log_format", "json")
+	viper.SetDefault("log_add_source", false)
 	viper.SetDefault("listen_addr", ":80")
+	viper.SetDefault("debug", false)
 	viper.SetDefault("dev_mode", false)
 	viper.SetDefault("database_type", "sqlite")
 	viper.SetDefault("database_debug", false)
@@ -101,7 +90,12 @@ func main() {
 		config.TagName = "cfg"
 	}); err != nil {
 		slog.Error("Error while unmarshalling config", slog.Any("err", err))
+		os.Exit(1)
 	}
+
+	setupLogger(cfg.Log)
+	buildTime, _ := time.Parse(time.RFC3339, BuildTime)
+	slog.Info("Starting Gobin...", slog.String("version", Version), slog.String("commit", Commit), slog.Time("build-time", buildTime))
 	slog.Info("Config", slog.String("config", cfg.String()))
 
 	var (
@@ -181,7 +175,7 @@ func main() {
 		html.TabWidth(4),
 	))
 
-	s := gobin.NewServer(gobin.FormatBuildVersion(Version, Commit, buildTime), *debug, cfg, db, signer, tracer, meter, assets, tmplFunc)
+	s := gobin.NewServer(gobin.FormatBuildVersion(Version, Commit, buildTime), cfg.DevMode, cfg, db, signer, tracer, meter, assets, tmplFunc)
 	slog.Info("Gobin started...", slog.String("address", cfg.ListenAddr))
 	go s.Start()
 	defer s.Close()
@@ -191,16 +185,16 @@ func main() {
 	<-si
 }
 
-func setupLogger(debug bool, level string, logType string) {
-	handlerOpts := slog.HandlerOptions{
-		AddSource: debug,
-		Level:     levels[level],
+func setupLogger(cfg gobin.LogConfig) {
+	opts := &slog.HandlerOptions{
+		AddSource: cfg.AddSource,
+		Level:     cfg.Level,
 	}
 	var handler slog.Handler
-	if logType == "json" {
-		handler = handlerOpts.NewJSONHandler(os.Stdout)
+	if cfg.Format == "json" {
+		handler = slog.NewJSONHandler(os.Stdout, opts)
 	} else {
-		handler = handlerOpts.NewTextHandler(os.Stdout)
+		handler = slog.NewTextHandler(os.Stdout, opts)
 	}
 	slog.SetDefault(slog.New(handler))
 }

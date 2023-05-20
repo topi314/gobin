@@ -62,7 +62,7 @@ func (s *Server) Routes() http.Handler {
 	}
 	r.Use(s.JWTMiddleware)
 
-	if s.debug {
+	if s.cfg.Debug {
 		r.Mount("/debug", middleware.Profiler())
 	}
 

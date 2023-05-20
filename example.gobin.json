@@ -1,6 +1,11 @@
 {
-  "dev_mode": false,
+  "log": {
+    "level": "info",
+    "format": "text",
+    "add_source": false
+  },
   "debug": false,
+  "dev_mode": false,
   "listen_addr": ":80",
   "jwt_secret": "...",
   "database": {
