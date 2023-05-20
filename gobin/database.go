@@ -3,8 +3,10 @@ package gobin
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	_ "embed"
 	"errors"
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -44,7 +46,7 @@ func NewDB(ctx context.Context, cfg DatabaseConfig, schema string) (*DB, error) 
 		if cfg.Debug {
 			pgCfg.Tracer = &tracelog.TraceLog{
 				Logger: tracelog.LoggerFunc(func(ctx context.Context, level tracelog.LogLevel, msg string, data map[string]any) {
-					args := make([]slog.Attr, 0, len(data))
+					args := make([]any, 0, len(data))
 					for k, v := range data {
 						args = append(args, slog.Any(k, v))
 					}
@@ -62,7 +64,26 @@ func NewDB(ctx context.Context, cfg DatabaseConfig, schema string) (*DB, error) 
 		return nil, errors.New("invalid database type, must be one of: postgres, sqlite")
 	}
 
-	sqlDB, err := otelsql.Open(driverName, dataSourceName, otelsql.WithAttributes(dbSystem), otelsql.WithSQLCommenter(true))
+	sqlDB, err := otelsql.Open(driverName, dataSourceName,
+		otelsql.WithAttributes(dbSystem),
+		otelsql.WithSQLCommenter(true),
+		otelsql.WithAttributesGetter(func(ctx context.Context, method otelsql.Method, query string, args []driver.NamedValue) []attribute.KeyValue {
+			attrs := []attribute.KeyValue{
+				semconv.DBOperationKey.String(string(method)),
+				attribute.String("db.statement", query),
+			}
+			for _, arg := range args {
+				name := "db.statement.args."
+				if arg.Name == "" {
+					name += fmt.Sprintf("$%d", arg.Ordinal)
+				} else {
+					name += arg.Name
+				}
+				attrs = append(attrs, attribute.String(name, fmt.Sprintf("%v", arg.Value)))
+			}
+			return attrs
+		}),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -123,8 +144,10 @@ func (d *DB) GetDocumentVersion(ctx context.Context, documentID string, version 
 }
 
 func (d *DB) GetDocumentVersions(ctx context.Context, documentID string, withContent bool) ([]Document, error) {
-	var docs []Document
-	var sqlString string
+	var (
+		docs      []Document
+		sqlString string
+	)
 	if withContent {
 		sqlString = "SELECT id, version, content, language FROM documents where id = $1 ORDER BY version DESC"
 	} else {
