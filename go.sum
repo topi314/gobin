@@ -39,8 +39,6 @@ dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
-github.com/TopiSenpai/otelchi v0.0.0-20230502153208-000734fa627a h1:6B+NZSjI5r2ZxnVsrVXxTEsC/QamhAPDyLPPIxDiv9A=
-github.com/TopiSenpai/otelchi v0.0.0-20230502153208-000734fa627a/go.mod h1:fM6MUN2XbKXhyWhKweviLEfdQ/0qSrApFvZ+d3fpp/A=
 github.com/XSAM/otelsql v0.22.0 h1:ximAhitmcxmG8IIFSpDTpYqSBC/I6e5ojVOLkVGcdXU=
 github.com/XSAM/otelsql v0.22.0/go.mod h1:tjkdeLCwuYQtANlkBQxdtFmJQzuYRFKEl4osiqNx2+M=
 github.com/alecthomas/assert/v2 v2.2.1 h1:XivOgYcduV98QCahG8T5XTezV5bylXe+lBxLG2K2ink=
@@ -278,8 +276,10 @@ github.com/stretchr/testify v1.8.2 h1:+h33VjcLVPDHtOdpUCuF+7gSuG3yGIftsP1YvFihtJ
 github.com/stretchr/testify v1.8.2/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
 github.com/subosito/gotenv v1.4.2 h1:X1TuBLAMDFbaTAChgCBLu3DU3UPyELpnF2jjJ2cz/S8=
 github.com/subosito/gotenv v1.4.2/go.mod h1:ayKnFf/c6rvx/2iiLrJUk1e6plDbT3edrFNGqEflhK0=
-github.com/topisenpai/chroma/v2 v2.0.0-20230324233532-b14d693aac4a h1:4jTjxPDdPHmPyNSklSQG/F1EqkOH0tN9Dvo/GLtWz3w=
-github.com/topisenpai/chroma/v2 v2.0.0-20230324233532-b14d693aac4a/go.mod h1:yrkMI9807G1ROx13fhe1v6PN2DDeaR73L3d+1nmYQtw=
+github.com/topi314/chroma/v2 v2.0.0-20230324233532-b14d693aac4a h1:lwN8WYVCDTKYvpW3n/rucIlqMfE09Wpl3ZrHzB7rxts=
+github.com/topi314/chroma/v2 v2.0.0-20230324233532-b14d693aac4a/go.mod h1:yrkMI9807G1ROx13fhe1v6PN2DDeaR73L3d+1nmYQtw=
+github.com/topi314/otelchi v0.0.0-20230502153208-000734fa627a h1:LZS4zu5WRckCmVQyZCmGFvfWJXw+pRKUz+t+b2LadqU=
+github.com/topi314/otelchi v0.0.0-20230502153208-000734fa627a/go.mod h1:fM6MUN2XbKXhyWhKweviLEfdQ/0qSrApFvZ+d3fpp/A=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.32/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=

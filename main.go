@@ -20,7 +20,7 @@ import (
 	"github.com/go-jose/go-jose/v3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
-	"github.com/topisenpai/gobin/gobin"
+	"github.com/topi314/gobin/gobin"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/exp/slog"
@@ -29,7 +29,7 @@ import (
 // These variables are set via the -ldflags option in go build
 var (
 	Name      = "gobin"
-	Namespace = "github.com/topisenpai/gobin"
+	Namespace = "github.com/topi314/gobin"
 
 	Version   = "unknown"
 	Commit    = "unknown"

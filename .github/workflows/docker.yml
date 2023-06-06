@@ -17,7 +17,7 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            ghcr.io/topisenpai/gobin
+            ghcr.io/topi314/gobin
           tags: |
             type=ref,event=branch
             type=ref,event=tag
@@ -64,7 +64,7 @@ jobs:
       - name: Deploy
         uses: fjogeleit/http-request-action@v1
         with:
-          url: "https://watchtower.topi.wtf/v1/update?image=ghcr.io/topisenpai/gobin"
+          url: "https://watchtower.topi.wtf/v1/update?image=ghcr.io/topi314/gobin"
           method: "POST"
           timeout: 60000
           customHeaders: '{"Authorization": "Bearer ${{ secrets.TOKEN }}"}'

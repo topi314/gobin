@@ -9,9 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/topisenpai/gobin/gobin"
-	"github.com/topisenpai/gobin/internal/cfg"
-	"github.com/topisenpai/gobin/internal/ezhttp"
+	"github.com/topi314/gobin/gobin"
+	"github.com/topi314/gobin/internal/cfg"
+	"github.com/topi314/gobin/internal/ezhttp"
 )
 
 func NewPushCmd(parent *cobra.Command) {

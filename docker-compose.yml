@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   gobin:
-    image: ghcr.io/topisenpai/gobin:master
+    image: ghcr.io/topi314/gobin:master
     container_name: gobin
     restart: unless-stopped
     volumes:

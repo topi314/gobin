@@ -23,7 +23,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/stampede"
 	"github.com/riandyrn/otelchi"
-	"github.com/topisenpai/gobin/internal/log"
+	"github.com/topi314/gobin/internal/log"
 	"golang.org/x/exp/slices"
 	"golang.org/x/exp/slog"
 )

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/viper"
-	"github.com/topisenpai/gobin/internal/env"
+	"github.com/topi314/gobin/internal/env"
 )
 
 func Update(f func(map[string]string)) (string, error) {

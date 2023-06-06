@@ -8,8 +8,8 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/topisenpai/gobin/gobin"
-	"github.com/topisenpai/gobin/internal/ezhttp"
+	"github.com/topi314/gobin/gobin"
+	"github.com/topi314/gobin/internal/ezhttp"
 )
 
 func NewGetCmd(parent *cobra.Command) {

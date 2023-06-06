@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
-	"github.com/topisenpai/gobin/gobin"
+	"github.com/topi314/gobin/gobin"
 )
 
 var defaultClient = &http.Client{

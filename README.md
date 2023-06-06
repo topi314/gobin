@@ -1,8 +1,8 @@
-[![Go Report](https://goreportcard.com/badge/github.com/TopiSenpai/gobin)](https://goreportcard.com/report/github.com/TopiSenpai/gobin)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/TopiSenpai/gobin)](https://golang.org/doc/devel/release.html)
-[![KittyBot License](https://img.shields.io/github/license/TopiSenpai/gobin)](LICENSE)
-[![KittyBot Version](https://img.shields.io/github/v/tag/TopiSenpai/gobin?label=release)](https://github.com/TopiSenpai/gobin/releases/latest)
-[![Docker](https://github.com/TopiSenpai/gobin/actions/workflows/docker.yml/badge.svg)](https://github.com/TopiSenpai/gobin/actions/workflows/docker.yml)
+[![Go Report](https://goreportcard.com/badge/github.com/topi314/gobin)](https://goreportcard.com/report/github.com/topi314/gobin)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/topi314/gobin)](https://golang.org/doc/devel/release.html)
+[![KittyBot License](https://img.shields.io/github/license/topi314/gobin)](LICENSE)
+[![KittyBot Version](https://img.shields.io/github/v/tag/topi314/gobin?label=release)](https://github.com/topi314/gobin/releases/latest)
+[![Docker](https://github.com/topi314/gobin/actions/workflows/docker.yml/badge.svg)](https://github.com/topi314/gobin/actions/workflows/docker.yml)
 [![Discord](https://discordapp.com/api/guilds/608506410803658753/embed.png?style=shield)](https://discord.gg/sD3ABd5)
 
 # gobin
@@ -56,7 +56,7 @@ gobin is a simple lightweight haste-server alternative written in Go, HTML, JS a
 
 ### Docker
 
-The easiest way to deploy gobin is using docker with [Docker Compose](https://docs.docker.com/compose/). You can find the docker image on [Packages](https://github.com/TopiSenpai/gobin/pkgs/container/gobin).
+The easiest way to deploy gobin is using docker with [Docker Compose](https://docs.docker.com/compose/). You can find the docker image on [Packages](https://github.com/topi314/gobin/pkgs/container/gobin).
 
 #### Docker Compose
 
@@ -70,7 +70,7 @@ version: "3.8"
 
 services:
   gobin:
-    image: ghcr.io/topisenpai/gobin:latest
+    image: ghcr.io/topi314/gobin:latest
     container_name: gobin
     restart: unless-stopped
     volumes:
@@ -111,7 +111,7 @@ docker-compose up -d
 #### Build
 
 ```bash
-git clone https://github.com/TopiSenpai/gobin.git
+git clone https://github.com/topi314/gobin.git
 cd gobin
 go build -o gobin
 ```
@@ -119,7 +119,7 @@ go build -o gobin
 or
 
 ```bash
-go install github.com/TopiSenpai/gobin@latest
+go install github.com/topi314/gobin@latest
 ```
 
 #### Run
@@ -532,5 +532,5 @@ Contributions are always welcome! Just open a pull request or discussion and I w
 ## Contact
 
 - [Discord](https://discord.gg/sD3ABd5)
-- [Twitter](https://twitter.com/TopiSenpai)
+- [Twitter](https://twitter.com/topi314)
 - [Email](mailto:git@topi.wtf)
