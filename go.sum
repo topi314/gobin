@@ -276,8 +276,8 @@ github.com/stretchr/testify v1.8.2 h1:+h33VjcLVPDHtOdpUCuF+7gSuG3yGIftsP1YvFihtJ
 github.com/stretchr/testify v1.8.2/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
 github.com/subosito/gotenv v1.4.2 h1:X1TuBLAMDFbaTAChgCBLu3DU3UPyELpnF2jjJ2cz/S8=
 github.com/subosito/gotenv v1.4.2/go.mod h1:ayKnFf/c6rvx/2iiLrJUk1e6plDbT3edrFNGqEflhK0=
-github.com/topi314/chroma/v2 v2.0.0-20230324233532-b14d693aac4a h1:lwN8WYVCDTKYvpW3n/rucIlqMfE09Wpl3ZrHzB7rxts=
-github.com/topi314/chroma/v2 v2.0.0-20230324233532-b14d693aac4a/go.mod h1:yrkMI9807G1ROx13fhe1v6PN2DDeaR73L3d+1nmYQtw=
+github.com/topi314/chroma/v2 v2.0.0-20230612143532-ffc8ed98139d h1:9N4P5mnXjwYcGRno+MkA9wsiwu6J4JT5M0gBzvHg5Ig=
+github.com/topi314/chroma/v2 v2.0.0-20230612143532-ffc8ed98139d/go.mod h1:yrkMI9807G1ROx13fhe1v6PN2DDeaR73L3d+1nmYQtw=
 github.com/topi314/otelchi v0.0.0-20230502153208-000734fa627a h1:LZS4zu5WRckCmVQyZCmGFvfWJXw+pRKUz+t+b2LadqU=
 github.com/topi314/otelchi v0.0.0-20230502153208-000734fa627a/go.mod h1:fM6MUN2XbKXhyWhKweviLEfdQ/0qSrApFvZ+d3fpp/A=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
