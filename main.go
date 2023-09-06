@@ -6,6 +6,7 @@ import (
 	"flag"
 	"html/template"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -23,7 +24,6 @@ import (
 	"github.com/topi314/gobin/gobin"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
-	"golang.org/x/exp/slog"
 )
 
 // These variables are set via the -ldflags option in go build

@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"log/slog"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -24,8 +26,6 @@ import (
 	"github.com/go-chi/stampede"
 	"github.com/riandyrn/otelchi"
 	"github.com/topi314/gobin/internal/log"
-	"golang.org/x/exp/slices"
-	"golang.org/x/exp/slog"
 )
 
 const maxUnix = int(^int32(0))
@@ -772,118 +772,4 @@ func (s *Server) documentNotFound(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) rateLimit(w http.ResponseWriter, r *http.Request) {
 	s.error(w, r, ErrRateLimit, http.StatusTooManyRequests)
-}
-
-func (s *Server) RateLimit(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Only apply rate limiting to POST, PATCH, and DELETE requests
-		if r.Method != http.MethodPost && r.Method != http.MethodPatch && r.Method != http.MethodDelete {
-			next.ServeHTTP(w, r)
-			return
-		}
-		remoteAddr := strings.SplitN(r.RemoteAddr, ":", 2)[0]
-		// Filter whitelisted IPs
-		if slices.Contains(s.cfg.RateLimit.Whitelist, remoteAddr) {
-			next.ServeHTTP(w, r)
-			return
-		}
-		// Filter blacklisted IPs
-		if slices.Contains(s.cfg.RateLimit.Blacklist, remoteAddr) {
-			retryAfter := maxUnix - int(time.Now().Unix())
-			w.Header().Set("X-RateLimit-Limit", "0")
-			w.Header().Set("X-RateLimit-Remaining", "0")
-			w.Header().Set("X-RateLimit-Reset", strconv.Itoa(maxUnix))
-			w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
-			w.WriteHeader(http.StatusTooManyRequests)
-			s.rateLimit(w, r)
-			return
-		}
-		if s.rateLimitHandler == nil {
-			next.ServeHTTP(w, r)
-			return
-		}
-		s.rateLimitHandler(next).ServeHTTP(w, r)
-	})
-}
-
-func (s *Server) prettyError(w http.ResponseWriter, r *http.Request, err error, status int) {
-	w.WriteHeader(status)
-
-	vars := TemplateErrorVariables{
-		Error:     err.Error(),
-		Status:    status,
-		RequestID: middleware.GetReqID(r.Context()),
-		Path:      r.URL.Path,
-	}
-	if tmplErr := s.tmpl(w, "error.gohtml", vars); tmplErr != nil && tmplErr != http.ErrHandlerTimeout {
-		slog.ErrorCtx(r.Context(), "failed to execute error template", slog.Any("err", tmplErr))
-	}
-}
-
-func (s *Server) error(w http.ResponseWriter, r *http.Request, err error, status int) {
-	if errors.Is(err, http.ErrHandlerTimeout) {
-		return
-	}
-	if status == http.StatusInternalServerError {
-		slog.ErrorCtx(r.Context(), "internal server error", slog.Any("err", err))
-	}
-	s.json(w, r, ErrorResponse{
-		Message:   err.Error(),
-		Status:    status,
-		Path:      r.URL.Path,
-		RequestID: middleware.GetReqID(r.Context()),
-	}, status)
-}
-
-func (s *Server) ok(w http.ResponseWriter, r *http.Request, v any) {
-	s.json(w, r, v, http.StatusOK)
-}
-
-func (s *Server) json(w http.ResponseWriter, r *http.Request, v any, status int) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if r.Method == http.MethodHead {
-		return
-	}
-
-	if err := json.NewEncoder(w).Encode(v); err != nil && err != http.ErrHandlerTimeout {
-		slog.ErrorCtx(r.Context(), "failed to encode json", slog.Any("err", err))
-	}
-}
-
-func (s *Server) exceedsMaxDocumentSize(w http.ResponseWriter, r *http.Request, content string) bool {
-	if s.cfg.MaxDocumentSize > 0 && len([]rune(content)) > s.cfg.MaxDocumentSize {
-		s.error(w, r, ErrContentTooLarge(s.cfg.MaxDocumentSize), http.StatusBadRequest)
-		return true
-	}
-	return false
-}
-
-func (s *Server) file(path string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		file, err := s.assets.Open(path)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		defer file.Close()
-		_, _ = io.Copy(w, file)
-	}
-}
-
-func (s *Server) shortContent(content string) string {
-	if s.cfg.Preview != nil && s.cfg.Preview.MaxLines > 0 {
-		var newLines int
-		maxNewLineIndex := strings.IndexFunc(content, func(r rune) bool {
-			if r == '\n' {
-				newLines++
-			}
-			return newLines == s.cfg.Preview.MaxLines
-		})
-
-		if maxNewLineIndex > 0 {
-			content = content[:maxNewLineIndex]
-		}
-	}
-	return content
 }

@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"errors"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -11,14 +13,12 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/propagation"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/semconv/v1.18.0"
 	"go.opentelemetry.io/otel/trace"
-	"golang.org/x/exp/slog"
 )
 
 func resources(cfg gobin.OtelConfig) *resource.Resource {
@@ -74,14 +74,14 @@ func newMeter(cfg gobin.OtelConfig) (metric.Meter, error) {
 		sdkmetric.WithReader(exp),
 		sdkmetric.WithResource(resources(cfg)),
 	)
-	global.SetMeterProvider(mp)
+	otel.SetMeterProvider(mp)
 
 	go func() {
 		server := &http.Server{
 			Addr:    cfg.Metrics.ListenAddr,
 			Handler: promhttp.Handler(),
 		}
-		if listenErr := server.ListenAndServe(); listenErr != nil && listenErr != http.ErrServerClosed {
+		if listenErr := server.ListenAndServe(); listenErr != nil && !errors.Is(listenErr, http.ErrServerClosed) {
 			slog.Error("failed to listen metrics server", slog.Any("err", listenErr))
 		}
 	}()

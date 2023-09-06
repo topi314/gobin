@@ -6,7 +6,7 @@ import (
 	"database/sql/driver"
 	_ "embed"
 	"errors"
-	"fmt"
+	"log/slog"
 	"math/rand"
 	"time"
 
@@ -21,7 +21,6 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/semconv/v1.18.0"
 	"go.opentelemetry.io/otel/trace"
-	"golang.org/x/exp/slog"
 	"modernc.org/sqlite"
 	_ "modernc.org/sqlite"
 )
@@ -50,7 +49,7 @@ func NewDB(ctx context.Context, cfg DatabaseConfig, schema string) (*DB, error) 
 					for k, v := range data {
 						args = append(args, slog.Any(k, v))
 					}
-					slog.DebugCtx(ctx, msg, slog.Group("data", args...))
+					slog.DebugContext(ctx, msg, slog.Group("data", args...))
 				}),
 				LogLevel: tracelog.LogLevelDebug,
 			}
@@ -68,20 +67,10 @@ func NewDB(ctx context.Context, cfg DatabaseConfig, schema string) (*DB, error) 
 		otelsql.WithAttributes(dbSystem),
 		otelsql.WithSQLCommenter(true),
 		otelsql.WithAttributesGetter(func(ctx context.Context, method otelsql.Method, query string, args []driver.NamedValue) []attribute.KeyValue {
-			attrs := []attribute.KeyValue{
+			return []attribute.KeyValue{
 				semconv.DBOperationKey.String(string(method)),
-				attribute.String("db.statement", query),
+				semconv.DBStatementKey.String(query),
 			}
-			for _, arg := range args {
-				name := "db.statement.args."
-				if arg.Name == "" {
-					name += fmt.Sprintf("$%d", arg.Ordinal)
-				} else {
-					name += arg.Name
-				}
-				attrs = append(attrs, attribute.String(name, fmt.Sprintf("%v", arg.Value)))
-			}
-			return attrs
 		}),
 	)
 	if err != nil {
@@ -260,10 +249,10 @@ func (d *DB) cleanup(ctx context.Context, cleanUpInterval time.Duration, expireA
 	if cleanUpInterval <= 0 {
 		cleanUpInterval = 10 * time.Minute
 	}
-	slog.Info("Starting document cleanup...")
+	slog.InfoContext(ctx, "Starting document cleanup...")
 	ticker := time.NewTicker(cleanUpInterval)
 	defer ticker.Stop()
-	defer slog.Info("document cleanup stopped")
+	defer slog.InfoContext(ctx, "document cleanup stopped")
 
 	for {
 		select {

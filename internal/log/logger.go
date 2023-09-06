@@ -3,12 +3,12 @@ package log
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
 	"go.opentelemetry.io/otel/trace"
-	"golang.org/x/exp/slog"
 )
 
 var StructuredLogger = middleware.RequestLogger(&structuredLogger{})
