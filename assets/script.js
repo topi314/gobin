@@ -1,4 +1,7 @@
 document.addEventListener("DOMContentLoaded", async () => {
+    const matches = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    updateFaviconStyle(matches);
+
     const path = window.location.pathname === "/" ? [] : window.location.pathname.slice(1).split("/")
     let key = path.length > 0 ? path[0] : ""
     if (key.lastIndexOf(".") > 0) {
@@ -22,6 +25,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     updateCode(newState);
     updatePage(newState);
     window.history.replaceState(newState, "", url);
+});
+
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (event) => {
+    updateFaviconStyle(event.matches);
 });
 
 window.addEventListener("popstate", (event) => {
@@ -282,7 +289,11 @@ document.querySelector("#language").addEventListener("change", async (event) => 
 
 document.querySelector("#style").addEventListener("change", async (event) => {
     const {key, version, mode, language} = getState();
-    setCookie("style", event.target.value);
+    const style = event.target.value;
+    const theme = event.target.options.item(event.target.selectedIndex).dataset.theme;
+    setCookie("style", style);
+    document.documentElement.setAttribute("data-theme", theme);
+    document.documentElement.classList.replace(theme === "dark" ? "light" : "dark", theme);
     if (!key || mode === "edit") return;
     await fetchDocument(key, version, language);
 });
@@ -290,7 +301,6 @@ document.querySelector("#style").addEventListener("change", async (event) => {
 document.querySelector("#version").addEventListener("change", async (event) => {
     const {key, version} = getState();
     let newVersion = event.target.value;
-    console.log(event.target.options.item(0).value, newVersion);
     if (event.target.options.item(0).value === newVersion) {
         newVersion = "";
     }
@@ -430,4 +440,44 @@ function updatePage(state) {
     copyButton.disabled = true;
     rawButton.disabled = true;
     shareButton.disabled = true;
+}
+
+function updateFaviconStyle(matches) {
+    const faviconElement = document.querySelector(`link[rel="icon"]`)
+    if (matches) {
+        faviconElement.href = "/assets/favicon.png";
+        return
+    }
+    faviconElement.href = "/assets/favicon-light.png";
+}
+
+function getCookie(name) {
+    let matches = document.cookie.match(new RegExp(
+        "(?:^|; )" + name.replace(/([.$?*|{}()\[\]\\\/+^])/g, '\\$1') + "=([^;]*)"
+    ));
+    return matches ? decodeURIComponent(matches[1]) : undefined;
+}
+
+function setCookie(name, value, options = {}) {
+    options = {
+        path: "/",
+        sameSite: "strict",
+        ...options
+    };
+
+    if (options.expires instanceof Date) {
+        options.expires = options.expires.toUTCString();
+    }
+
+    let updatedCookie = encodeURIComponent(name) + "=" + encodeURIComponent(value);
+
+    for (let optionKey in options) {
+        updatedCookie += "; " + optionKey;
+        let optionValue = options[optionKey];
+        if (optionValue !== true) {
+            updatedCookie += "=" + optionValue;
+        }
+    }
+
+    document.cookie = updatedCookie;
 }

@@ -1,6 +1,23 @@
-{{ template "head.gohtml" . }}
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="utf-8">
+    <title>gobin</title>
+
+    <link rel="stylesheet" type="text/css" href="/assets/style.css">
+
+    <link rel="icon" href="/assets/favicon.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#1f2228">
+    <style>
+        :root {
+            --bg-primary: #282c34;
+            --text-primary: #ffffff;
+        }
+    </style>
+</head>
+
 <body>
-{{ template "header.gohtml" . }}
 <main>
     <div class="error">
         <h1>Oops!</h1>
@@ -18,6 +35,5 @@
         </h3>
     </div>
 </main>
-<script src="/assets/theme.js" async></script>
 </body>
 </html>

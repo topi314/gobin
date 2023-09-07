@@ -286,11 +286,6 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	theme := "dark"
-	if themeCookie, err := r.Cookie("theme"); err == nil && themeCookie.Value != "" {
-		theme = themeCookie.Value
-	}
-
 	vars := TemplateVariables{
 		ID:        document.ID,
 		Version:   document.Version,
@@ -301,9 +296,9 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 
 		Versions: versions,
 		Lexers:   lexers.Names(false),
-		Styles:   styles.Names(),
-		Style:    style,
-		Theme:    theme,
+		Styles:   s.styles,
+		Style:    style.Name,
+		Theme:    style.Theme,
 
 		Max:        s.cfg.MaxDocumentSize,
 		Host:       r.Host,
@@ -315,7 +310,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) renderDocument(r *http.Request, document Document, formatterName string, extension string) (string, string, string, string, error) {
+func (s *Server) renderDocument(r *http.Request, document Document, formatterName string, extension string) (string, string, string, *chroma.Style, error) {
 	var (
 		styleName    string
 		languageName = document.Language
@@ -347,7 +342,7 @@ func (s *Server) renderDocument(r *http.Request, document Document, formatterNam
 
 	iterator, err := lexer.Tokenise(nil, document.Content)
 	if err != nil {
-		return "", "", "", "", err
+		return "", "", "", nil, err
 	}
 
 	formatter := formatters.Get(formatterName)
@@ -357,13 +352,24 @@ func (s *Server) renderDocument(r *http.Request, document Document, formatterNam
 
 	buff := new(bytes.Buffer)
 	if err = formatter.Format(buff, style, iterator); err != nil {
-		return "", "", "", "", err
+		return "", "", "", nil, err
 	}
 
 	cssBuff := new(bytes.Buffer)
+	background := style.Get(chroma.Background)
+	_, _ = fmt.Fprint(cssBuff, ":root{")
+	_, _ = fmt.Fprintf(cssBuff, "--bg-primary: %s;", background.Background.String())
+	_, _ = fmt.Fprintf(cssBuff, "--bg-secondary: %s;", background.Background.BrightenOrDarken(0.07).String())
+	_, _ = fmt.Fprintf(cssBuff, "--nav-button-bg: %s;", background.Background.BrightenOrDarken(0.12).String())
+	_, _ = fmt.Fprintf(cssBuff, "--text-primary: %s;", background.Colour.String())
+	_, _ = fmt.Fprintf(cssBuff, "--text-secondary: %s;", background.Colour.BrightenOrDarken(0.2).String())
+	_, _ = fmt.Fprintf(cssBuff, "--bg-scrollbar: %s;", background.Background.BrightenOrDarken(0.1).String())
+	_, _ = fmt.Fprintf(cssBuff, "--bg-scrollbar-thumb: #%s;", background.Background.BrightenOrDarken(0.2).String())
+	_, _ = fmt.Fprintf(cssBuff, "--bg-scrollbar-thumb-hover: %s;", background.Background.BrightenOrDarken(0.3).String())
+	_, _ = fmt.Fprint(cssBuff, "}")
 	if htmlFormatter, ok := formatter.(*html.Formatter); ok {
 		if err = htmlFormatter.WriteCSS(cssBuff, style); err != nil {
-			return "", "", "", "", err
+			return "", "", "", nil, err
 		}
 	}
 
@@ -371,7 +377,7 @@ func (s *Server) renderDocument(r *http.Request, document Document, formatterNam
 	if document.ID == "" {
 		language = "auto"
 	}
-	return buff.String(), cssBuff.String(), language, style.Name, nil
+	return buff.String(), cssBuff.String(), language, style, nil
 }
 
 func (s *Server) GetVersion(w http.ResponseWriter, _ *http.Request) {

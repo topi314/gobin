@@ -3,7 +3,7 @@ module github.com/topi314/gobin
 go 1.21
 
 replace (
-	github.com/alecthomas/chroma/v2 => github.com/topi314/chroma/v2 v2.0.0-20230906213615-feae22e18121
+	github.com/alecthomas/chroma/v2 => github.com/topi314/chroma/v2 v2.0.0-20230907014001-98c7d3bcdb3e
 	github.com/riandyrn/otelchi => github.com/topi314/otelchi v0.0.0-20230905214517-e289cba5e6dc
 )
 

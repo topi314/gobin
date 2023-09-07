@@ -1,3 +1,6 @@
+<!DOCTYPE html>
+<html lang="en" class="{{ .Theme }}">
+
 {{ template "head.gohtml" . }}
 <body>
 <div id="error-popup" style="display: none;"></div>
@@ -34,7 +37,7 @@
             </select>
             <select title="Style" id="style" autocomplete="off">
                 {{ range $value := .Styles }}
-                    <option value="{{ $value }}" {{ if eq $.Style $value}}selected="selected"{{ end }}>{{ $value }}</option>
+                    <option value="{{ $value.Name }}" data-theme={{ $value.Theme }} {{ if eq $.Style $value.Name}}selected="selected"{{ end }}>{{ $value.Name }}</option>
                 {{ end }}
             </select>
         </div>
@@ -50,7 +53,6 @@
         <span id="code-edit-count">{{ len .Content }}</span>{{ if gt .Max 0 }}/<span id="code-edit-max">{{ .Max }}</span>{{ end }}
     </label>
 </main>
-<script src="/assets/theme.js" defer></script>
 <script src="/assets/script.js" defer></script>
 </body>
 </html>

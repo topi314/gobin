@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
 	"github.com/go-jose/go-jose/v3"
@@ -22,6 +23,14 @@ import (
 type ExecuteTemplateFunc func(wr io.Writer, name string, data any) error
 
 func NewServer(version string, debug bool, cfg Config, db *DB, signer jose.Signer, tracer trace.Tracer, meter metric.Meter, assets http.FileSystem, tmpl ExecuteTemplateFunc) *Server {
+	var allStyles []TemplateStyle
+	for _, name := range styles.Names() {
+		allStyles = append(allStyles, TemplateStyle{
+			Name:  name,
+			Theme: styles.Get(name).Theme,
+		})
+	}
+
 	s := &Server{
 		version: version,
 		debug:   debug,
@@ -31,6 +40,7 @@ func NewServer(version string, debug bool, cfg Config, db *DB, signer jose.Signe
 		tracer:  tracer,
 		meter:   meter,
 		assets:  assets,
+		styles:  allStyles,
 		tmpl:    tmpl,
 	}
 
@@ -64,6 +74,7 @@ type Server struct {
 	tracer           trace.Tracer
 	meter            metric.Meter
 	assets           http.FileSystem
+	styles           []TemplateStyle
 	tmpl             ExecuteTemplateFunc
 	rateLimitHandler func(http.Handler) http.Handler
 }

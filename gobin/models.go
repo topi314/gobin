@@ -13,7 +13,7 @@ type (
 
 		Versions []DocumentVersion
 		Lexers   []string
-		Styles   []string
+		Styles   []TemplateStyle
 		Style    string
 		Theme    string
 
@@ -21,6 +21,11 @@ type (
 		Host       string
 		Preview    bool
 		PreviewAlt string
+	}
+
+	TemplateStyle struct {
+		Name  string
+		Theme string
 	}
 
 	TemplateErrorVariables struct {
