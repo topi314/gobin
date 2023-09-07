@@ -295,7 +295,7 @@ document.querySelector("#style").addEventListener("change", async (event) => {
     document.documentElement.setAttribute("data-theme", theme);
     document.documentElement.classList.replace(theme === "dark" ? "light" : "dark", theme);
     if (!key || mode === "edit") {
-        await fetchCSS();
+        await fetchCSS(style);
         return;
     }
     await fetchDocument(key, version, language);
@@ -314,8 +314,8 @@ document.querySelector("#version").addEventListener("change", async (event) => {
     window.history.pushState(newState, "", url);
 })
 
-async function fetchCSS() {
-    const response = await fetch("/assets/theme.css", {
+async function fetchCSS(style) {
+    const response = await fetch(`/assets/theme.css?style=${style}`, {
         method: "GET"
     });
 
