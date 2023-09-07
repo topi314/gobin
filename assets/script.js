@@ -294,7 +294,10 @@ document.querySelector("#style").addEventListener("change", async (event) => {
     setCookie("style", style);
     document.documentElement.setAttribute("data-theme", theme);
     document.documentElement.classList.replace(theme === "dark" ? "light" : "dark", theme);
-    if (!key || mode === "edit") return;
+    if (!key || mode === "edit") {
+        await fetchCSS();
+        return;
+    }
     await fetchDocument(key, version, language);
 });
 
@@ -310,6 +313,21 @@ document.querySelector("#version").addEventListener("change", async (event) => {
     updateCode(newState);
     window.history.pushState(newState, "", url);
 })
+
+async function fetchCSS() {
+    const response = await fetch("/assets/theme.css", {
+        method: "GET"
+    });
+
+    let body = await response.text();
+    if (!response.ok) {
+        showErrorPopup(body.message || response.statusText);
+        console.error("error fetching css:", response);
+        return;
+    }
+
+    document.querySelector("#theme-style").innerHTML = body;
+}
 
 async function fetchDocument(key, version, language) {
     const response = await fetch(`/documents/${key}${version ? `/versions/${version}` : ""}?formatter=html${language ? `&language=${language}` : ""}`, {
@@ -330,6 +348,7 @@ async function fetchDocument(key, version, language) {
 
     document.querySelector("#code-view").innerHTML = body.formatted;
     document.querySelector("#code-style").innerHTML = body.css;
+    document.querySelector("#theme-style").innerHTML = body.theme_css;
     document.querySelector("#code-edit").value = body.data;
     document.querySelector("#language").value = body.language;
 

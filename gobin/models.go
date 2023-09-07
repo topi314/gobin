@@ -9,6 +9,7 @@ type (
 		Content   template.HTML
 		Formatted template.HTML
 		CSS       template.CSS
+		ThemeCSS  template.CSS
 		Language  string
 
 		Versions []DocumentVersion
@@ -49,6 +50,7 @@ type (
 		Data         string        `json:"data,omitempty"`
 		Formatted    template.HTML `json:"formatted,omitempty"`
 		CSS          template.CSS  `json:"css,omitempty"`
+		ThemeCSS     template.CSS  `json:"theme_css,omitempty"`
 		Language     string        `json:"language"`
 		Token        string        `json:"token,omitempty"`
 	}

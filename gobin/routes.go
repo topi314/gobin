@@ -84,6 +84,7 @@ func (s *Server) Routes() http.Handler {
 	}
 
 	r.Mount("/assets", http.FileServer(s.assets))
+	r.HandleFunc("/assets/theme.css", s.StyleCSS)
 	r.Handle("/favicon.ico", s.file("/assets/favicon.png"))
 	r.Handle("/favicon.png", s.file("/assets/favicon.png"))
 	r.Handle("/favicon-light.png", s.file("/assets/favicon-light.png"))
@@ -292,6 +293,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		Content:   template.HTML(document.Content),
 		Formatted: template.HTML(formatted),
 		CSS:       template.CSS(css),
+		ThemeCSS:  template.CSS(s.styleCSS(style)),
 		Language:  language,
 
 		Versions: versions,
@@ -312,22 +314,9 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) renderDocument(r *http.Request, document Document, formatterName string, extension string) (string, string, string, *chroma.Style, error) {
 	var (
-		styleName    string
 		languageName = document.Language
+		lexer        chroma.Lexer
 	)
-	if styleCookie, err := r.Cookie("style"); err == nil {
-		styleName = styleCookie.Value
-	}
-	queryStyle := r.URL.Query().Get("style")
-	if queryStyle != "" {
-		styleName = queryStyle
-	}
-
-	style := styles.Get(styleName)
-	if style == nil {
-		style = styles.Fallback
-	}
-	var lexer chroma.Lexer
 
 	if s.cfg.MaxHighlightSize > 0 && len([]rune(document.Content)) > s.cfg.MaxHighlightSize {
 		lexer = lexers.Get("plaintext")
@@ -350,11 +339,28 @@ func (s *Server) renderDocument(r *http.Request, document Document, formatterNam
 		formatter = formatters.Fallback
 	}
 
+	style := getStyle(r)
+
 	buff := new(bytes.Buffer)
 	if err = formatter.Format(buff, style, iterator); err != nil {
 		return "", "", "", nil, err
 	}
 
+	cssBuff := new(bytes.Buffer)
+	if htmlFormatter, ok := formatter.(*html.Formatter); ok {
+		if err = htmlFormatter.WriteCSS(cssBuff, style); err != nil {
+			return "", "", "", nil, err
+		}
+	}
+
+	language := lexer.Config().Name
+	if document.ID == "" {
+		language = "auto"
+	}
+	return buff.String(), cssBuff.String(), language, style, nil
+}
+
+func (s *Server) styleCSS(style *chroma.Style) string {
 	cssBuff := new(bytes.Buffer)
 	background := style.Get(chroma.Background)
 	_, _ = fmt.Fprint(cssBuff, ":root{")
@@ -367,17 +373,20 @@ func (s *Server) renderDocument(r *http.Request, document Document, formatterNam
 	_, _ = fmt.Fprintf(cssBuff, "--bg-scrollbar-thumb: #%s;", background.Background.BrightenOrDarken(0.2).String())
 	_, _ = fmt.Fprintf(cssBuff, "--bg-scrollbar-thumb-hover: %s;", background.Background.BrightenOrDarken(0.3).String())
 	_, _ = fmt.Fprint(cssBuff, "}")
-	if htmlFormatter, ok := formatter.(*html.Formatter); ok {
-		if err = htmlFormatter.WriteCSS(cssBuff, style); err != nil {
-			return "", "", "", nil, err
-		}
-	}
+	return cssBuff.String()
+}
 
-	language := lexer.Config().Name
-	if document.ID == "" {
-		language = "auto"
+func (s *Server) StyleCSS(w http.ResponseWriter, r *http.Request) {
+	style := getStyle(r)
+	cssBuff := s.styleCSS(style)
+
+	w.Header().Set("Content-Type", "text/css; charset=UTF-8")
+	w.Header().Set("Content-Length", strconv.Itoa(len(cssBuff)))
+	w.WriteHeader(http.StatusOK)
+	if r.Method == http.MethodHead {
+		return
 	}
-	return buff.String(), cssBuff.String(), language, style, nil
+	_, _ = w.Write([]byte(cssBuff))
 }
 
 func (s *Server) GetVersion(w http.ResponseWriter, _ *http.Request) {
@@ -434,6 +443,24 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(content))
 }
 
+func getStyle(r *http.Request) *chroma.Style {
+	var styleName string
+	if styleCookie, err := r.Cookie("style"); err == nil {
+		styleName = styleCookie.Value
+	}
+	queryStyle := r.URL.Query().Get("style")
+	if queryStyle != "" {
+		styleName = queryStyle
+	}
+
+	style := styles.Get(styleName)
+	if style == nil {
+		return styles.Fallback
+	}
+
+	return style
+}
+
 func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 	document, extension := s.getDocument(w, r)
 	if document == nil {
@@ -464,12 +491,14 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 		version = document.Version
 	}
 
+	style := getStyle(r)
 	s.ok(w, r, DocumentResponse{
 		Key:       document.ID,
 		Version:   version,
 		Data:      document.Content,
 		Formatted: template.HTML(formatted),
 		CSS:       template.CSS(css),
+		ThemeCSS:  template.CSS(s.styleCSS(style)),
 		Language:  language,
 	})
 }
