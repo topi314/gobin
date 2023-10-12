@@ -272,11 +272,17 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	}
 
 	versions := make([]DocumentVersion, 0, len(documents))
-	for _, documentVersion := range documents {
+	for i, documentVersion := range documents {
 		versionTime := time.Unix(documentVersion.Version, 0)
+		versionLabel := humanize.Time(versionTime)
+		if i == 0 {
+			versionLabel += " (current)"
+		} else if i == len(documents)-1 {
+			versionLabel += " (original)"
+		}
 		versions = append(versions, DocumentVersion{
 			Version: documentVersion.Version,
-			Label:   humanize.Time(versionTime),
+			Label:   versionLabel,
 			Time:    versionTime.Format(VersionTimeFormat),
 		})
 	}
@@ -584,7 +590,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 	s.ok(w, r, DocumentResponse{
 		Key:          document.ID,
 		Version:      document.Version,
-		VersionLabel: humanize.Time(versionTime),
+		VersionLabel: humanize.Time(versionTime) + " (original)",
 		VersionTime:  versionTime.Format(VersionTimeFormat),
 		Data:         data,
 		Formatted:    template.HTML(formatted),
@@ -657,7 +663,7 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 	s.ok(w, r, DocumentResponse{
 		Key:          document.ID,
 		Version:      document.Version,
-		VersionLabel: humanize.Time(versionTime),
+		VersionLabel: humanize.Time(versionTime) + " (current)",
 		VersionTime:  versionTime.Format(VersionTimeFormat),
 		Data:         data,
 		Formatted:    template.HTML(formatted),

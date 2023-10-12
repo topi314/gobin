@@ -151,6 +151,7 @@ document.querySelector("#save").addEventListener("click", async () => {
     optionElement.value = body.version;
     optionElement.innerText = `${body.version_label}`;
 
+    updateVersionSelect(-1);
     const versionElement = document.querySelector("#version")
     versionElement.insertBefore(optionElement, versionElement.firstChild);
     versionElement.value = body.version;
@@ -310,9 +311,25 @@ document.querySelector("#version").addEventListener("change", async (event) => {
     if (newVersion === version) return;
 
     const {newState, url} = await fetchDocument(key, newVersion);
+
+    updateVersionSelect(event.target.selectedIndex);
+
     updateCode(newState);
     window.history.pushState(newState, "", url);
 })
+
+function updateVersionSelect(currentIndex) {
+    const versionElement = document.querySelector("#version")
+    for (let i = 0; i < versionElement.options.length; i++) {
+        const element = versionElement.options.item(i);
+        if (element.innerText.endsWith(" (current)")) {
+            element.innerText = element.innerText.substring(0, element.innerText.length - 10);
+        }
+    }
+    if (currentIndex !== versionElement.options.length - 1 && currentIndex !== -1) {
+        versionElement.options.item(currentIndex).innerText += " (current)";
+    }
+}
 
 async function fetchCSS(style) {
     const response = await fetch(`/assets/theme.css?style=${style}`, {
