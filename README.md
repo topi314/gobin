@@ -189,7 +189,7 @@ Create a new `gobin.json` file with the following content:
     "blacklist": ["123.456.789.0"]
   },
   # settings for social media previews, omit to disable
-  "previews": {
+  "preview": {
     # path to inkscape binary https://inkscape.org/
     "inkscape_path": "/usr/bin/inkscape",
     # how many lines should be shown in the preview
