@@ -14,14 +14,14 @@ import (
 	"github.com/topi314/gobin/internal/ezhttp"
 )
 
-func NewPushCmd(parent *cobra.Command) {
+func NewPostCmd(parent *cobra.Command) {
 	cmd := &cobra.Command{
-		Use:     "push",
+		Use:     "post",
 		GroupID: "actions",
-		Short:   "Pushes a document to the gobin server",
-		Example: `gobin push "hello world!
+		Short:   "Posts a document to the gobin server",
+		Example: `gobin post "hello world!
 		
-Will push "hello world!" to the server`,
+Will post "hello world!" to the server`,
 		Args: cobra.RangeArgs(0, 1),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if err := viper.BindPFlag("server", cmd.Flags().Lookup("server")); err != nil {
@@ -110,7 +110,7 @@ Will push "hello world!" to the server`,
 			defer rs.Body.Close()
 
 			var documentRs gobin.DocumentResponse
-			if err = ezhttp.ProcessBody("push document", rs, &documentRs); err != nil {
+			if err = ezhttp.ProcessBody("post document", rs, &documentRs); err != nil {
 				return fmt.Errorf("failed to process response: %w", err)
 			}
 
@@ -138,7 +138,7 @@ Will push "hello world!" to the server`,
 	parent.AddCommand(cmd)
 
 	cmd.Flags().StringP("server", "s", "", "Gobin server address")
-	cmd.Flags().StringP("file", "f", "", "The file to push")
+	cmd.Flags().StringP("file", "f", "", "The file to post")
 	cmd.Flags().StringP("document", "d", "", "The document to update")
 	cmd.Flags().StringP("token", "t", "", "The token for the document to update")
 	cmd.Flags().StringP("language", "l", "", "The language of the document")

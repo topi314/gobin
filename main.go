@@ -19,6 +19,7 @@ import (
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/go-jose/go-jose/v3"
+	"github.com/lmittmann/tint"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
 	"github.com/topi314/gobin/gobin"
@@ -78,7 +79,7 @@ func main() {
 		viper.AddConfigPath("/etc/gobin/")
 	}
 	if err := viper.ReadInConfig(); err != nil {
-		slog.Error("Error while reading config", slog.Any("err", err))
+		slog.Error("Error while reading config", tint.Err(err))
 		os.Exit(1)
 	}
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
@@ -89,7 +90,7 @@ func main() {
 	if err := viper.Unmarshal(&cfg, func(config *mapstructure.DecoderConfig) {
 		config.TagName = "cfg"
 	}); err != nil {
-		slog.Error("Error while unmarshalling config", slog.Any("err", err))
+		slog.Error("Error while unmarshalling config", tint.Err(err))
 		os.Exit(1)
 	}
 
@@ -106,19 +107,21 @@ func main() {
 	if cfg.Otel != nil {
 		tracer, err = newTracer(*cfg.Otel)
 		if err != nil {
-			slog.Error("Error while creating tracer", slog.Any("err", err))
+			slog.Error("Error while creating tracer", tint.Err(err))
 			os.Exit(1)
 		}
 		meter, err = newMeter(*cfg.Otel)
 		if err != nil {
-			slog.Error("Error while creating meter", slog.Any("err", err))
+			slog.Error("Error while creating meter", tint.Err(err))
 			os.Exit(1)
 		}
 	}
 
-	db, err := gobin.NewDB(context.Background(), cfg.Database, Schema)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	db, err := gobin.NewDB(ctx, cfg.Database, Schema)
 	if err != nil {
-		slog.Error("Error while connecting to database", slog.Any("err", err))
+		slog.Error("Error while connecting to database", tint.Err(err))
 		os.Exit(1)
 	}
 	defer db.Close()
@@ -128,7 +131,7 @@ func main() {
 		Key:       []byte(cfg.JWTSecret),
 	}, nil)
 	if err != nil {
-		slog.Error("Error while creating signer", slog.Any("err", err))
+		slog.Error("Error while creating signer", tint.Err(err))
 		os.Exit(1)
 	}
 
@@ -149,7 +152,7 @@ func main() {
 	} else {
 		tmpl, err := template.New("").ParseFS(Templates, "templates/*")
 		if err != nil {
-			slog.Error("Error while parsing templates", slog.Any("err", err))
+			slog.Error("Error while parsing templates", tint.Err(err))
 			os.Exit(1)
 		}
 		tmplFunc = tmpl.ExecuteTemplate
@@ -186,15 +189,17 @@ func main() {
 }
 
 func setupLogger(cfg gobin.LogConfig) {
-	opts := &slog.HandlerOptions{
-		AddSource: cfg.AddSource,
-		Level:     cfg.Level,
-	}
 	var handler slog.Handler
 	if cfg.Format == "json" {
-		handler = slog.NewJSONHandler(os.Stdout, opts)
+		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			AddSource: cfg.AddSource,
+			Level:     cfg.Level,
+		})
 	} else {
-		handler = slog.NewTextHandler(os.Stdout, opts)
+		handler = tint.NewHandler(os.Stdout, &tint.Options{
+			Level:     cfg.Level,
+			AddSource: cfg.AddSource,
+		})
 	}
 	slog.SetDefault(slog.New(handler))
 }

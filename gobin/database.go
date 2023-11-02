@@ -17,6 +17,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/jmoiron/sqlx"
+	"github.com/lmittmann/tint"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/semconv/v1.18.0"
@@ -249,10 +250,10 @@ func (d *DB) cleanup(ctx context.Context, cleanUpInterval time.Duration, expireA
 	if cleanUpInterval <= 0 {
 		cleanUpInterval = 10 * time.Minute
 	}
-	slog.InfoContext(ctx, "Starting document cleanup...")
+	slog.Info("Starting document cleanup...")
 	ticker := time.NewTicker(cleanUpInterval)
 	defer ticker.Stop()
-	defer slog.InfoContext(ctx, "document cleanup stopped")
+	defer slog.Info("document cleanup stopped")
 
 	for {
 		select {
@@ -265,7 +266,7 @@ func (d *DB) cleanup(ctx context.Context, cleanUpInterval time.Duration, expireA
 }
 
 func (d *DB) doCleanup(expireAfter time.Duration) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	ctx, span := d.tracer.Start(ctx, "doCleanup")
@@ -274,7 +275,7 @@ func (d *DB) doCleanup(expireAfter time.Duration) {
 	if err := d.DeleteExpiredDocuments(ctx, expireAfter); err != nil && !errors.Is(err, context.Canceled) {
 		span.SetStatus(codes.Error, "failed to delete expired documents")
 		span.RecordError(err)
-		slog.Error("failed to delete expired documents", slog.Any("err", err))
+		slog.ErrorContext(ctx, "failed to delete expired documents", tint.Err(err))
 	}
 }
 

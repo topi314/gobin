@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/lmittmann/tint"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/topi314/gobin/gobin"
 	"go.opentelemetry.io/otel"
@@ -82,7 +83,7 @@ func newMeter(cfg gobin.OtelConfig) (metric.Meter, error) {
 			Handler: promhttp.Handler(),
 		}
 		if listenErr := server.ListenAndServe(); listenErr != nil && !errors.Is(listenErr, http.ErrServerClosed) {
-			slog.Error("failed to listen metrics server", slog.Any("err", listenErr))
+			slog.Error("failed to listen metrics server", tint.Err(listenErr))
 		}
 	}()
 

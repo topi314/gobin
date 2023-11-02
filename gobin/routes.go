@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"log/slog"
 	"net/http"
 	"slices"
 	"strconv"
@@ -23,9 +22,10 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/httplog/v2"
 	"github.com/go-chi/stampede"
+	"github.com/lmittmann/tint"
 	"github.com/riandyrn/otelchi"
-	"github.com/topi314/gobin/internal/log"
 )
 
 const maxUnix = int(^int32(0))
@@ -48,7 +48,11 @@ func (s *Server) Routes() http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Maybe(
-		log.StructuredLogger,
+		httplog.Handler(httplog.NewLogger("gobin", httplog.Options{
+			LogLevel: s.cfg.Log.Level,
+			JSON:     s.cfg.Log.Format == "json",
+			Concise:  s.cfg.DevMode,
+		})),
 		func(r *http.Request) bool {
 			// Don't log requests for assets
 			return !strings.HasPrefix(r.URL.Path, "/assets")
@@ -314,7 +318,8 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		PreviewAlt: template.HTMLEscapeString(s.shortContent(document.Content)),
 	}
 	if err = s.tmpl(w, "document.gohtml", vars); err != nil {
-		slog.Error("failed to execute template", slog.Any("err", err))
+		logger := httplog.LogEntry(r.Context())
+		logger.ErrorContext(r.Context(), "failed to execute template", tint.Err(err))
 	}
 }
 

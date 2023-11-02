@@ -14,8 +14,10 @@ import (
 
 	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/httplog/v2"
 	"github.com/go-chi/httprate"
 	"github.com/go-jose/go-jose/v3"
+	"github.com/lmittmann/tint"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -81,18 +83,18 @@ type Server struct {
 
 func (s *Server) Start() {
 	if err := s.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		slog.Error("Error while listening", slog.Any("err", err))
+		slog.Error("Error while listening", tint.Err(err))
 		os.Exit(1)
 	}
 }
 
 func (s *Server) Close() {
 	if err := s.server.Close(); err != nil {
-		slog.Error("Error while closing server", slog.Any("err", err))
+		slog.Error("Error while closing server", tint.Err(err))
 	}
 
 	if err := s.db.Close(); err != nil {
-		slog.Error("Error while closing database", slog.Any("err", err))
+		slog.Error("Error while closing database", tint.Err(err))
 	}
 }
 
@@ -106,7 +108,8 @@ func (s *Server) prettyError(w http.ResponseWriter, r *http.Request, err error, 
 		Path:      r.URL.Path,
 	}
 	if tmplErr := s.tmpl(w, "error.gohtml", vars); tmplErr != nil && !errors.Is(tmplErr, http.ErrHandlerTimeout) {
-		slog.ErrorContext(r.Context(), "failed to execute error template", slog.Any("err", tmplErr))
+		logger := httplog.LogEntry(r.Context())
+		logger.ErrorContext(r.Context(), "failed to execute error template", tint.Err(tmplErr))
 	}
 }
 
@@ -115,7 +118,8 @@ func (s *Server) error(w http.ResponseWriter, r *http.Request, err error, status
 		return
 	}
 	if status == http.StatusInternalServerError {
-		slog.ErrorContext(r.Context(), "internal server error", slog.Any("err", err))
+		logger := httplog.LogEntry(r.Context())
+		logger.ErrorContext(r.Context(), "internal server error", tint.Err(err))
 	}
 	s.json(w, r, ErrorResponse{
 		Message:   err.Error(),
@@ -137,7 +141,8 @@ func (s *Server) json(w http.ResponseWriter, r *http.Request, v any, status int)
 	}
 
 	if err := json.NewEncoder(w).Encode(v); err != nil && !errors.Is(err, http.ErrHandlerTimeout) {
-		slog.ErrorContext(r.Context(), "failed to encode json", slog.Any("err", err))
+		logger := httplog.LogEntry(r.Context())
+		logger.ErrorContext(r.Context(), "failed to encode json", tint.Err(err))
 	}
 }
 

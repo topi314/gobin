@@ -17,7 +17,7 @@ var (
 func main() {
 	rootCmd := cmd.NewRootCmd()
 	cmd.NewGetCmd(rootCmd)
-	cmd.NewPushCmd(rootCmd)
+	cmd.NewPostCmd(rootCmd)
 	cmd.NewRmCmd(rootCmd)
 	buildTime, _ := time.Parse(time.RFC3339, BuildTime)
 	cmd.NewVersionCmd(rootCmd, gobin.FormatBuildVersion(Version, Commit, buildTime))
