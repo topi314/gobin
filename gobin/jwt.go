@@ -30,6 +30,12 @@ const (
 	PermissionShare  Permission = "share"
 )
 
+var AllPermissions = []Permission{
+	PermissionWrite,
+	PermissionDelete,
+	PermissionShare,
+}
+
 func (p Permission) IsValid() bool {
 	return p == PermissionWrite || p == PermissionDelete || p == PermissionShare
 }

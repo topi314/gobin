@@ -139,35 +139,35 @@ Create a new `gobin.json` file with the following content:
 > **Note**
 > Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
 
-```yml
+```json5
 {
   "log": {
-    # log level, either "debug", "info", "warn" or "error"
-    "level": "info",
-    # log format, either "json" or "text"
+    // level can be -4 (debug), 0 (info), 4 (warn), 8 (error)
+    "level": 0,
+    // log format, either "json" or "text"
     "format": "text",
-    # whether to add the source file and line to the log output
+    // whether to add the source file and line to the log output
     "add_source": false
   },
-  # enable or disable debug profiler endpoint
+  // enable or disable debug profiler endpoint
   "debug": false,
-  # enable or disable hot reload of templates and assets
+  // enable or disable hot reload of templates and assets
   "dev_mode": false,
   "listen_addr": "0.0.0.0:80",
-  # secret for jwt tokens, replace with a long random string
+  // secret for jwt tokens, replace with a long random string
   "jwt_secret": "...",
   "database": {
-    # either "postgres" or "sqlite"
+    // either "postgres" or "sqlite"
     "type": "postgres",
     "debug": false,
     "expire_after": "168h",
     "cleanup_interval": "10m",
 
-    # path to sqlite database
-    # if you run gobin with docker make sure to set it to "/var/lib/gobin/gobin.db"
+    // path to sqlite database
+    // if you run gobin with docker make sure to set it to "/var/lib/gobin/gobin.db"
     "path": "gobin.db",
 
-    # postgres connection settings
+    // postgres connection settings
     "host": "localhost",
     "port": 5432,
     "username": "gobin",
@@ -175,30 +175,30 @@ Create a new `gobin.json` file with the following content:
     "database": "gobin",
     "ssl_mode": "disable"
   },
-  # max document size in characters
+  // max document size in characters
   "max_document_size": 0,
-  # omit or set values to 0 or "0" to disable rate limit
+  // omit or set values to 0 or "0" to disable rate limit
   "rate_limit": {
-    # number of requests which can be done in the duration
+    // number of requests which can be done in the duration
     "requests": 10,
-    # the duration of the requests
+    // the duration of the requests
     "duration": "1m",
-    # a list of ip addresses which are exempt from rate limiting
+    // a list of ip addresses which are exempt from rate limiting
     "whitelist": ["127.0.0.1"],
-    # a list of ip addresses which are blocked from rate limited endpoints
+    // a list of ip addresses which are blocked from rate limited endpoints
     "blacklist": ["123.456.789.0"]
   },
-  # settings for social media previews, omit to disable
+  // settings for social media previews, omit to disable
   "preview": {
-    # path to inkscape binary https://inkscape.org/
+    // path to inkscape binary https://inkscape.org/
     "inkscape_path": "/usr/bin/inkscape",
-    # how many lines should be shown in the preview
+    // how many lines should be shown in the preview
     "max_lines": 10,
-    # how high the resolution of the preview should be, 96 is the default
+    // how high the resolution of the preview should be, 96 is the default
     "dpi": 96,
-    # how many previews should be maximally cached
+    // how many previews should be maximally cached
     "cache_size": 1024,
-    # how long should previews be cached
+    // how long should previews be cached
     "cache_duration": "1h"
   }
 }
@@ -360,13 +360,13 @@ To get a document you have to send a `GET` request to `/documents/{key}`.
 
 The response will be a `200 OK` with the document content as `application/json` body.
 
-```yaml
+```json5
 {
   "key": "hocwr6i6",
   "version": "1",
   "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
-  "formatted": "...", # only if formatter is set
-  "css": "...", # only if formatter=html
+  "formatted": "...", // only if formatter is set
+  "css": "...", // only if formatter=html
   "language": "go"
 }
 ```
@@ -385,20 +385,20 @@ To get a documents versions you have to send a `GET` request to `/documents/{key
 
 The response will be a `200 OK` with the document content as `application/json` body.
 
-```yaml
+```json5
 [
   {
     "version": 1,
     "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
-    "formatted": "...", # only if formatter is set
-    "css": "...", # only if formatter=html
+    "formatted": "...", // only if formatter is set
+    "css": "...", // only if formatter=html
     "language": "go"
   },
   {
     "version": 2,
     "data": "package main\n\nfunc main() {\n    println(\"Hello World2!\")\n}",
-    "formatted": "...", # only if formatter is set
-    "css": "...", # only if formatter=html
+    "formatted": "...", // only if formatter is set
+    "css": "...", // only if formatter=html
     "language": "go"
   }
 ]
@@ -415,13 +415,13 @@ To get a document version you have to send a `GET` request to `/documents/{key}/
 
 The response will be a `200 OK` with the document content as `application/json` body.
 
-```yaml
+```json5
 {
   "key": "hocwr6i6",
   "version": 1,
   "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
-  "formatted": "...", # only if formatter is set
-  "css": "...", # only if formatter=html
+  "formatted": "...", // only if formatter is set
+  "css": "...", // only if formatter=html
   "language": "go"
 }
 ```
@@ -454,13 +454,38 @@ A successful request will return a `200 OK` response with a JSON body containing
 > **Note**
 > The update token will not change after updating the document. You can use the same token to update the document again.
 
-```yaml
+```json5
 {
   "key": "hocwr6i6",
   "version": 2,
-  "data": "package main\n\nfunc main() {\n    println(\"Hello World Updated!\")\n}", # only if formatter is set
-  "formatted": "...", # only if formatter is set
-  "css": "...", # only if formatter=html
+  "data": "package main\n\nfunc main() {\n    println(\"Hello World Updated!\")\n}", // only if formatter is set
+  "formatted": "...", // only if formatter is set
+  "css": "...", // only if formatter=html
+}
+```
+
+---
+
+### Share a document
+
+To share a document you have to send a `POST` request to `/documents/{key}/share` with the `token` as `Authorization` header and the following JSON body:
+
+```json5
+{
+  "permissions": [
+    "write",
+    "delete",
+    "share"
+  ]
+}
+```
+
+A successful request will return a `200 OK` response with a JSON body containing the share token.
+You can append the token to URLs like this: `https://xgob.in/{key}?token={token}` to make the frontend auto import the token for editing/deleting/sharing the document.
+
+```json5
+{
+  "token": "kiczgez33j7qkvqdg9f7ksrd8jk88wba"
 }
 ```
 
@@ -500,12 +525,12 @@ A successful request will return a `204 No Content` response with an empty body.
 
 In case of an error gobin will return the following JSON body with the corresponding HTTP status code:
 
-```yaml
+```json5
 {
-  "message": "document not found", # error message
-  "status": 404, # HTTP status code
-  "path": "/documents/7df3vw", # request path
-  "request_id": "fbe0a365387f/gVAMGuraLW-003490" # request id
+  "message": "document not found", // error message
+  "status": 404, // HTTP status code
+  "path": "/documents/7df3vw", // request path
+  "request_id": "fbe0a365387f/gVAMGuraLW-003490" // request id
 }
 ```
 

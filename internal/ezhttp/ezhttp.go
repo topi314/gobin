@@ -35,6 +35,10 @@ func Post(path string, body io.Reader) (*http.Response, error) {
 	return Do(http.MethodPost, path, "", body)
 }
 
+func PostToken(path string, token string, body io.Reader) (*http.Response, error) {
+	return Do(http.MethodPost, path, token, body)
+}
+
 func Patch(path string, token string, body io.Reader) (*http.Response, error) {
 	return Do(http.MethodPatch, path, token, body)
 }

@@ -49,9 +49,8 @@ func (s *Server) Routes() http.Handler {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Maybe(
 		httplog.Handler(httplog.NewLogger("gobin", httplog.Options{
-			LogLevel: s.cfg.Log.Level,
-			JSON:     s.cfg.Log.Format == "json",
-			Concise:  s.cfg.DevMode,
+			Pretty:  s.cfg.Log.Format == "json",
+			Concise: s.cfg.DevMode,
 		})),
 		func(r *http.Request) bool {
 			// Don't log requests for assets

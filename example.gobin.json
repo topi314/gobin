@@ -1,6 +1,7 @@
 {
   "log": {
-    "level": "info",
+    // level can be -4 (debug), 0 (info), 4 (warn), 8 (error)
+    "level": 0,
     "format": "text",
     "add_source": false
   },

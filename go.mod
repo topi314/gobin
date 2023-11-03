@@ -4,6 +4,7 @@ go 1.21
 
 replace (
 	github.com/alecthomas/chroma/v2 => github.com/topi314/chroma/v2 v2.0.0-20231102201437-8ab796b222de
+	github.com/go-chi/httplog/v2 => github.com/topi314/httplog/v2 v2.0.0-20231103010009-0b43c59df893
 	github.com/riandyrn/otelchi => github.com/topi314/otelchi v0.0.0-20231102200450-1f008a097ec7
 )
 
@@ -12,11 +13,13 @@ require (
 	github.com/alecthomas/chroma/v2 v2.10.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/go-chi/chi/v5 v5.0.10
+	github.com/go-chi/httplog/v2 v2.0.7
 	github.com/go-chi/httprate v0.7.4
 	github.com/go-chi/stampede v0.5.1
 	github.com/go-jose/go-jose/v3 v3.0.0
 	github.com/jackc/pgx/v5 v5.4.3
 	github.com/jmoiron/sqlx v1.3.5
+	github.com/lmittmann/tint v1.0.3
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/prometheus/client_golang v1.17.0
 	github.com/riandyrn/otelchi v0.5.1
@@ -39,7 +42,6 @@ require (
 	github.com/dlclark/regexp2 v1.10.0 // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
-	github.com/go-chi/httplog/v2 v2.0.7 // indirect
 	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
@@ -52,7 +54,6 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/lib/pq v1.10.9 // indirect
-	github.com/lmittmann/tint v1.0.3 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 // indirect
