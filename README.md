@@ -2,7 +2,8 @@
 [![Go Version](https://img.shields.io/github/go-mod/go-version/topi314/gobin)](https://golang.org/doc/devel/release.html)
 [![KittyBot License](https://img.shields.io/github/license/topi314/gobin)](LICENSE)
 [![KittyBot Version](https://img.shields.io/github/v/tag/topi314/gobin?label=release)](https://github.com/topi314/gobin/releases/latest)
-[![Docker](https://github.com/topi314/gobin/actions/workflows/docker.yml/badge.svg)](https://github.com/topi314/gobin/actions/workflows/docker.yml)
+[![Server](https://github.com/topi314/gobin/actions/workflows/server.yml/badge.svg)](https://github.com/topi314/gobin/actions/workflows/server.yml)
+[![CLI](https://github.com/topi314/gobin/actions/workflows/cli.yml/badge.svg)](https://github.com/topi314/gobin/actions/workflows/cli.yml)
 [![Discord](https://discordapp.com/api/guilds/608506410803658753/embed.png?style=shield)](https://discord.gg/sD3ABd5)
 
 # gobin
