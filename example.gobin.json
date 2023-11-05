@@ -2,8 +2,10 @@
   "log": {
     // level can be -4 (debug), 0 (info), 4 (warn), 8 (error)
     "level": 0,
+    // format can be "text" or "json"
     "format": "text",
-    "add_source": false
+    "add_source": false,
+    "no_color": false
   },
   "debug": false,
   "dev_mode": false,

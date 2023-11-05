@@ -14,7 +14,6 @@ import (
 
 	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/httplog/v2"
 	"github.com/go-chi/httprate"
 	"github.com/go-jose/go-jose/v3"
 	"github.com/lmittmann/tint"
@@ -108,8 +107,7 @@ func (s *Server) prettyError(w http.ResponseWriter, r *http.Request, err error, 
 		Path:      r.URL.Path,
 	}
 	if tmplErr := s.tmpl(w, "error.gohtml", vars); tmplErr != nil && !errors.Is(tmplErr, http.ErrHandlerTimeout) {
-		logger := httplog.LogEntry(r.Context())
-		logger.ErrorContext(r.Context(), "failed to execute error template", tint.Err(tmplErr))
+		slog.ErrorContext(r.Context(), "failed to execute error template", tint.Err(tmplErr))
 	}
 }
 
@@ -118,8 +116,7 @@ func (s *Server) error(w http.ResponseWriter, r *http.Request, err error, status
 		return
 	}
 	if status == http.StatusInternalServerError {
-		logger := httplog.LogEntry(r.Context())
-		logger.ErrorContext(r.Context(), "internal server error", tint.Err(err))
+		slog.ErrorContext(r.Context(), "internal server error", tint.Err(err))
 	}
 	s.json(w, r, ErrorResponse{
 		Message:   err.Error(),
@@ -141,8 +138,7 @@ func (s *Server) json(w http.ResponseWriter, r *http.Request, v any, status int)
 	}
 
 	if err := json.NewEncoder(w).Encode(v); err != nil && !errors.Is(err, http.ErrHandlerTimeout) {
-		logger := httplog.LogEntry(r.Context())
-		logger.ErrorContext(r.Context(), "failed to encode json", tint.Err(err))
+		slog.ErrorContext(r.Context(), "failed to encode json", tint.Err(err))
 	}
 }
 

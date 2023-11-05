@@ -148,7 +148,9 @@ Create a new `gobin.json` file with the following content:
     // log format, either "json" or "text"
     "format": "text",
     // whether to add the source file and line to the log output
-    "add_source": false
+    "add_source": false,
+    // whether to add color to the log output (only for text format)
+    "no_color": false
   },
   // enable or disable debug profiler endpoint
   "debug": false,

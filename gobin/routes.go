@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"log/slog"
 	"net/http"
 	"slices"
 	"strconv"
@@ -22,10 +23,10 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/httplog/v2"
 	"github.com/go-chi/stampede"
 	"github.com/lmittmann/tint"
 	"github.com/riandyrn/otelchi"
+	slogchi "github.com/samber/slog-chi"
 )
 
 const maxUnix = int(^int32(0))
@@ -47,16 +48,20 @@ func (s *Server) Routes() http.Handler {
 	r.Use(middleware.CleanPath)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.RequestID)
-	r.Use(middleware.Maybe(
-		httplog.Handler(httplog.NewLogger("gobin", httplog.Options{
-			Pretty:  s.cfg.Log.Format == "json",
-			Concise: s.cfg.DevMode,
-		})),
-		func(r *http.Request) bool {
-			// Don't log requests for assets
-			return !strings.HasPrefix(r.URL.Path, "/assets")
+	r.Use(slogchi.NewWithConfig(slog.Default(), slogchi.Config{
+		DefaultLevel:         slog.LevelInfo,
+		ClientErrorLevel:     slog.LevelDebug,
+		ServerErrorLevel:     slog.LevelError,
+		WithRequestIP:        true,
+		WithRequestID:        true,
+		WithRequestBodySize:  true,
+		WithResponseBodySize: true,
+		WithSpanID:           s.cfg.Otel != nil,
+		WithTraceID:          s.cfg.Otel != nil,
+		Filters: []slogchi.Filter{
+			slogchi.IgnorePathPrefix("/assets"),
 		},
-	))
+	}))
 	r.Use(cacheControl)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Heartbeat("/ping"))
@@ -317,8 +322,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		PreviewAlt: template.HTMLEscapeString(s.shortContent(document.Content)),
 	}
 	if err = s.tmpl(w, "document.gohtml", vars); err != nil {
-		logger := httplog.LogEntry(r.Context())
-		logger.ErrorContext(r.Context(), "failed to execute template", tint.Err(err))
+		slog.ErrorContext(r.Context(), "failed to execute template", tint.Err(err))
 	}
 }
 

@@ -42,6 +42,7 @@ type LogConfig struct {
 	Level     slog.Level `cfg:"level"`
 	Format    string     `cfg:"format"`
 	AddSource bool       `cfg:"add_source"`
+	NoColor   bool       `cfg:"no_color"`
 }
 
 func (c LogConfig) String() string {
