@@ -31,6 +31,10 @@ gobin is a simple lightweight haste-server alternative written in Go, HTML, JS a
     - [Update a document](#update-a-document)
     - [Delete a document](#delete-a-document)
     - [Delete a document version](#delete-a-document-version)
+    - [Document webhooks](#document-webhooks)
+        - [Create a document webhook](#create-a-document-webhook)
+        - [Update a document webhook](#update-a-document-webhook)
+        - [Delete a document webhook](#delete-a-document-webhook)
     - [Other endpoints](#other-endpoints)
     - [Errors](#errors)
 - [License](#license)
@@ -203,6 +207,16 @@ Create a new `gobin.json` file with the following content:
     "cache_size": 1024,
     // how long should previews be cached
     "cache_duration": "1h"
+  },
+  // settings for webhooks, omit to disable
+  "webhook": {
+    // webhook retry settings
+    "retry": {
+      // how many times to retry a webhook delivery
+      "max": 5,
+      // how long to wait between retries
+      "wait": "1m"
+    }
   }
 }
 ```
@@ -505,6 +519,90 @@ A successful request will return a `204 No Content` response with an empty body.
 ### Delete a document version
 
 To delete a document version you have to send a `DELETE` request to `/documents/{key}/versions/{version}` with the `token` as `Authorization` header.
+
+A successful request will return a `204 No Content` response with an empty body.
+
+---
+
+### Document webhooks
+
+You can listen for document changes using webhooks. The webhook will send a `POST` request to the specified url with the following JSON body:
+
+```json5
+{
+  // the key of the document
+  "key": "hocwr6i6",
+  // the version of the document
+  "version": 1,
+  // the language of the document
+  "language": "go",
+  // the content of the document
+  "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
+  // the event which triggered the webhook (update or delete)
+  "event": "update"
+}
+```
+
+When a request to a webhook fails gobin will retry it 3 times with a 5 second delay between each try. If all tries fail the webhook will be deleted.
+
+#### Create a document webhook
+
+To create a webhook you have to send a `POST` request to `/documents/{key}/webhooks` with the following JSON body:
+
+```json5
+{
+  // the url to send a request to
+  "url": "https://example.com/webhook",
+  // the secret to include in the request
+  "secret": "secret",
+  // the events you want to receive
+  "events": [
+    // update event is sent when a document is updated. This includes content and language changes
+    "update",
+    // delete event is sent when a document is deleted
+    "delete"
+  ]
+}
+```
+
+A successful request will return a `200 OK` response with a JSON body containing the webhook id.
+
+```json5
+{
+  // the id of the webhook
+  "id": 1
+}
+```
+
+---
+
+#### Update a document webhook
+
+To update a webhook you have to send a `PATCH` request to `/documents/{key}/webhooks/{id}` with the `Authorization` header set to the secret and the following JSON body:
+
+```json5
+{
+  // the url to send a request to
+  "url": "https://example.com/webhook",
+  // the secret to include in the request
+  "secret": "secret",
+  // the events you want to receive
+  "events": [
+    // update event is sent when a document is updated. This includes content and language changes
+    "update",
+    // delete event is sent when a document is deleted
+    "delete"
+  ]
+}
+```
+
+A successful request will return a `204 No Content` response with an empty body.
+
+---
+
+#### Delete a document webhook
+
+To delete a webhook you have to send a `DELETE` request to `/documents/{key}/webhooks/{id}` with the `Authorization` header set to the secret.
 
 A successful request will return a `204 No Content` response with an empty body.
 
