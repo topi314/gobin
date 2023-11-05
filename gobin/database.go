@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log/slog"
 	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/XSAM/otelsql"
@@ -108,6 +109,14 @@ type Document struct {
 	Version  int64  `db:"version"`
 	Content  string `db:"content"`
 	Language string `db:"language"`
+}
+
+type Webhook struct {
+	ID         int    `db:"id"`
+	DocumentID string `db:"document_id"`
+	URL        string `db:"url"`
+	Secret     string `db:"secret"`
+	Events     string `db:"events"`
 }
 
 type DB struct {
@@ -243,6 +252,46 @@ func (d *DB) DeleteExpiredDocuments(ctx context.Context, expireAfter time.Durati
 	return err
 }
 
+func (d *DB) CreateWebhook(ctx context.Context, documentID string, url string, secret string, events []string) (*Webhook, error) {
+	webhook := Webhook{
+		DocumentID: documentID,
+		URL:        url,
+		Secret:     secret,
+		Events:     strings.Join(events, ","),
+	}
+	if err := d.dbx.SelectContext(ctx, &webhook, "INSERT INTO webhooks (document_id, url, secret, events) VALUES (:document_id, :url, :secret, :events) RETURNING id"); err != nil {
+		return nil, err
+	}
+
+	return &webhook, nil
+}
+
+func (d *DB) GetWebhook(ctx context.Context, webhookID int) (*Webhook, error) {
+	var webhook Webhook
+	err := d.dbx.GetContext(ctx, &webhook, "SELECT * FROM webhooks WHERE id = $1", webhookID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &webhook, nil
+}
+
+func (d *DB) DeleteWebhook(ctx context.Context, webhookID int) error {
+	res, err := d.dbx.ExecContext(ctx, "DELETE FROM webhooks WHERE id = $1", webhookID)
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}
+
 func (d *DB) cleanup(ctx context.Context, cleanUpInterval time.Duration, expireAfter time.Duration) {
 	if expireAfter <= 0 {
 		return
@@ -252,8 +301,10 @@ func (d *DB) cleanup(ctx context.Context, cleanUpInterval time.Duration, expireA
 	}
 	slog.Info("Starting document cleanup...")
 	ticker := time.NewTicker(cleanUpInterval)
-	defer ticker.Stop()
-	defer slog.Info("document cleanup stopped")
+	defer func() {
+		ticker.Stop()
+		slog.Info("document cleanup stopped")
+	}()
 
 	for {
 		select {

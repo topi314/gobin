@@ -6,7 +6,7 @@ replace (
 	github.com/alecthomas/chroma/v2 => github.com/topi314/chroma/v2 v2.0.0-20231102201437-8ab796b222de
 	github.com/lmittmann/tint => github.com/topi314/tint v0.0.0-20231104181148-45dab0ccba0c
 	github.com/riandyrn/otelchi => github.com/topi314/otelchi v0.0.0-20231102200450-1f008a097ec7
-	github.com/samber/slog-chi => github.com/topi314/slog-chi v0.0.0-20231104212214-68d4ec2e4e71
+	github.com/samber/slog-chi => github.com/topi314/slog-chi v0.0.0-20231105192443-ac2bd271621d
 )
 
 require (

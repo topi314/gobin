@@ -49,15 +49,12 @@ func (s *Server) Routes() http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.RequestID)
 	r.Use(slogchi.NewWithConfig(slog.Default(), slogchi.Config{
-		DefaultLevel:         slog.LevelInfo,
-		ClientErrorLevel:     slog.LevelDebug,
-		ServerErrorLevel:     slog.LevelError,
-		WithRequestIP:        true,
-		WithRequestID:        true,
-		WithRequestBodySize:  true,
-		WithResponseBodySize: true,
-		WithSpanID:           s.cfg.Otel != nil,
-		WithTraceID:          s.cfg.Otel != nil,
+		DefaultLevel:     slog.LevelInfo,
+		ClientErrorLevel: slog.LevelDebug,
+		ServerErrorLevel: slog.LevelError,
+		WithRequestID:    true,
+		WithSpanID:       s.cfg.Otel != nil,
+		WithTraceID:      s.cfg.Otel != nil,
 		Filters: []slogchi.Filter{
 			slogchi.IgnorePathPrefix("/assets"),
 		},
@@ -116,6 +113,16 @@ func (s *Server) Routes() http.Handler {
 			r.Patch("/", s.PatchDocument)
 			r.Delete("/", s.DeleteDocument)
 			r.Post("/share", s.PostDocumentShare)
+
+			r.Route("/webhooks", func(r chi.Router) {
+				r.Post("/", s.PostDocumentWebhook)
+				r.Route("/{webhookID}", func(r chi.Router) {
+					r.Get("/", s.GetDocumentWebhook)
+					r.Patch("/", s.PatchDocumentWebhook)
+					r.Delete("/", s.DeleteDocumentWebhook)
+				})
+			})
+
 			previewHandler(r)
 			r.Route("/versions", func(r chi.Router) {
 				r.Get("/", s.DocumentVersions)
@@ -127,6 +134,8 @@ func (s *Server) Routes() http.Handler {
 			})
 		})
 	})
+
+	r.Get("/webhooks/events/failed", s.GetFailedWebhookEvents)
 
 	r.Route("/{documentID}", func(r chi.Router) {
 		r.Get("/", s.GetPrettyDocument)
@@ -612,7 +621,7 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 	documentID, extension := parseDocumentID(r)
 	language := r.URL.Query().Get("language")
 
-	claims := s.GetClaims(r)
+	claims := GetClaims(r)
 	if claims.Subject != documentID || !slices.Contains(claims.Permissions, PermissionWrite) {
 		s.documentNotFound(w, r)
 		return
@@ -687,7 +696,7 @@ func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims := s.GetClaims(r)
+	claims := GetClaims(r)
 	if claims.Subject != documentID || !slices.Contains(claims.Permissions, PermissionDelete) {
 		s.documentNotFound(w, r)
 		return
@@ -742,7 +751,7 @@ func (s *Server) PostDocumentShare(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	claims := s.GetClaims(r)
+	claims := GetClaims(r)
 	if claims.Subject != documentID || !slices.Contains(claims.Permissions, PermissionShare) {
 		s.documentNotFound(w, r)
 		return

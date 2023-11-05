@@ -20,6 +20,7 @@ type Config struct {
 	JWTSecret        string           `cfg:"jwt_secret"`
 	Preview          *PreviewConfig   `cfg:"preview"`
 	Otel             *OtelConfig      `cfg:"otel"`
+	Webhook          *WebhookConfig   `cfg:"webhook"`
 }
 
 func (c Config) String() string {
@@ -174,5 +175,25 @@ type MetricsConfig struct {
 func (c MetricsConfig) String() string {
 	return fmt.Sprintf("\n   ListenAddr: %s",
 		c.ListenAddr,
+	)
+}
+
+type WebhookConfig struct {
+	Timeout       time.Duration `cfg:"timeout"`
+	MaxTries      int           `cfg:"max_tries"`
+	Backoff       time.Duration `cfg:"backoff"`
+	BackoffFactor float64       `cfg:"backoff_factor"`
+	MaxBackoff    time.Duration `cfg:"max_backoff"`
+	CacheDuration time.Duration `cfg:"cache_duration"`
+}
+
+func (c WebhookConfig) String() string {
+	return fmt.Sprintf("\n  Timeout: %s\n  MaxTries: %d\n  Backoff: %s\n  BackoffFactor: %f\n  MaxBackoff: %s\n  CacheDuration: %s",
+		c.Timeout,
+		c.MaxTries,
+		c.Backoff,
+		c.BackoffFactor,
+		c.MaxBackoff,
+		c.CacheDuration,
 	)
 }

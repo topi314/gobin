@@ -49,6 +49,7 @@ gobin is a simple lightweight haste-server alternative written in Go, HTML, JS a
 - Easy to deploy and use
 - Built-in rate-limiting
 - Create, update and delete documents
+- Document update/delete webhooks
 - Syntax highlighting
 - Social Media PNG previews
 - Document expiration
@@ -539,11 +540,59 @@ You can listen for document changes using webhooks. The webhook will send a `POS
   // the content of the document
   "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
   // the event which triggered the webhook (update or delete)
-  "event": "update"
+  "event": "update",
+  // the time the event was created
+  "created_at": "2021-08-01T12:00:00Z"
 }
 ```
 
-When a request to a webhook fails gobin will retry it 3 times with a 5 second delay between each try. If all tries fail the webhook will be deleted.
+When sending an event to a webhook fails gobin will retry it up to x times with an exponential backoff. The retry settings can be configured in the config file.
+When an event fails to be sent after x retries, the webhook is placed in failed state and no retries are made anymore.
+These failed events will be saved in the database for x time before being deleted with the webhook.
+You can fetch them manually using the [Get failed webhook events](#get-failed-webhook-events) endpoint.
+After an event has been fetched it will not be retried anymore.
+
+### Get failed webhook events
+
+To get failed webhooks you have to send a `GET` request to `/webhooks/events/failed` with a JSON body containing the webhook ids and their secrets:
+
+```json5
+[
+  {
+    "key": "hocwr6i6",
+    "secret": "kiczgez33j7qkvqdg9f7ksrd8jk88wba"
+  },
+  ...
+]
+```
+
+A successful request will return a `200 OK` response with a JSON body containing the failed webhook events:
+
+```json5
+[
+  {
+    // the key of the document
+    "key": "hocwr6i6",
+    // the version of the document
+    "version": 1,
+    // the language of the document
+    "language": "go",
+    // the content of the document
+    "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
+    // the event which triggered the webhook (update or delete)
+    "event": "update",
+    // the number of times the event has been retried
+    "retries": 0,
+    // the time the event was created
+    "created_at": "2021-08-01T12:00:00Z",
+    // the last time the event was retried
+    "last_retry": "2021-08-01T12:00:00Z"
+  },
+  ...
+]
+```
+
+---
 
 #### Create a document webhook
 
@@ -565,12 +614,49 @@ To create a webhook you have to send a `POST` request to `/documents/{key}/webho
 }
 ```
 
-A successful request will return a `200 OK` response with a JSON body containing the webhook id.
+A successful request will return a `200 OK` response with a JSON body containing the webhook.
 
 ```json5
 {
   // the id of the webhook
-  "id": 1
+  "id": 1,
+  // the url to send a request to
+  "url": "https://example.com/webhook",
+  // the secret to include in the request
+  "secret": "secret",
+  // the events you want to receive
+  "events": [
+    // update event is sent when a document is updated. This includes content and language changes
+    "update",
+    // delete event is sent when a document is deleted
+    "delete"
+  ]
+}
+```
+
+---
+
+#### Get a document webhook
+
+To get a webhook you have to send a `GET` request to `/documents/{key}/webhooks/{id}` with the `Authorization` header set to the secret.
+
+A successful request will return a `200 OK` response with a JSON body containing the webhook.
+
+```json5
+{
+  // the id of the webhook
+  "id": 1,
+  // the url to send a request to
+  "url": "https://example.com/webhook",
+  // the secret to include in the request
+  "secret": "secret",
+  // the events you want to receive
+  "events": [
+    // update event is sent when a document is updated. This includes content and language changes
+    "update",
+    // delete event is sent when a document is deleted
+    "delete"
+  ]
 }
 ```
 

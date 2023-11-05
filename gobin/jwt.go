@@ -25,19 +25,21 @@ var (
 type Permission string
 
 const (
-	PermissionWrite  Permission = "write"
-	PermissionDelete Permission = "delete"
-	PermissionShare  Permission = "share"
+	PermissionWrite   Permission = "write"
+	PermissionDelete  Permission = "delete"
+	PermissionShare   Permission = "share"
+	PermissionWebhook Permission = "webhook"
 )
 
 var AllPermissions = []Permission{
 	PermissionWrite,
 	PermissionDelete,
 	PermissionShare,
+	PermissionWebhook,
 }
 
 func (p Permission) IsValid() bool {
-	return p == PermissionWrite || p == PermissionDelete || p == PermissionShare
+	return p == PermissionWrite || p == PermissionDelete || p == PermissionShare || p == PermissionWebhook
 }
 
 type Claims struct {
@@ -73,13 +75,13 @@ func (s *Server) JWTMiddleware(next http.Handler) http.Handler {
 			}
 		}
 
-		ctx := context.WithValue(r.Context(), ClaimsKey, &claims)
+		ctx := context.WithValue(r.Context(), ClaimsKey, claims)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
-func (s *Server) GetClaims(r *http.Request) *Claims {
-	return r.Context().Value(ClaimsKey).(*Claims)
+func GetClaims(r *http.Request) Claims {
+	return r.Context().Value(ClaimsKey).(Claims)
 }
 
 func (s *Server) NewToken(documentID string, permissions []Permission) (string, error) {

@@ -1,6 +1,9 @@
 package gobin
 
-import "html/template"
+import (
+	"html/template"
+	"time"
+)
 
 type (
 	TemplateVariables struct {
@@ -73,4 +76,47 @@ type (
 		Path      string `json:"path"`
 		RequestID string `json:"request_id"`
 	}
+
+	WebhookRequest struct {
+		URL    string   `json:"url"`
+		Secret string   `json:"secret"`
+		Events []string `json:"events"`
+	}
+
+	WebhookResponse struct {
+		ID     int      `json:"id"`
+		URL    string   `json:"url"`
+		Secret string   `json:"secret"`
+		Events []string `json:"events"`
+	}
+
+	FailedWebhookEventsRequest []FailedWebhook
+
+	FailedWebhook struct {
+		ID     int    `json:"id"`
+		Secret string `json:"secret"`
+	}
+
+	FailWebhookEventsResponse []WebhookEventRequest
+
+	WebhookEventRequest struct {
+		WebhookID int             `json:"webhook_id"`
+		Event     string          `json:"event"`
+		Retries   int             `json:"retries"`
+		CreatedAt time.Time       `json:"created_at"`
+		LastRetry time.Time       `json:"last_retry"`
+		Document  WebhookDocument `json:"document"`
+	}
+
+	WebhookDocument struct {
+		Key      string `json:"key"`
+		Version  int64  `json:"version"`
+		Language string `json:"language"`
+		Data     string `json:"data"`
+	}
+)
+
+const (
+	WebhookEventUpdate string = "update"
+	WebhookEventDelete string = "delete"
 )

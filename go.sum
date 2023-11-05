@@ -285,6 +285,7 @@ github.com/topi314/otelchi v0.0.0-20231102200450-1f008a097ec7 h1:3gvvH2EygB2wFo2
 github.com/topi314/otelchi v0.0.0-20231102200450-1f008a097ec7/go.mod h1:BPS3hpeCxkgg5Qaz/bTc6Vov8oAthkB9I0KNE3jZVAU=
 github.com/topi314/slog-chi v0.0.0-20231104212214-68d4ec2e4e71 h1:vRrbuj6zIYIKafvkRxXTVYA3QAgBJokgXtbys/bduo8=
 github.com/topi314/slog-chi v0.0.0-20231104212214-68d4ec2e4e71/go.mod h1:0UWP4eehIuq8E+b41vvpwyUkEX2eRfyELQjGOsS6Uis=
+github.com/topi314/slog-chi v0.0.0-20231105192443-ac2bd271621d/go.mod h1:0UWP4eehIuq8E+b41vvpwyUkEX2eRfyELQjGOsS6Uis=
 github.com/topi314/tint v0.0.0-20231104181148-45dab0ccba0c h1:C06A6h7DeD7WK+BgClcFTAfs3QD26Vszoh/rEn8UmJc=
 github.com/topi314/tint v0.0.0-20231104181148-45dab0ccba0c/go.mod h1:HIS3gSy7qNwGCj+5oRjAutErFBl4BzdQP6cJZ0NfMwE=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
