@@ -4,7 +4,6 @@ go 1.21
 
 replace (
 	github.com/alecthomas/chroma/v2 => github.com/topi314/chroma/v2 v2.0.0-20231102201437-8ab796b222de
-	github.com/lmittmann/tint => github.com/topi314/tint v0.0.0-20231104181148-45dab0ccba0c
 	github.com/riandyrn/otelchi => github.com/topi314/otelchi v0.0.0-20231102200450-1f008a097ec7
 	github.com/samber/slog-chi => github.com/topi314/slog-chi v0.0.0-20231105192443-ac2bd271621d
 )
@@ -19,7 +18,6 @@ require (
 	github.com/go-jose/go-jose/v3 v3.0.0
 	github.com/jackc/pgx/v5 v5.5.0
 	github.com/jmoiron/sqlx v1.3.5
-	github.com/lmittmann/tint v1.0.3
 	github.com/mattn/go-colorable v0.1.13
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/prometheus/client_golang v1.17.0
@@ -27,6 +25,7 @@ require (
 	github.com/samber/slog-chi v1.5.1
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.17.0
+	github.com/topi314/tint v0.0.0-20231106205902-77268b701ca6
 	go.opentelemetry.io/otel v1.19.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.19.0
 	go.opentelemetry.io/otel/exporters/prometheus v0.42.0

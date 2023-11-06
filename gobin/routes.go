@@ -24,9 +24,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/stampede"
-	"github.com/lmittmann/tint"
 	"github.com/riandyrn/otelchi"
-	slogchi "github.com/samber/slog-chi"
+	"github.com/samber/slog-chi"
+	"github.com/topi314/tint"
 )
 
 const maxUnix = int(^int32(0))
