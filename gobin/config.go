@@ -46,10 +46,11 @@ type LogConfig struct {
 }
 
 func (c LogConfig) String() string {
-	return fmt.Sprintf("\n  Level: %s\n  Format: %s\n  AddSource: %t\n",
+	return fmt.Sprintf("\n  Level: %s\n  Format: %s\n  AddSource: %t\n  NoColor: %t\n",
 		c.Level,
 		c.Format,
 		c.AddSource,
+		c.NoColor,
 	)
 }
 
