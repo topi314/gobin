@@ -24,9 +24,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/stampede"
-	"github.com/lmittmann/tint"
 	"github.com/riandyrn/otelchi"
-	slogchi "github.com/samber/slog-chi"
+	"github.com/samber/slog-chi"
+	"github.com/topi314/tint"
 )
 
 const maxUnix = int(^int32(0))
@@ -49,15 +49,12 @@ func (s *Server) Routes() http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.RequestID)
 	r.Use(slogchi.NewWithConfig(slog.Default(), slogchi.Config{
-		DefaultLevel:         slog.LevelInfo,
-		ClientErrorLevel:     slog.LevelDebug,
-		ServerErrorLevel:     slog.LevelError,
-		WithRequestIP:        true,
-		WithRequestID:        true,
-		WithRequestBodySize:  true,
-		WithResponseBodySize: true,
-		WithSpanID:           s.cfg.Otel != nil,
-		WithTraceID:          s.cfg.Otel != nil,
+		DefaultLevel:     slog.LevelInfo,
+		ClientErrorLevel: slog.LevelDebug,
+		ServerErrorLevel: slog.LevelError,
+		WithRequestID:    true,
+		WithSpanID:       s.cfg.Otel != nil,
+		WithTraceID:      s.cfg.Otel != nil,
 		Filters: []slogchi.Filter{
 			slogchi.IgnorePathPrefix("/assets"),
 		},
