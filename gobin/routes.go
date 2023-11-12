@@ -26,6 +26,7 @@ import (
 	"github.com/go-chi/stampede"
 	"github.com/riandyrn/otelchi"
 	"github.com/samber/slog-chi"
+	"github.com/topi314/gobin/templates"
 	"github.com/topi314/tint"
 )
 
@@ -134,8 +135,6 @@ func (s *Server) Routes() http.Handler {
 			})
 		})
 	})
-
-	r.Get("/webhooks/events/failed", s.GetFailedWebhookEvents)
 
 	r.Route("/{documentID}", func(r chi.Router) {
 		r.Get("/", s.GetPrettyDocument)
@@ -288,7 +287,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	versions := make([]DocumentVersion, 0, len(documents))
+	versions := make([]templates.DocumentVersion, 0, len(documents))
 	for i, documentVersion := range documents {
 		versionTime := time.Unix(documentVersion.Version, 0)
 		versionLabel := humanize.Time(versionTime)
@@ -297,7 +296,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		} else if i == len(documents)-1 {
 			versionLabel += " (original)"
 		}
-		versions = append(versions, DocumentVersion{
+		versions = append(versions, templates.DocumentVersion{
 			Version: documentVersion.Version,
 			Label:   versionLabel,
 			Time:    versionTime.Format(VersionTimeFormat),
@@ -310,7 +309,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	vars := TemplateVariables{
+	vars := templates.Variables{
 		ID:        document.ID,
 		Version:   document.Version,
 		Content:   template.HTML(document.Content),
@@ -597,7 +596,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 		data = document.Content
 	}
 
-	token, err := s.NewToken(document.ID, []Permission{PermissionWrite, PermissionDelete, PermissionShare})
+	token, err := s.NewToken(document.ID, AllPermissions)
 	if err != nil {
 		s.error(w, r, fmt.Errorf("failed to create jwt token: %w", err), http.StatusInternalServerError)
 		return
@@ -676,6 +675,13 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 		data = document.Content
 	}
 
+	s.ExecuteWebhooks(r.Context(), WebhookEventUpdate, WebhookDocument{
+		Key:      document.ID,
+		Version:  document.Version,
+		Language: finalLanguage,
+		Data:     document.Content,
+	})
+
 	versionTime := time.Unix(document.Version, 0)
 	s.ok(w, r, DocumentResponse{
 		Key:          document.ID,
@@ -702,11 +708,14 @@ func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var err error
+	var (
+		document Document
+		err      error
+	)
 	if version == 0 {
-		err = s.db.DeleteDocument(r.Context(), documentID)
+		document, err = s.db.DeleteDocument(r.Context(), documentID)
 	} else {
-		err = s.db.DeleteDocumentByVersion(r.Context(), documentID, version)
+		document, err = s.db.DeleteDocumentByVersion(r.Context(), documentID, version)
 	}
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -725,6 +734,14 @@ func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
 		s.error(w, r, err, http.StatusInternalServerError)
 		return
 	}
+
+	s.ExecuteWebhooks(r.Context(), WebhookEventDelete, WebhookDocument{
+		Key:      document.ID,
+		Version:  document.Version,
+		Language: document.Language,
+		Data:     document.Content,
+	})
+
 	s.ok(w, r, DeleteResponse{
 		Versions: count,
 	})
@@ -759,7 +776,7 @@ func (s *Server) PostDocumentShare(w http.ResponseWriter, r *http.Request) {
 
 	for _, permission := range shareRequest.Permissions {
 		if !slices.Contains(claims.Permissions, permission) {
-			s.error(w, r, ErrPermissionDenied(permission), http.StatusForbidden)
+			s.error(w, r, ErrPermissionDenied(permission), http.StatusBadRequest)
 			return
 		}
 	}

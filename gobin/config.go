@@ -184,16 +184,14 @@ type WebhookConfig struct {
 	Backoff       time.Duration `cfg:"backoff"`
 	BackoffFactor float64       `cfg:"backoff_factor"`
 	MaxBackoff    time.Duration `cfg:"max_backoff"`
-	CacheDuration time.Duration `cfg:"cache_duration"`
 }
 
 func (c WebhookConfig) String() string {
-	return fmt.Sprintf("\n  Timeout: %s\n  MaxTries: %d\n  Backoff: %s\n  BackoffFactor: %f\n  MaxBackoff: %s\n  CacheDuration: %s",
+	return fmt.Sprintf("\n  Timeout: %s\n  MaxTries: %d\n  Backoff: %s\n  BackoffFactor: %f\n  MaxBackoff: %s",
 		c.Timeout,
 		c.MaxTries,
 		c.Backoff,
 		c.BackoffFactor,
 		c.MaxBackoff,
-		c.CacheDuration,
 	)
 }

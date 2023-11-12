@@ -49,7 +49,6 @@
     "max_tries": 3,
     "backoff": "1s",
     "backoff_factor": 2,
-    "max_backoff": "5m",
-    "cache_duration": "1h"
+    "max_backoff": "5m"
   }
 }

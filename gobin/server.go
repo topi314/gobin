@@ -10,12 +10,14 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
 	"github.com/go-jose/go-jose/v3"
+	"github.com/topi314/gobin/templates"
 	"github.com/topi314/tint"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
@@ -24,9 +26,9 @@ import (
 type ExecuteTemplateFunc func(wr io.Writer, name string, data any) error
 
 func NewServer(version string, debug bool, cfg Config, db *DB, signer jose.Signer, tracer trace.Tracer, meter metric.Meter, assets http.FileSystem, tmpl ExecuteTemplateFunc) *Server {
-	var allStyles []TemplateStyle
+	var allStyles []templates.Style
 	for _, name := range styles.Names() {
-		allStyles = append(allStyles, TemplateStyle{
+		allStyles = append(allStyles, templates.Style{
 			Name:  name,
 			Theme: styles.Get(name).Theme,
 		})
@@ -37,12 +39,15 @@ func NewServer(version string, debug bool, cfg Config, db *DB, signer jose.Signe
 		debug:   debug,
 		cfg:     cfg,
 		db:      db,
-		signer:  signer,
-		tracer:  tracer,
-		meter:   meter,
-		assets:  assets,
-		styles:  allStyles,
-		tmpl:    tmpl,
+		client: &http.Client{
+			Timeout: cfg.Webhook.Timeout,
+		},
+		signer: signer,
+		tracer: tracer,
+		meter:  meter,
+		assets: assets,
+		styles: allStyles,
+		tmpl:   tmpl,
 	}
 
 	s.server = &http.Server{
@@ -71,13 +76,15 @@ type Server struct {
 	cfg              Config
 	db               *DB
 	server           *http.Server
+	client           *http.Client
 	signer           jose.Signer
 	tracer           trace.Tracer
 	meter            metric.Meter
 	assets           http.FileSystem
-	styles           []TemplateStyle
+	styles           []templates.Style
 	tmpl             ExecuteTemplateFunc
 	rateLimitHandler func(http.Handler) http.Handler
+	webhookWaitGroup sync.WaitGroup
 }
 
 func (s *Server) Start() {
@@ -92,6 +99,8 @@ func (s *Server) Close() {
 		slog.Error("Error while closing server", tint.Err(err))
 	}
 
+	s.webhookWaitGroup.Wait()
+
 	if err := s.db.Close(); err != nil {
 		slog.Error("Error while closing database", tint.Err(err))
 	}
@@ -100,7 +109,7 @@ func (s *Server) Close() {
 func (s *Server) prettyError(w http.ResponseWriter, r *http.Request, err error, status int) {
 	w.WriteHeader(status)
 
-	vars := TemplateErrorVariables{
+	vars := templates.ErrorVariables{
 		Error:     err.Error(),
 		Status:    status,
 		RequestID: middleware.GetReqID(r.Context()),
@@ -127,6 +136,10 @@ func (s *Server) error(w http.ResponseWriter, r *http.Request, err error, status
 }
 
 func (s *Server) ok(w http.ResponseWriter, r *http.Request, v any) {
+	if v == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 	s.json(w, r, v, http.StatusOK)
 }
 

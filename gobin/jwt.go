@@ -98,3 +98,11 @@ func newClaims(documentID string, permissions []Permission) Claims {
 		Permissions: permissions,
 	}
 }
+
+func GetWebhookSecret(r *http.Request) string {
+	secretStr := r.Header.Get("Authorization")
+	if len(secretStr) > 7 && strings.ToUpper(secretStr[0:6]) == "SECRET" {
+		return secretStr[7:]
+	}
+	return ""
+}

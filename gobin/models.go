@@ -6,45 +6,6 @@ import (
 )
 
 type (
-	TemplateVariables struct {
-		ID        string
-		Version   int64
-		Content   template.HTML
-		Formatted template.HTML
-		CSS       template.CSS
-		ThemeCSS  template.CSS
-		Language  string
-
-		Versions []DocumentVersion
-		Lexers   []string
-		Styles   []TemplateStyle
-		Style    string
-		Theme    string
-
-		Max        int
-		Host       string
-		Preview    bool
-		PreviewAlt string
-	}
-
-	TemplateStyle struct {
-		Name  string
-		Theme string
-	}
-
-	TemplateErrorVariables struct {
-		Error     string
-		Status    int
-		RequestID string
-		Path      string
-	}
-
-	DocumentVersion struct {
-		Version int64
-		Label   string
-		Time    string
-	}
-
 	DocumentResponse struct {
 		Key          string        `json:"key,omitempty"`
 		Version      int64         `json:"version"`
@@ -77,34 +38,30 @@ type (
 		RequestID string `json:"request_id"`
 	}
 
-	WebhookRequest struct {
+	WebhookCreateRequest struct {
+		URL    string   `json:"url"`
+		Secret string   `json:"secret"`
+		Events []string `json:"events"`
+	}
+
+	WebhookUpdateRequest struct {
 		URL    string   `json:"url"`
 		Secret string   `json:"secret"`
 		Events []string `json:"events"`
 	}
 
 	WebhookResponse struct {
-		ID     int      `json:"id"`
-		URL    string   `json:"url"`
-		Secret string   `json:"secret"`
-		Events []string `json:"events"`
+		ID          string   `json:"id"`
+		DocumentKey string   `json:"document_key"`
+		URL         string   `json:"url"`
+		Secret      string   `json:"secret"`
+		Events      []string `json:"events"`
 	}
-
-	FailedWebhookEventsRequest []FailedWebhook
-
-	FailedWebhook struct {
-		ID     int    `json:"id"`
-		Secret string `json:"secret"`
-	}
-
-	FailWebhookEventsResponse []WebhookEventRequest
 
 	WebhookEventRequest struct {
-		WebhookID int             `json:"webhook_id"`
+		WebhookID string          `json:"webhook_id"`
 		Event     string          `json:"event"`
-		Retries   int             `json:"retries"`
 		CreatedAt time.Time       `json:"created_at"`
-		LastRetry time.Time       `json:"last_retry"`
 		Document  WebhookDocument `json:"document"`
 	}
 

@@ -68,7 +68,7 @@ The easiest way to deploy gobin is using docker with [Docker Compose](https://do
 
 Create a new `docker-compose.yml` file with the following content:
 
-> **Note**
+> [!Note]
 > You should change the password in the `docker-compose.yml` and `gobin.json` file.
 
 ```yaml
@@ -142,7 +142,7 @@ The database schema is automatically created when you start gobin and there is n
 
 Create a new `gobin.json` file with the following content:
 
-> **Note**
+> [!Note]
 > Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
 
 ```json5
@@ -211,13 +211,16 @@ Create a new `gobin.json` file with the following content:
   },
   // settings for webhooks, omit to disable
   "webhook": {
-    // webhook retry settings
-    "retry": {
-      // how many times to retry a webhook delivery
-      "max": 5,
-      // how long to wait between retries
-      "wait": "1m"
-    }
+    // webhook reqauest timeout
+    "timeout": "10s",
+    // max number of tries to send a webhook
+    "max_tries": 3,
+    // how long to wait before retrying a webhook
+    "backoff": "1s",
+    // how much the backoff should be increased after each retry
+    "backoff_factor": 2,
+    // max backoff time
+    "max_backoff": "5m"
   }
 }
 ```
@@ -261,6 +264,12 @@ GOBIN_PREVIEW_MAX_LINES=10
 GOBIN_PREVIEW_DPI=96
 GOBIN_PREVIEW_CACHE_SIZE=1024
 GOBIN_PREVIEW_CACHE_TTL=1h
+
+GOBIN_WEBHOOK_TIMEOUT=10s
+GOBIN_WEBHOOK_MAX_TRIES=3
+GOBIN_WEBHOOK_BACKOFF=1s
+GOBIN_WEBHOOK_BACKOFF_FACTOR=2
+GOBIN_WEBHOOK_MAX_BACKOFF=5m
 ```
 
 </details>
@@ -469,7 +478,7 @@ func main() {
 
 A successful request will return a `200 OK` response with a JSON body containing the document key and token to update the document.
 
-> **Note**
+> [!Note]
 > The update token will not change after updating the document. You can use the same token to update the document again.
 
 ```json5
@@ -531,68 +540,33 @@ You can listen for document changes using webhooks. The webhook will send a `POS
 
 ```json5
 {
-  // the key of the document
-  "key": "hocwr6i6",
-  // the version of the document
-  "version": 1,
-  // the language of the document
-  "language": "go",
-  // the content of the document
-  "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
+  // the id of the webhook
+  "webhook_id": "hocwr6i6",
   // the event which triggered the webhook (update or delete)
   "event": "update",
-  // the time the event was created
-  "created_at": "2021-08-01T12:00:00Z"
-}
-```
-
-When sending an event to a webhook fails gobin will retry it up to x times with an exponential backoff. The retry settings can be configured in the config file.
-When an event fails to be sent after x retries, the webhook is placed in failed state and no retries are made anymore.
-These failed events will be saved in the database for x time before being deleted with the webhook.
-You can fetch them manually using the [Get failed webhook events](#get-failed-webhook-events) endpoint.
-After an event has been fetched it will not be retried anymore.
-
-### Get failed webhook events
-
-To get failed webhooks you have to send a `GET` request to `/webhooks/events/failed` with a JSON body containing the webhook ids and their secrets:
-
-```json5
-[
-  {
-    "key": "hocwr6i6",
-    "secret": "kiczgez33j7qkvqdg9f7ksrd8jk88wba"
-  },
-  ...
-]
-```
-
-A successful request will return a `200 OK` response with a JSON body containing the failed webhook events:
-
-```json5
-[
-  {
+  // when the event was created
+  "created_at": "2021-08-01T12:00:00Z",
+  // the updated or deleted document
+  "document": {
     // the key of the document
     "key": "hocwr6i6",
     // the version of the document
-    "version": 1,
+    "version": 2,
     // the language of the document
     "language": "go",
     // the content of the document
-    "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
-    // the event which triggered the webhook (update or delete)
-    "event": "update",
-    // the number of times the event has been retried
-    "retries": 0,
-    // the time the event was created
-    "created_at": "2021-08-01T12:00:00Z",
-    // the last time the event was retried
-    "last_retry": "2021-08-01T12:00:00Z"
-  },
-  ...
-]
+    "data": "package main\n\nfunc main() {\n    println(\"Hello World Updated!\")\n}"
+  }
+}
 ```
 
----
+Gobin will include the webhook secret in the `Authorization` header in the following format: `Secret {secret}`.
+
+When sending an event to a webhook fails gobin will retry it up to x times with an exponential backoff. The retry settings can be configured in the config file.
+When an event fails to be sent after x retries, the webhook will be dropped.
+
+> [!Important]
+> Authorizing for the following webhook endpoints is done using the `Authorization` header in the following format: `Secret {secret}`.
 
 #### Create a document webhook
 
@@ -638,7 +612,7 @@ A successful request will return a `200 OK` response with a JSON body containing
 
 #### Get a document webhook
 
-To get a webhook you have to send a `GET` request to `/documents/{key}/webhooks/{id}` with the `Authorization` header set to the secret.
+To get a webhook you have to send a `GET` request to `/documents/{key}/webhooks/{id}` with the `Authorization` header.
 
 A successful request will return a `200 OK` response with a JSON body containing the webhook.
 
@@ -664,8 +638,10 @@ A successful request will return a `200 OK` response with a JSON body containing
 
 #### Update a document webhook
 
-To update a webhook you have to send a `PATCH` request to `/documents/{key}/webhooks/{id}` with the `Authorization` header set to the secret and the following JSON body:
+To update a webhook you have to send a `PATCH` request to `/documents/{key}/webhooks/{id}` with the `Authorization` header and the following JSON body:
 
+> [!Note]
+> All fields are optional, but at least one field is required.
 ```json5
 {
   // the url to send a request to
@@ -682,13 +658,31 @@ To update a webhook you have to send a `PATCH` request to `/documents/{key}/webh
 }
 ```
 
-A successful request will return a `204 No Content` response with an empty body.
+A successful request will return a `200 OK` response with a JSON body containing the webhook.
+
+```json5
+{
+  // the id of the webhook
+  "id": 1,
+  // the url to send a request to
+  "url": "https://example.com/webhook",
+  // the secret to include in the request
+  "secret": "secret",
+  // the events you want to receive
+  "events": [
+    // update event is sent when a document is updated. This includes content and language changes
+    "update",
+    // delete event is sent when a document is deleted
+    "delete"
+  ]
+}
+```
 
 ---
 
 #### Delete a document webhook
 
-To delete a webhook you have to send a `DELETE` request to `/documents/{key}/webhooks/{id}` with the `Authorization` header set to the secret.
+To delete a webhook you have to send a `DELETE` request to `/documents/{key}/webhooks/{id}` with the `Authorization` header.
 
 A successful request will return a `204 No Content` response with an empty body.
 
