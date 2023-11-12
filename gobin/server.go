@@ -1,12 +1,14 @@
 package gobin
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"net/http/httptrace"
 	"os"
 	"runtime"
 	"strings"
@@ -17,11 +19,13 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
 	"github.com/go-jose/go-jose/v3"
-	"github.com/topi314/gobin/templates"
 	"github.com/topi314/tint"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/topi314/gobin/templates"
 )
 
 type ExecuteTemplateFunc func(wr io.Writer, name string, data any) error
@@ -41,8 +45,13 @@ func NewServer(version string, debug bool, cfg Config, db *DB, signer jose.Signe
 		cfg:     cfg,
 		db:      db,
 		client: &http.Client{
-			Transport: otelhttp.NewTransport(http.DefaultTransport),
-			Timeout:   cfg.Webhook.Timeout,
+			Transport: otelhttp.NewTransport(
+				http.DefaultTransport,
+				otelhttp.WithClientTrace(func(ctx context.Context) *httptrace.ClientTrace {
+					return otelhttptrace.NewClientTrace(ctx)
+				}),
+			),
+			Timeout: cfg.Webhook.Timeout,
 		},
 		signer: signer,
 		tracer: tracer,

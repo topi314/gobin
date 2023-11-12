@@ -17,6 +17,7 @@ import (
 	"github.com/topi314/tint"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var (
@@ -33,11 +34,13 @@ func (s *Server) ExecuteWebhooks(ctx context.Context, event string, document Web
 }
 
 func (s *Server) executeWebhooks(ctx context.Context, event string, document WebhookDocument) {
-	ctx, span := s.tracer.Start(ctx, "executeWebhooks")
+	var span trace.Span
+	ctx, span = s.tracer.Start(ctx, "executeWebhooks", trace.WithAttributes(
+		attribute.String("event", event),
+		attribute.String("document_id", document.Key),
+	))
 	defer span.End()
 	defer s.webhookWaitGroup.Done()
-
-	span.SetAttributes(attribute.String("event", event), attribute.String("document_id", document.Key))
 
 	dbCtx, cancel := context.WithTimeout(ctx, s.cfg.Webhook.Timeout)
 	defer cancel()
@@ -87,10 +90,15 @@ func (s *Server) executeWebhook(ctx context.Context, url string, secret string, 
 	logger := slog.Default().With(slog.String("event", request.Event), slog.Any("webhook_id", request.WebhookID), slog.Any("document_id", request.Document.Key))
 	logger.DebugContext(ctx, "emitting webhook", slog.String("url", url))
 
-	ctx, span := s.tracer.Start(ctx, "executeWebhook")
+	var span trace.Span
+	ctx, span = s.tracer.Start(ctx, "executeWebhook", trace.WithAttributes(
+		attribute.String("url", url),
+		attribute.String("event", request.Event),
+		attribute.String("document_id", request.Document.Key),
+	))
 	defer span.End()
 
-	span.SetAttributes(attribute.String("url", url), attribute.String("event", request.Event), attribute.String("document_id", request.Document.Key))
+	span.SetAttributes()
 
 	buff := new(bytes.Buffer)
 	if err := json.NewEncoder(buff).Encode(request); err != nil {
