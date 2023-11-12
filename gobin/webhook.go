@@ -15,6 +15,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/topi314/tint"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
 
 var (
@@ -31,7 +33,11 @@ func (s *Server) ExecuteWebhooks(ctx context.Context, event string, document Web
 }
 
 func (s *Server) executeWebhooks(ctx context.Context, event string, document WebhookDocument) {
+	ctx, span := s.tracer.Start(ctx, "executeWebhooks")
+	defer span.End()
 	defer s.webhookWaitGroup.Done()
+
+	span.SetAttributes(attribute.String("event", event), attribute.String("document_id", document.Key))
 
 	dbCtx, cancel := context.WithTimeout(ctx, s.cfg.Webhook.Timeout)
 	defer cancel()
@@ -60,13 +66,11 @@ func (s *Server) executeWebhooks(ctx context.Context, event string, document Web
 		if !slices.Contains(strings.Split(webhook.Events, ","), event) {
 			continue
 		}
-		logger := slog.Default().With(slog.String("event", event), slog.Any("webhook_id", webhook.ID), slog.Any("document_id", document.Key))
-		logger.DebugContext(ctx, "emitting webhook")
 
 		wg.Add(1)
 		go func(webhook Webhook) {
 			defer wg.Done()
-			s.executeWebhookRequest(ctx, logger, webhook.URL, webhook.Secret, WebhookEventRequest{
+			s.executeWebhook(ctx, webhook.URL, webhook.Secret, WebhookEventRequest{
 				WebhookID: webhook.ID,
 				Event:     event,
 				CreatedAt: now,
@@ -79,15 +83,27 @@ func (s *Server) executeWebhooks(ctx context.Context, event string, document Web
 	slog.DebugContext(ctx, "finished emitting webhooks", slog.String("event", event), slog.Any("document_id", document.Key))
 }
 
-func (s *Server) executeWebhookRequest(ctx context.Context, logger *slog.Logger, url string, secret string, request WebhookEventRequest) {
+func (s *Server) executeWebhook(ctx context.Context, url string, secret string, request WebhookEventRequest) {
+	logger := slog.Default().With(slog.String("event", request.Event), slog.Any("webhook_id", request.WebhookID), slog.Any("document_id", request.Document.Key))
+	logger.DebugContext(ctx, "emitting webhook", slog.String("url", url))
+
+	ctx, span := s.tracer.Start(ctx, "executeWebhook")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("url", url), attribute.String("event", request.Event), attribute.String("document_id", request.Document.Key))
+
 	buff := new(bytes.Buffer)
 	if err := json.NewEncoder(buff).Encode(request); err != nil {
+		span.SetStatus(codes.Error, "failed to encode document")
+		span.RecordError(err)
 		logger.ErrorContext(ctx, "failed to encode document", tint.Err(err))
 		return
 	}
 
 	rq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, buff)
 	if err != nil {
+		span.SetStatus(codes.Error, "failed to create request")
+		span.RecordError(err)
 		logger.ErrorContext(ctx, "failed to create request", tint.Err(err))
 		return
 	}
@@ -120,7 +136,10 @@ func (s *Server) executeWebhookRequest(ctx context.Context, logger *slog.Logger,
 		return
 	}
 
-	logger.ErrorContext(ctx, "failed to execute webhook", tint.Err(errors.New("max tries reached")))
+	err = errors.New("max tries reached")
+	span.SetStatus(codes.Error, "failed to execute webhook")
+	span.RecordError(err)
+	logger.ErrorContext(ctx, "failed to execute webhook", tint.Err(err))
 }
 
 func (s *Server) PostDocumentWebhook(w http.ResponseWriter, r *http.Request) {

@@ -22,7 +22,7 @@ import (
 	"github.com/topi314/tint"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/semconv/v1.18.0"
+	"go.opentelemetry.io/otel/semconv/v1.21.0"
 	"go.opentelemetry.io/otel/trace"
 	"modernc.org/sqlite"
 	_ "modernc.org/sqlite"

@@ -19,6 +19,7 @@ import (
 	"github.com/go-jose/go-jose/v3"
 	"github.com/topi314/gobin/templates"
 	"github.com/topi314/tint"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -40,7 +41,8 @@ func NewServer(version string, debug bool, cfg Config, db *DB, signer jose.Signe
 		cfg:     cfg,
 		db:      db,
 		client: &http.Client{
-			Timeout: cfg.Webhook.Timeout,
+			Transport: otelhttp.NewTransport(http.DefaultTransport),
+			Timeout:   cfg.Webhook.Timeout,
 		},
 		signer: signer,
 		tracer: tracer,
