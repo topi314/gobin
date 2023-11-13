@@ -29,8 +29,8 @@ var (
 )
 
 func (s *Server) ExecuteWebhooks(ctx context.Context, event string, document WebhookDocument) {
-	s.webhookWaitGroup.Add(1)
-	go s.executeWebhooks(context.WithoutCancel(ctx), event, document)
+	// s.webhookWaitGroup.Add(1)
+	s.executeWebhooks(context.WithoutCancel(ctx), event, document)
 }
 
 func (s *Server) executeWebhooks(ctx context.Context, event string, document WebhookDocument) {
@@ -39,7 +39,7 @@ func (s *Server) executeWebhooks(ctx context.Context, event string, document Web
 		attribute.String("document_id", document.Key),
 	))
 	defer span.End()
-	defer s.webhookWaitGroup.Done()
+	// defer s.webhookWaitGroup.Done()
 
 	dbCtx, cancel := context.WithTimeout(ctx, s.cfg.Webhook.Timeout)
 	defer cancel()
