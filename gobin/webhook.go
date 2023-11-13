@@ -34,8 +34,7 @@ func (s *Server) ExecuteWebhooks(ctx context.Context, event string, document Web
 }
 
 func (s *Server) executeWebhooks(ctx context.Context, event string, document WebhookDocument) {
-	var span trace.Span
-	ctx, span = s.tracer.Start(ctx, "executeWebhooks", trace.WithAttributes(
+	ctx, span := s.tracer.Start(ctx, "executeWebhooks", trace.WithAttributes(
 		attribute.String("event", event),
 		attribute.String("document_id", document.Key),
 	))
@@ -87,18 +86,15 @@ func (s *Server) executeWebhooks(ctx context.Context, event string, document Web
 }
 
 func (s *Server) executeWebhook(ctx context.Context, url string, secret string, request WebhookEventRequest) {
-	logger := slog.Default().With(slog.String("event", request.Event), slog.Any("webhook_id", request.WebhookID), slog.Any("document_id", request.Document.Key))
-	logger.DebugContext(ctx, "emitting webhook", slog.String("url", url))
-
-	var span trace.Span
-	ctx, span = s.tracer.Start(ctx, "executeWebhook", trace.WithAttributes(
+	ctx, span := s.tracer.Start(ctx, "executeWebhook", trace.WithAttributes(
 		attribute.String("url", url),
 		attribute.String("event", request.Event),
 		attribute.String("document_id", request.Document.Key),
 	))
 	defer span.End()
 
-	span.SetAttributes()
+	logger := slog.Default().With(slog.String("event", request.Event), slog.Any("webhook_id", request.WebhookID), slog.Any("document_id", request.Document.Key))
+	logger.DebugContext(ctx, "emitting webhook", slog.String("url", url))
 
 	buff := new(bytes.Buffer)
 	if err := json.NewEncoder(buff).Encode(request); err != nil {
