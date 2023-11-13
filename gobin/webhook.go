@@ -29,17 +29,19 @@ var (
 )
 
 func (s *Server) ExecuteWebhooks(ctx context.Context, event string, document WebhookDocument) {
-	// s.webhookWaitGroup.Add(1)
-	s.executeWebhooks(context.WithoutCancel(ctx), event, document)
-}
-
-func (s *Server) executeWebhooks(ctx context.Context, event string, document WebhookDocument) {
-	ctx, span := s.tracer.Start(ctx, "executeWebhooks", trace.WithAttributes(
+	s.webhookWaitGroup.Add(1)
+	ctx, span := s.tracer.Start(context.WithoutCancel(ctx), "executeWebhooks", trace.WithAttributes(
 		attribute.String("event", event),
 		attribute.String("document_id", document.Key),
 	))
-	defer span.End()
-	// defer s.webhookWaitGroup.Done()
+	go func() {
+		defer span.End()
+		s.executeWebhooks(ctx, event, document)
+	}()
+}
+
+func (s *Server) executeWebhooks(ctx context.Context, event string, document WebhookDocument) {
+	defer s.webhookWaitGroup.Done()
 
 	dbCtx, cancel := context.WithTimeout(ctx, s.cfg.Webhook.Timeout)
 	defer cancel()
