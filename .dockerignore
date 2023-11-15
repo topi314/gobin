@@ -2,6 +2,7 @@
 .gitignore
 README.md
 LICENSE
+docker-compose.yml
 Dockerfile
 gobin.json
-gobin.json.example
+example.gobin.json
