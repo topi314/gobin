@@ -12,37 +12,37 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
 	"github.com/go-jose/go-jose/v3"
+	"github.com/topi314/gobin/templates"
 	"github.com/topi314/tint"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 )
 
-type ExecuteTemplateFunc func(wr io.Writer, name string, data any) error
-
-func NewServer(version string, debug bool, cfg Config, db *DB, signer jose.Signer, tracer trace.Tracer, meter metric.Meter, assets http.FileSystem, tmpl ExecuteTemplateFunc) *Server {
-	var allStyles []TemplateStyle
+func NewServer(version string, debug bool, cfg Config, db *DB, signer jose.Signer, tracer trace.Tracer, meter metric.Meter, assets http.FileSystem, htmlFormatter *html.Formatter) *Server {
+	var allStyles []templates.Style
 	for _, name := range styles.Names() {
-		allStyles = append(allStyles, TemplateStyle{
+		allStyles = append(allStyles, templates.Style{
 			Name:  name,
 			Theme: styles.Get(name).Theme,
 		})
 	}
 
 	s := &Server{
-		version: version,
-		debug:   debug,
-		cfg:     cfg,
-		db:      db,
-		signer:  signer,
-		tracer:  tracer,
-		meter:   meter,
-		assets:  assets,
-		styles:  allStyles,
-		tmpl:    tmpl,
+		version:       version,
+		debug:         debug,
+		cfg:           cfg,
+		db:            db,
+		signer:        signer,
+		tracer:        tracer,
+		meter:         meter,
+		assets:        assets,
+		styles:        allStyles,
+		htmlFormatter: htmlFormatter,
 	}
 
 	s.server = &http.Server{
@@ -75,8 +75,8 @@ type Server struct {
 	tracer           trace.Tracer
 	meter            metric.Meter
 	assets           http.FileSystem
-	styles           []TemplateStyle
-	tmpl             ExecuteTemplateFunc
+	htmlFormatter    *html.Formatter
+	styles           []templates.Style
 	rateLimitHandler func(http.Handler) http.Handler
 }
 
@@ -100,13 +100,13 @@ func (s *Server) Close() {
 func (s *Server) prettyError(w http.ResponseWriter, r *http.Request, err error, status int) {
 	w.WriteHeader(status)
 
-	vars := TemplateErrorVariables{
+	vars := templates.ErrorVars{
 		Error:     err.Error(),
 		Status:    status,
 		RequestID: middleware.GetReqID(r.Context()),
 		Path:      r.URL.Path,
 	}
-	if tmplErr := s.tmpl(w, "error.gohtml", vars); tmplErr != nil && !errors.Is(tmplErr, http.ErrHandlerTimeout) {
+	if tmplErr := templates.Error(vars).Render(r.Context(), w); tmplErr != nil && !errors.Is(tmplErr, http.ErrHandlerTimeout) {
 		slog.ErrorContext(r.Context(), "failed to execute error template", tint.Err(tmplErr))
 	}
 }

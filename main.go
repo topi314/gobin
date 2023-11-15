@@ -4,9 +4,6 @@ import (
 	"context"
 	"embed"
 	"flag"
-	"html/template"
-	"io"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -29,6 +26,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+//go:generate go run github.com/a-h/templ/cmd/templ@latest generate
+
 // These variables are set via the -ldflags option in go build
 var (
 	Name      = "gobin"
@@ -40,9 +39,6 @@ var (
 )
 
 var (
-	//go:embed templates
-	Templates embed.FS
-
 	//go:embed assets
 	Assets embed.FS
 
@@ -137,33 +133,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	var (
-		tmplFunc gobin.ExecuteTemplateFunc
-		assets   http.FileSystem
-	)
+	var assets http.FileSystem
 	if cfg.DevMode {
 		slog.Info("Development mode enabled")
-		tmplFunc = func(wr io.Writer, name string, data any) error {
-			tmpl, err := template.New("").ParseGlob("templates/*")
-			if err != nil {
-				return err
-			}
-			return tmpl.ExecuteTemplate(wr, name, data)
-		}
 		assets = http.Dir(".")
 	} else {
-		tmpl, err := template.New("").ParseFS(Templates, "templates/*")
-		if err != nil {
-			slog.Error("Error while parsing templates", tint.Err(err))
-			os.Exit(1)
-		}
-		tmplFunc = tmpl.ExecuteTemplate
 		assets = http.FS(Assets)
 	}
 
 	styles.Fallback = styles.Get("onedark")
 	lexers.Fallback = lexers.Get("plaintext")
-	formatters.Register("html", html.New(
+	htmlFormatter := html.New(
 		html.WithClasses(true),
 		html.ClassPrefix("ch-"),
 		html.Standalone(false),
@@ -172,7 +152,8 @@ func main() {
 		html.WithLineNumbers(true),
 		html.WithLinkableLineNumbers(true, "L"),
 		html.TabWidth(4),
-	))
+	)
+	formatters.Register("html", htmlFormatter)
 	formatters.Register("html-standalone", html.New(
 		html.Standalone(true),
 		html.WithLineNumbers(true),
@@ -180,7 +161,7 @@ func main() {
 		html.TabWidth(4),
 	))
 
-	s := gobin.NewServer(gobin.FormatBuildVersion(Version, Commit, buildTime), cfg.DevMode, cfg, db, signer, tracer, meter, assets, tmplFunc)
+	s := gobin.NewServer(gobin.FormatBuildVersion(Version, Commit, buildTime), cfg.DevMode, cfg, db, signer, tracer, meter, assets, htmlFormatter)
 	slog.Info("Gobin started...", slog.String("address", cfg.ListenAddr))
 	go s.Start()
 	defer s.Close()
@@ -240,7 +221,7 @@ func setupLogger(cfg gobin.LogConfig) {
 			},
 		})
 	default:
-		log.Printf("Unknown log format: %s", cfg.Format)
+		slog.Error("Unknown log format", slog.String("format", cfg.Format))
 		os.Exit(-1)
 	}
 	slog.SetDefault(slog.New(handler))
