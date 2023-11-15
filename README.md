@@ -209,6 +209,23 @@ Create a new `gobin.json` file with the following content:
     // how long should previews be cached
     "cache_duration": "1h"
   },
+  // open telemetry settings, omit to disable
+  "otel": {
+    // the instance id of the server
+    "instance_id": "1",
+    // otel trace settings, omit to disable
+    "trace": {
+      // the address of the tempo instance
+      "endpoint": "tempo:4318",
+      // whether to use an insecure connection
+      "insecure": true
+    },
+    // otel metrics settings, omit to disable
+    "metrics": {
+      // the address where the metrics should be exposed
+      "listen_addr": ":9100"
+    }
+  },
   // settings for webhooks, omit to disable
   "webhook": {
     // webhook reqauest timeout
