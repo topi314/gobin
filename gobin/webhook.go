@@ -28,6 +28,47 @@ var (
 	ErrMissingURLOrSecretOrEvents = errors.New("missing url, secret or events")
 )
 
+type (
+	WebhookCreateRequest struct {
+		URL    string   `json:"url"`
+		Secret string   `json:"secret"`
+		Events []string `json:"events"`
+	}
+
+	WebhookUpdateRequest struct {
+		URL    string   `json:"url"`
+		Secret string   `json:"secret"`
+		Events []string `json:"events"`
+	}
+
+	WebhookResponse struct {
+		ID          string   `json:"id"`
+		DocumentKey string   `json:"document_key"`
+		URL         string   `json:"url"`
+		Secret      string   `json:"secret"`
+		Events      []string `json:"events"`
+	}
+
+	WebhookEventRequest struct {
+		WebhookID string          `json:"webhook_id"`
+		Event     string          `json:"event"`
+		CreatedAt time.Time       `json:"created_at"`
+		Document  WebhookDocument `json:"document"`
+	}
+
+	WebhookDocument struct {
+		Key      string `json:"key"`
+		Version  int64  `json:"version"`
+		Language string `json:"language"`
+		Data     string `json:"data"`
+	}
+)
+
+const (
+	WebhookEventUpdate string = "update"
+	WebhookEventDelete string = "delete"
+)
+
 func (s *Server) ExecuteWebhooks(ctx context.Context, event string, document WebhookDocument) {
 	s.webhookWaitGroup.Add(1)
 	ctx, span := s.tracer.Start(context.WithoutCancel(ctx), "executeWebhooks", trace.WithAttributes(

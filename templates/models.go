@@ -1,46 +1,84 @@
 package templates
 
 import (
-	"html/template"
+	"context"
+	"fmt"
+	"io"
+	"strconv"
+
+	"github.com/a-h/templ"
 )
 
-type (
-	Variables struct {
-		ID        string
-		Version   int64
-		Content   template.HTML
-		Formatted template.HTML
-		CSS       template.CSS
-		ThemeCSS  template.CSS
-		Language  string
+func WriteUnsafe(str string) templ.Component {
+	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
+		_, err := w.Write([]byte(str))
+		return err
+	})
+}
 
-		Versions []DocumentVersion
-		Lexers   []string
-		Styles   []Style
-		Style    string
-		Theme    string
+type DocumentVars struct {
+	ID        string
+	Version   int64
+	Content   string
+	Formatted string
+	CSS       string
+	ThemeCSS  string
+	Language  string
 
-		Max        int
-		Host       string
-		Preview    bool
-		PreviewAlt string
+	Versions []DocumentVersion
+	Lexers   []string
+	Styles   []Style
+	Style    string
+	Theme    string
+
+	Max        int
+	Host       string
+	Preview    bool
+	PreviewAlt string
+}
+
+func (v DocumentVars) GetThemeCSS() string {
+	return fmt.Sprintf(`
+	<style id="theme-style">
+%s
+	</style>
+	`, v.ThemeCSS)
+}
+
+func (v DocumentVars) GetCSS() string {
+	return fmt.Sprintf(`
+	<style id="code-style">
+%s
+	</style>
+	`, v.CSS)
+}
+
+func (v DocumentVars) PreviewURL() string {
+	url := "https://" + v.Host + "/" + v.ID
+	if v.Version > 0 {
+		url += "/" + strconv.FormatInt(v.Version, 10)
 	}
+	return url + "/preview"
+}
 
-	DocumentVersion struct {
-		Version int64
-		Label   string
-		Time    string
-	}
+func (v DocumentVars) URL() string {
+	return "https://" + v.Host
+}
 
-	Style struct {
-		Name  string
-		Theme string
-	}
+type DocumentVersion struct {
+	Version int64
+	Label   string
+	Time    string
+}
 
-	ErrorVariables struct {
-		Error     string
-		Status    int
-		RequestID string
-		Path      string
-	}
-)
+type Style struct {
+	Name  string
+	Theme string
+}
+
+type ErrorVars struct {
+	Error     string
+	Status    int
+	Path      string
+	RequestID string
+}

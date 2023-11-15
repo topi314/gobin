@@ -10,7 +10,8 @@ replace (
 
 require (
 	github.com/XSAM/otelsql v0.26.0
-	github.com/alecthomas/chroma/v2 v2.11.1
+	github.com/a-h/templ v0.2.432
+	github.com/alecthomas/chroma/v2 v2.10.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/go-chi/chi/v5 v5.0.10
 	github.com/go-chi/httprate v0.7.4

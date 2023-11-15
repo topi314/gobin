@@ -49,7 +49,7 @@ type Claims struct {
 
 type claimsKey struct{}
 
-var ClaimsKey = claimsKey{}
+var claimsContextKey = claimsKey{}
 
 func (s *Server) JWTMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -75,13 +75,13 @@ func (s *Server) JWTMiddleware(next http.Handler) http.Handler {
 			}
 		}
 
-		ctx := context.WithValue(r.Context(), ClaimsKey, claims)
+		ctx := context.WithValue(r.Context(), claimsContextKey, claims)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
 func GetClaims(r *http.Request) Claims {
-	return r.Context().Value(ClaimsKey).(Claims)
+	return r.Context().Value(claimsContextKey).(Claims)
 }
 
 func (s *Server) NewToken(documentID string, permissions []Permission) (string, error) {
