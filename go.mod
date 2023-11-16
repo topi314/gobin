@@ -10,8 +10,8 @@ replace (
 
 require (
 	github.com/XSAM/otelsql v0.26.0
-	github.com/a-h/templ v0.2.432
-	github.com/alecthomas/chroma/v2 v2.10.0
+	github.com/a-h/templ v0.2.476
+	github.com/alecthomas/chroma/v2 v2.11.1
 	github.com/dustin/go-humanize v1.0.1
 	github.com/go-chi/chi/v5 v5.0.10
 	github.com/go-chi/httprate v0.7.4
@@ -27,15 +27,15 @@ require (
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.17.0
 	github.com/topi314/tint v0.0.0-20231106205902-77268b701ca6
-	go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace v0.46.0
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.46.0
-	go.opentelemetry.io/otel v1.20.0
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.20.0
-	go.opentelemetry.io/otel/exporters/prometheus v0.43.0
-	go.opentelemetry.io/otel/metric v1.20.0
-	go.opentelemetry.io/otel/sdk v1.20.0
-	go.opentelemetry.io/otel/sdk/metric v1.20.0
-	go.opentelemetry.io/otel/trace v1.20.0
+	go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace v0.46.1
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.46.1
+	go.opentelemetry.io/otel v1.21.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.21.0
+	go.opentelemetry.io/otel/exporters/prometheus v0.44.0
+	go.opentelemetry.io/otel/metric v1.21.0
+	go.opentelemetry.io/otel/sdk v1.21.0
+	go.opentelemetry.io/otel/sdk/metric v1.21.0
+	go.opentelemetry.io/otel/trace v1.21.0
 	modernc.org/sqlite v1.27.0
 )
 
@@ -74,8 +74,8 @@ require (
 	github.com/spf13/cast v1.5.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
-	go.opentelemetry.io/contrib v1.21.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.20.0 // indirect
+	go.opentelemetry.io/contrib v1.21.1 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.21.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.15.0 // indirect
@@ -95,7 +95,7 @@ require (
 	lukechampine.com/uint128 v1.3.0 // indirect
 	modernc.org/cc/v3 v3.41.0 // indirect
 	modernc.org/ccgo/v3 v3.16.15 // indirect
-	modernc.org/libc v1.34.0 // indirect
+	modernc.org/libc v1.34.4 // indirect
 	modernc.org/mathutil v1.6.0 // indirect
 	modernc.org/memory v1.7.2 // indirect
 	modernc.org/opt v0.1.3 // indirect
