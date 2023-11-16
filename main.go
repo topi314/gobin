@@ -21,6 +21,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
 	"github.com/topi314/gobin/gobin"
+	"github.com/topi314/gobin/gobin/database"
 	"github.com/topi314/tint"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
@@ -117,7 +118,7 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	db, err := gobin.NewDB(ctx, cfg.Database, Schema)
+	db, err := database.New(ctx, cfg.Database, Schema)
 	if err != nil {
 		slog.Error("Error while connecting to database", tint.Err(err))
 		os.Exit(1)

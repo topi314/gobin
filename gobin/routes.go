@@ -2,7 +2,6 @@ package gobin
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,20 +12,16 @@ import (
 	"strings"
 
 	"github.com/alecthomas/chroma/v2"
-	"github.com/alecthomas/chroma/v2/formatters"
-	"github.com/alecthomas/chroma/v2/formatters/html"
-	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/stampede"
 	"github.com/riandyrn/otelchi"
-	"github.com/samber/slog-chi"
-	"github.com/topi314/gobin/templates"
+	slogchi "github.com/samber/slog-chi"
 	"github.com/topi314/tint"
-)
 
-const maxUnix = int(^int32(0))
+	"github.com/topi314/gobin/templates"
+)
 
 var (
 	ErrDocumentNotFound = errors.New("document not found")
@@ -153,11 +148,24 @@ func (s *Server) Routes() http.Handler {
 	return r
 }
 
-func (s *Server) cacheKeyFunc(r *http.Request) uint64 {
-	return stampede.BytesToHash([]byte(r.Method), []byte(chi.URLParam(r, "documentID")), []byte(chi.URLParam(r, "version")), []byte(r.URL.RawQuery))
+func (s *Server) StyleCSS(w http.ResponseWriter, r *http.Request) {
+	style := getStyle(r)
+	cssBuff := s.styleCSS(style)
+
+	w.Header().Set("Content-Type", "text/css; charset=UTF-8")
+	w.Header().Set("Content-Length", strconv.Itoa(len(cssBuff)))
+	w.WriteHeader(http.StatusOK)
+	if r.Method == http.MethodHead {
+		return
+	}
+	_, _ = w.Write([]byte(cssBuff))
 }
 
-func parseDocumentVersion(r *http.Request, s *Server, w http.ResponseWriter) int64 {
+func (s *Server) GetVersion(w http.ResponseWriter, _ *http.Request) {
+	_, _ = w.Write([]byte(s.version))
+}
+
+func (s *Server) parseDocumentVersion(r *http.Request, w http.ResponseWriter) int64 {
 	version := chi.URLParam(r, "version")
 	if version == "" {
 		return 0
@@ -169,71 +177,6 @@ func parseDocumentVersion(r *http.Request, s *Server, w http.ResponseWriter) int
 		return -1
 	}
 	return int64Version
-}
-
-func parseDocumentID(r *http.Request) (string, string) {
-	documentID := chi.URLParam(r, "documentID")
-	if documentID == "" {
-		return "", ""
-	}
-
-	// get the filename and extension from the documentID
-	filename := documentID
-	extension := ""
-	if index := strings.LastIndex(documentID, "."); index != -1 {
-		filename = documentID[:index]
-		extension = documentID[index+1:]
-	}
-
-	return filename, extension
-}
-
-func (s *Server) renderDocument(r *http.Request, document Document, formatterName string, extension string) (string, string, string, *chroma.Style, error) {
-	var (
-		languageName = document.Language
-		lexer        chroma.Lexer
-	)
-
-	if s.cfg.MaxHighlightSize > 0 && len([]rune(document.Content)) > s.cfg.MaxHighlightSize {
-		lexer = lexers.Get("plaintext")
-	} else if extension != "" {
-		lexer = lexers.Match(fmt.Sprintf("%s.%s", document.ID, extension))
-	} else {
-		lexer = lexers.Get(languageName)
-	}
-	if lexer == nil {
-		lexer = lexers.Fallback
-	}
-
-	iterator, err := lexer.Tokenise(nil, document.Content)
-	if err != nil {
-		return "", "", "", nil, err
-	}
-
-	formatter := formatters.Get(formatterName)
-	if formatter == nil {
-		formatter = formatters.Fallback
-	}
-
-	style := getStyle(r)
-
-	buff := new(bytes.Buffer)
-	if err = formatter.Format(buff, style, iterator); err != nil {
-		return "", "", "", nil, err
-	}
-
-	cssBuff := new(bytes.Buffer)
-	if htmlFormatter, ok := formatter.(*html.Formatter); ok {
-		if err = htmlFormatter.WriteCSS(cssBuff, style); err != nil {
-			return "", "", "", nil, err
-		}
-	}
-
-	language := lexer.Config().Name
-	if document.ID == "" {
-		language = "auto"
-	}
-	return buff.String(), cssBuff.String(), language, style, nil
 }
 
 func (s *Server) styleCSS(style *chroma.Style) string {
@@ -268,37 +211,6 @@ func getStyle(r *http.Request) *chroma.Style {
 	}
 
 	return style
-}
-
-func (s *Server) getDocument(w http.ResponseWriter, r *http.Request) (*Document, string) {
-	documentID, extension := parseDocumentID(r)
-	if documentID == "" {
-		return &Document{}, ""
-	}
-
-	version := parseDocumentVersion(r, s, w)
-	if version == -1 {
-		return nil, ""
-	}
-
-	var (
-		document Document
-		err      error
-	)
-	if version == 0 {
-		document, err = s.db.GetDocument(r.Context(), documentID)
-	} else {
-		document, err = s.db.GetDocumentVersion(r.Context(), documentID, version)
-	}
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			s.documentNotFound(w, r)
-			return nil, ""
-		}
-		s.error(w, r, err, http.StatusInternalServerError)
-		return nil, ""
-	}
-	return &document, extension
 }
 
 func (s *Server) readBody(w http.ResponseWriter, r *http.Request) string {

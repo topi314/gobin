@@ -16,15 +16,17 @@ import (
 	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/go-chi/httprate"
 	"github.com/go-jose/go-jose/v3"
-	"github.com/topi314/gobin/templates"
 	"github.com/topi314/tint"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/topi314/gobin/gobin/database"
+	"github.com/topi314/gobin/templates"
 )
 
-func NewServer(version string, debug bool, cfg Config, db *DB, signer jose.Signer, tracer trace.Tracer, meter metric.Meter, assets http.FileSystem, htmlFormatter *html.Formatter) *Server {
+func NewServer(version string, debug bool, cfg Config, handler http.Handler, db *database.DB, signer jose.Signer, tracer trace.Tracer, meter metric.Meter, assets http.FileSystem, htmlFormatter *html.Formatter) *Server {
 	var allStyles []templates.Style
 	for _, name := range styles.Names() {
 		allStyles = append(allStyles, templates.Style{
@@ -79,7 +81,7 @@ type Server struct {
 	version          string
 	debug            bool
 	cfg              Config
-	db               *DB
+	db               *database.DB
 	server           *http.Server
 	client           *http.Client
 	signer           jose.Signer

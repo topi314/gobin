@@ -1,22 +1,27 @@
 package gobin
 
 import (
+	"bytes"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/alecthomas/chroma/v2"
+	"github.com/alecthomas/chroma/v2/formatters"
+	"github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/dustin/go-humanize"
 	"github.com/go-chi/chi/v5"
-	"github.com/topi314/gobin/templates"
 	"github.com/topi314/tint"
+
+	"github.com/topi314/gobin/gobin/database"
+	"github.com/topi314/gobin/templates"
 )
 
 type (
@@ -79,7 +84,7 @@ func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) GetDocumentVersion(w http.ResponseWriter, r *http.Request) {
 	documentID, _ := parseDocumentID(r)
-	version := parseDocumentVersion(r, s, w)
+	version := s.parseDocumentVersion(r, w)
 	if version == -1 {
 		return
 	}
@@ -104,14 +109,14 @@ func (s *Server) GetDocumentVersion(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	documentID, extension := parseDocumentID(r)
-	version := parseDocumentVersion(r, s, w)
+	version := s.parseDocumentVersion(r, w)
 	if version == -1 {
 		return
 	}
 
 	var (
-		document  Document
-		documents []Document
+		document  database.Document
+		documents []database.Document
 		err       error
 	)
 	if documentID != "" {
@@ -193,23 +198,6 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	if err = templates.Document(vars).Render(r.Context(), w); err != nil {
 		slog.ErrorContext(r.Context(), "failed to execute template", tint.Err(err))
 	}
-}
-
-func (s *Server) StyleCSS(w http.ResponseWriter, r *http.Request) {
-	style := getStyle(r)
-	cssBuff := s.styleCSS(style)
-
-	w.Header().Set("Content-Type", "text/css; charset=UTF-8")
-	w.Header().Set("Content-Length", strconv.Itoa(len(cssBuff)))
-	w.WriteHeader(http.StatusOK)
-	if r.Method == http.MethodHead {
-		return
-	}
-	_, _ = w.Write([]byte(cssBuff))
-}
-
-func (s *Server) GetVersion(w http.ResponseWriter, _ *http.Request) {
-	_, _ = w.Write([]byte(s.version))
 }
 
 func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
@@ -476,7 +464,7 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
 	documentID, _ := parseDocumentID(r)
-	version := parseDocumentVersion(r, s, w)
+	version := s.parseDocumentVersion(r, w)
 	if version == -1 {
 		return
 	}
@@ -488,7 +476,7 @@ func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var (
-		document Document
+		document database.Document
 		err      error
 	)
 	if version == 0 {
@@ -569,4 +557,100 @@ func (s *Server) PostDocumentShare(w http.ResponseWriter, r *http.Request) {
 	s.ok(w, r, ShareResponse{
 		Token: token,
 	})
+}
+
+func (s *Server) getDocument(w http.ResponseWriter, r *http.Request) (*database.Document, string) {
+	documentID, extension := parseDocumentID(r)
+	if documentID == "" {
+		return &database.Document{}, ""
+	}
+
+	version := s.parseDocumentVersion(r, w)
+	if version == -1 {
+		return nil, ""
+	}
+
+	var (
+		document database.Document
+		err      error
+	)
+	if version == 0 {
+		document, err = s.db.GetDocument(r.Context(), documentID)
+	} else {
+		document, err = s.db.GetDocumentVersion(r.Context(), documentID, version)
+	}
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			s.documentNotFound(w, r)
+			return nil, ""
+		}
+		s.error(w, r, err, http.StatusInternalServerError)
+		return nil, ""
+	}
+	return &document, extension
+}
+
+func parseDocumentID(r *http.Request) (string, string) {
+	documentID := chi.URLParam(r, "documentID")
+	if documentID == "" {
+		return "", ""
+	}
+
+	// get the filename and extension from the documentID
+	filename := documentID
+	extension := ""
+	if index := strings.LastIndex(documentID, "."); index != -1 {
+		filename = documentID[:index]
+		extension = documentID[index+1:]
+	}
+
+	return filename, extension
+}
+
+func (s *Server) renderDocument(r *http.Request, document database.Document, formatterName string, extension string) (string, string, string, *chroma.Style, error) {
+	var (
+		languageName = document.Language
+		lexer        chroma.Lexer
+	)
+
+	if s.cfg.MaxHighlightSize > 0 && len([]rune(document.Content)) > s.cfg.MaxHighlightSize {
+		lexer = lexers.Get("plaintext")
+	} else if extension != "" {
+		lexer = lexers.Match(fmt.Sprintf("%s.%s", document.ID, extension))
+	} else {
+		lexer = lexers.Get(languageName)
+	}
+	if lexer == nil {
+		lexer = lexers.Fallback
+	}
+
+	iterator, err := lexer.Tokenise(nil, document.Content)
+	if err != nil {
+		return "", "", "", nil, err
+	}
+
+	formatter := formatters.Get(formatterName)
+	if formatter == nil {
+		formatter = formatters.Fallback
+	}
+
+	style := getStyle(r)
+
+	buff := new(bytes.Buffer)
+	if err = formatter.Format(buff, style, iterator); err != nil {
+		return "", "", "", nil, err
+	}
+
+	cssBuff := new(bytes.Buffer)
+	if htmlFormatter, ok := formatter.(*html.Formatter); ok {
+		if err = htmlFormatter.WriteCSS(cssBuff, style); err != nil {
+			return "", "", "", nil, err
+		}
+	}
+
+	language := lexer.Config().Name
+	if document.ID == "" {
+		language = "auto"
+	}
+	return buff.String(), cssBuff.String(), language, style, nil
 }

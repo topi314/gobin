@@ -1,12 +1,34 @@
 package gobin
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/stampede"
+	"github.com/go-jose/go-jose/v3/jwt"
 )
+
+const maxUnix = int(^int32(0))
+
+var (
+	ErrNoPermissions     = errors.New("no permissions provided")
+	ErrUnknownPermission = func(p Permission) error {
+		return fmt.Errorf("unknown permission: %s", p)
+	}
+	ErrPermissionDenied = func(p Permission) error {
+		return fmt.Errorf("permission denied: %s", p)
+	}
+)
+
+func (s *Server) cacheKeyFunc(r *http.Request) uint64 {
+	return stampede.BytesToHash([]byte(r.Method), []byte(chi.URLParam(r, "documentID")), []byte(chi.URLParam(r, "version")), []byte(r.URL.RawQuery))
+}
 
 func cacheControl(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -49,5 +71,33 @@ func (s *Server) RateLimit(next http.Handler) http.Handler {
 			return
 		}
 		s.rateLimitHandler(next).ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) JWTMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tokenString := r.Header.Get("Authorization")
+		if len(tokenString) > 7 && strings.ToUpper(tokenString[0:6]) == "BEARER" {
+			tokenString = tokenString[7:]
+		}
+
+		var claims Claims
+		if tokenString == "" {
+			documentID := chi.URLParam(r, "documentID")
+			claims = EmptyClaims(documentID)
+		} else {
+			token, err := jwt.ParseSigned(tokenString)
+			if err != nil {
+				s.error(w, r, err, http.StatusUnauthorized)
+				return
+			}
+
+			if err = token.Claims([]byte(s.cfg.JWTSecret), &claims); err != nil {
+				s.error(w, r, err, http.StatusUnauthorized)
+				return
+			}
+		}
+
+		next.ServeHTTP(w, SetClaims(r, claims))
 	})
 }

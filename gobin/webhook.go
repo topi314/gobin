@@ -18,6 +18,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/topi314/gobin/gobin/database"
 )
 
 var (
@@ -88,7 +90,7 @@ func (s *Server) executeWebhooks(ctx context.Context, event string, document Web
 	defer cancel()
 
 	var (
-		webhooks []Webhook
+		webhooks []database.Webhook
 		err      error
 	)
 	if event == "delete" {
@@ -113,7 +115,7 @@ func (s *Server) executeWebhooks(ctx context.Context, event string, document Web
 		}
 
 		wg.Add(1)
-		go func(webhook Webhook) {
+		go func(webhook database.Webhook) {
 			defer wg.Done()
 			s.executeWebhook(ctx, webhook.URL, webhook.Secret, WebhookEventRequest{
 				WebhookID: webhook.ID,
@@ -324,4 +326,12 @@ func (s *Server) DeleteDocumentWebhook(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) webhookNotFound(w http.ResponseWriter, r *http.Request) {
 	s.error(w, r, ErrWebhookNotFound, http.StatusNotFound)
+}
+
+func GetWebhookSecret(r *http.Request) string {
+	secretStr := r.Header.Get("Authorization")
+	if len(secretStr) > 7 && strings.ToUpper(secretStr[0:6]) == "SECRET" {
+		return secretStr[7:]
+	}
+	return ""
 }
