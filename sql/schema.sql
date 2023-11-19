@@ -1,18 +1,12 @@
-CREATE TABLE IF NOT EXISTS documents
-(
-    id VARCHAR NOT NULL,
-    PRIMARY KEY (id)
-);
-
 CREATE TABLE IF NOT EXISTS files
 (
     id          VARCHAR NOT NULL,
-    document_id VARCHAR NOT NULL REFERENCES documents (id) ON DELETE CASCADE,
+    document_id VARCHAR NOT NULL,
     name        VARCHAR NOT NULL,
     version     BIGINT  NOT NULL,
     content     TEXT    NOT NULL,
     language    VARCHAR NOT NULL,
-    PRIMARY KEY (id),
+    PRIMARY KEY (id, version),
     UNIQUE (document_id, name, version)
 );
 

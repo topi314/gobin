@@ -200,6 +200,10 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) GetRawDocumentFile(w http.ResponseWriter, r *http.Request) {
+
+}
+
 func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 	document, extension := s.getDocument(w, r)
 	if document == nil {

@@ -11,13 +11,8 @@ import (
 )
 
 type Document struct {
-	ID string `db:"id"`
-}
-
-func (d *DB) GetDocument(ctx context.Context, documentID string) (Document, error) {
-	var doc Document
-	err := d.dbx.GetContext(ctx, &doc, "SELECT * FROM documents WHERE id = $1 ORDER BY version DESC LIMIT 1", documentID)
-	return doc, err
+	ID    string `db:"id"`
+	Files []File `db:"files"`
 }
 
 func (d *DB) GetDocumentVersion(ctx context.Context, documentID string, version int64) (Document, error) {

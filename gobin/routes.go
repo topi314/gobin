@@ -92,9 +92,13 @@ func (s *Server) Routes() http.Handler {
 	r.Route("/raw/{documentID}", func(r chi.Router) {
 		r.Get("/", s.GetRawDocument)
 		r.Head("/", s.GetRawDocument)
-		r.Route("/versions/{version}", func(r chi.Router) {
-			r.Get("/", s.GetRawDocument)
-			r.Head("/", s.GetRawDocument)
+		r.Route("/files/{fileID}", func(r chi.Router) {
+			r.Get("/", s.GetRawDocumentFile)
+			r.Head("/", s.GetRawDocumentFile)
+			r.Route("/versions/{version}", func(r chi.Router) {
+				r.Get("/", s.GetRawDocumentFile)
+				r.Head("/", s.GetRawDocumentFile)
+			})
 		})
 	})
 
@@ -116,12 +120,20 @@ func (s *Server) Routes() http.Handler {
 			})
 
 			previewHandler(r)
-			r.Route("/versions", func(r chi.Router) {
-				r.Get("/", s.DocumentVersions)
-				r.Route("/{version}", func(r chi.Router) {
-					r.Get("/", s.GetDocument)
-					r.Delete("/", s.DeleteDocument)
-					previewHandler(r)
+			r.Route("/files", func(r chi.Router) {
+				r.Post("/", s.PostDocumentFile)
+				r.Route("/{fileID}", func(r chi.Router) {
+					r.Get("/", s.GetDocumentFile)
+					r.Patch("/", s.PatchDocumentFile)
+					r.Delete("/", s.DeleteDocumentFile)
+					r.Route("/versions", func(r chi.Router) {
+						r.Get("/", s.DocumentFileVersions)
+						r.Route("/{version}", func(r chi.Router) {
+							r.Get("/", s.GetDocumentFile)
+							r.Delete("/", s.DeleteDocumentFile)
+							previewHandler(r)
+						})
+					})
 				})
 			})
 		})
