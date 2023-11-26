@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/topi314/gobin/internal/httperr"
 	"github.com/topi314/tint"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -196,34 +197,34 @@ func (s *Server) PostDocumentWebhook(w http.ResponseWriter, r *http.Request) {
 
 	var webhookCreate WebhookCreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&webhookCreate); err != nil {
-		s.error(w, r, err, http.StatusBadRequest)
+		s.error(w, r, httperr.BadRequest(err))
 		return
 	}
 
 	if webhookCreate.URL == "" {
-		s.error(w, r, ErrMissingWebhookURL, http.StatusBadRequest)
+		s.error(w, r, httperr.BadRequest(ErrMissingWebhookURL))
 		return
 	}
 
 	if webhookCreate.Secret == "" {
-		s.error(w, r, ErrMissingWebhookSecret, http.StatusBadRequest)
+		s.error(w, r, httperr.BadRequest(ErrMissingWebhookSecret))
 		return
 	}
 
 	if len(webhookCreate.Events) == 0 {
-		s.error(w, r, ErrMissingWebhookEvents, http.StatusBadRequest)
+		s.error(w, r, httperr.BadRequest(ErrMissingWebhookEvents))
 		return
 	}
 
 	claims := GetClaims(r)
 	if !slices.Contains(claims.Permissions, PermissionWebhook) {
-		s.error(w, r, ErrPermissionDenied(PermissionWebhook), http.StatusForbidden)
+		s.error(w, r, httperr.Forbidden(ErrPermissionDenied(PermissionWebhook)))
 		return
 	}
 
 	webhook, err := s.db.CreateWebhook(r.Context(), documentID, webhookCreate.URL, webhookCreate.Secret, webhookCreate.Events)
 	if err != nil {
-		s.error(w, r, err, http.StatusInternalServerError)
+		s.error(w, r, err)
 		return
 	}
 
@@ -241,17 +242,17 @@ func (s *Server) GetDocumentWebhook(w http.ResponseWriter, r *http.Request) {
 	webhookID := chi.URLParam(r, "webhookID")
 	secret := GetWebhookSecret(r)
 	if secret == "" {
-		s.error(w, r, ErrMissingWebhookSecret, http.StatusBadRequest)
+		s.error(w, r, httperr.BadRequest(ErrMissingWebhookSecret))
 		return
 	}
 
 	webhook, err := s.db.GetWebhook(r.Context(), documentID, webhookID, secret)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			s.webhookNotFound(w, r)
+			s.error(w, r, httperr.NotFound(ErrWebhookNotFound))
 			return
 		}
-		s.error(w, r, err, http.StatusInternalServerError)
+		s.error(w, r, err)
 		return
 	}
 
@@ -269,28 +270,28 @@ func (s *Server) PatchDocumentWebhook(w http.ResponseWriter, r *http.Request) {
 	webhookID := chi.URLParam(r, "webhookID")
 	secret := GetWebhookSecret(r)
 	if secret == "" {
-		s.error(w, r, ErrMissingWebhookSecret, http.StatusBadRequest)
+		s.error(w, r, httperr.BadRequest(ErrMissingWebhookSecret))
 		return
 	}
 
 	var webhookUpdate WebhookUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&webhookUpdate); err != nil {
-		s.error(w, r, err, http.StatusBadRequest)
+		s.error(w, r, httperr.BadRequest(err))
 		return
 	}
 
 	if webhookUpdate.URL == "" && webhookUpdate.Secret == "" && len(webhookUpdate.Events) == 0 {
-		s.error(w, r, ErrMissingURLOrSecretOrEvents, http.StatusBadRequest)
+		s.error(w, r, httperr.BadRequest(ErrMissingURLOrSecretOrEvents))
 		return
 	}
 
 	webhook, err := s.db.UpdateWebhook(r.Context(), documentID, webhookID, secret, webhookUpdate.URL, webhookUpdate.Secret, webhookUpdate.Events)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			s.webhookNotFound(w, r)
+			s.error(w, r, httperr.NotFound(ErrWebhookNotFound))
 			return
 		}
-		s.error(w, r, err, http.StatusInternalServerError)
+		s.error(w, r, err)
 		return
 	}
 
@@ -308,24 +309,20 @@ func (s *Server) DeleteDocumentWebhook(w http.ResponseWriter, r *http.Request) {
 	webhookID := chi.URLParam(r, "webhookID")
 	secret := GetWebhookSecret(r)
 	if secret == "" {
-		s.error(w, r, ErrMissingWebhookSecret, http.StatusBadRequest)
+		s.error(w, r, httperr.BadRequest(ErrMissingWebhookSecret))
 		return
 	}
 
 	if err := s.db.DeleteWebhook(r.Context(), documentID, webhookID, secret); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			s.webhookNotFound(w, r)
+			s.error(w, r, httperr.NotFound(ErrWebhookNotFound))
 			return
 		}
-		s.error(w, r, err, http.StatusInternalServerError)
+		s.error(w, r, err)
 		return
 	}
 
 	s.ok(w, r, nil)
-}
-
-func (s *Server) webhookNotFound(w http.ResponseWriter, r *http.Request) {
-	s.error(w, r, ErrWebhookNotFound, http.StatusNotFound)
 }
 
 func GetWebhookSecret(r *http.Request) string {

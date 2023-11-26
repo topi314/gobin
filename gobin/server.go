@@ -16,6 +16,7 @@ import (
 	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/go-chi/httprate"
 	"github.com/go-jose/go-jose/v3"
+	"github.com/topi314/gobin/internal/httperr"
 	"github.com/topi314/tint"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -26,7 +27,7 @@ import (
 	"github.com/topi314/gobin/templates"
 )
 
-func NewServer(version string, debug bool, cfg Config, handler http.Handler, db *database.DB, signer jose.Signer, tracer trace.Tracer, meter metric.Meter, assets http.FileSystem, htmlFormatter *html.Formatter) *Server {
+func NewServer(version string, debug bool, cfg Config, db *database.DB, signer jose.Signer, tracer trace.Tracer, meter metric.Meter, assets http.FileSystem, htmlFormatter *html.Formatter) *Server {
 	var allStyles []templates.Style
 	for _, name := range styles.Names() {
 		allStyles = append(allStyles, templates.Style{
@@ -66,7 +67,9 @@ func NewServer(version string, debug bool, cfg Config, handler http.Handler, db 
 		s.rateLimitHandler = httprate.NewRateLimiter(
 			cfg.RateLimit.Requests,
 			cfg.RateLimit.Duration,
-			httprate.WithLimitHandler(s.rateLimit),
+			httprate.WithLimitHandler(func(w http.ResponseWriter, r *http.Request) {
+				s.error(w, r, httperr.TooManyRequests(ErrRateLimit))
+			}),
 			httprate.WithKeyFuncs(
 				httprate.KeyByIP,
 				httprate.KeyByEndpoint,

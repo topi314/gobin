@@ -7,6 +7,7 @@ templ head(vars DocumentVars) {
 		<meta name="description" content="gobin is a simple hastebin compatible paste server written in Go."/>
 
 		<link rel="stylesheet" type="text/css" href="/assets/style.css"/>
+		<link rel="stylesheet" type="text/css" href="/assets/theme.css"/>
 
 		<link rel="icon" href="/assets/favicon.png"/>
 		<meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -33,8 +34,5 @@ templ head(vars DocumentVars) {
 			<meta name="twitter:description" content="gobin is a simple hastebin compatible paste server written in Go."/>
 			<meta name="twitter:card" content="summary"/>
 		}
-
-		@WriteUnsafe(vars.GetThemeCSS())
-		@WriteUnsafe(vars.GetCSS())
 	</head>
 }

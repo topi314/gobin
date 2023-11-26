@@ -301,6 +301,22 @@ main {
     color: var(--bg-error);
 }
 
+#files {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    flex-grow: 1;
+}
+
+.file {
+    display: flex;
+    flex-grow: 1;
+}
+
+.file [type=radio] {
+    display: none;
+}
+
 .settings {
     display: flex;
     justify-content: space-between;

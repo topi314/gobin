@@ -1,13 +1,11 @@
 CREATE TABLE IF NOT EXISTS files
 (
-    id          VARCHAR NOT NULL,
-    document_id VARCHAR NOT NULL,
-    name        VARCHAR NOT NULL,
-    version     BIGINT  NOT NULL,
-    content     TEXT    NOT NULL,
-    language    VARCHAR NOT NULL,
-    PRIMARY KEY (id, version),
-    UNIQUE (document_id, name, version)
+    name             VARCHAR NOT NULL,
+    document_id      VARCHAR NOT NULL,
+    document_version BIGINT  NOT NULL,
+    content          TEXT    NOT NULL,
+    language         VARCHAR NOT NULL,
+    PRIMARY KEY (name, document_id, document_version)
 );
 
 CREATE TABLE IF NOT EXISTS webhooks

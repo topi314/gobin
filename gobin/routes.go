@@ -1,33 +1,31 @@
 package gobin
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"strings"
 
-	"github.com/alecthomas/chroma/v2"
-	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/stampede"
 	"github.com/riandyrn/otelchi"
 	slogchi "github.com/samber/slog-chi"
+	"github.com/topi314/gobin/internal/httperr"
 	"github.com/topi314/tint"
 
 	"github.com/topi314/gobin/templates"
 )
 
 var (
-	ErrDocumentNotFound = errors.New("document not found")
-	ErrRateLimit        = errors.New("rate limit exceeded")
-	ErrEmptyBody        = errors.New("empty request body")
-	ErrContentTooLarge  = func(maxLength int) error {
+	ErrDocumentNotFound       = errors.New("document not found")
+	ErrDocumentFileNotFound   = errors.New("document file not found")
+	ErrInvalidDocumentVersion = errors.New("document version is invalid")
+	ErrRateLimit              = errors.New("rate limit exceeded")
+	ErrContentTooLarge        = func(maxLength int) error {
 		return fmt.Errorf("content too large, must be less than %d chars", maxLength)
 	}
 )
@@ -57,7 +55,7 @@ func (s *Server) Routes() http.Handler {
 	if s.cfg.RateLimit != nil {
 		r.Use(s.RateLimit)
 	}
-	r.Use(s.JWTMiddleware)
+	// r.Use(s.JWTMiddleware)
 
 	if s.cfg.Debug {
 		r.Mount("/debug", middleware.Profiler())
@@ -74,14 +72,14 @@ func (s *Server) Routes() http.Handler {
 				if previewCache != nil {
 					r.Use(previewCache)
 				}
-				r.Get("/", s.GetDocumentPreview)
-				r.Head("/", s.GetDocumentPreview)
+				// r.Get("/", s.GetDocumentPreview)
+				// r.Head("/", s.GetDocumentPreview)
 			})
 		}
 	}
 
 	r.Mount("/assets", http.FileServer(s.assets))
-	r.HandleFunc("/assets/theme.css", s.StyleCSS)
+	r.HandleFunc("/assets/theme.css", s.ThemeCSS)
 	r.Handle("/favicon.ico", s.file("/assets/favicon.png"))
 	r.Handle("/favicon.png", s.file("/assets/favicon.png"))
 	r.Handle("/favicon-light.png", s.file("/assets/favicon-light.png"))
@@ -89,26 +87,32 @@ func (s *Server) Routes() http.Handler {
 
 	r.Get("/version", s.GetVersion)
 
-	r.Route("/raw/{documentID}", func(r chi.Router) {
-		r.Get("/", s.GetRawDocument)
-		r.Head("/", s.GetRawDocument)
-		r.Route("/files/{fileID}", func(r chi.Router) {
-			r.Get("/", s.GetRawDocumentFile)
-			r.Head("/", s.GetRawDocumentFile)
-			r.Route("/versions/{version}", func(r chi.Router) {
-				r.Get("/", s.GetRawDocumentFile)
-				r.Head("/", s.GetRawDocumentFile)
-			})
-		})
-	})
-
 	r.Route("/documents", func(r chi.Router) {
 		r.Post("/", s.PostDocument)
+
+		r.Route("/versions", func(r chi.Router) {
+			// r.Get("/", s.DocumentVersions)
+			r.Route("/{version}", func(r chi.Router) {
+				r.Get("/", s.GetDocument)
+				r.Delete("/", s.DeleteDocument)
+
+				previewHandler(r)
+				r.Route("/files", func(r chi.Router) {
+					// r.Post("/", s.PostDocumentFile)
+					r.Route("/{fileName}", func(r chi.Router) {
+						r.Get("/", s.GetDocumentFile)
+						// r.Patch("/", s.PatchDocumentFile)
+						// r.Delete("/", s.DeleteDocumentFile)
+					})
+				})
+			})
+		})
+
 		r.Route("/{documentID}", func(r chi.Router) {
 			r.Get("/", s.GetDocument)
 			r.Patch("/", s.PatchDocument)
 			r.Delete("/", s.DeleteDocument)
-			r.Post("/share", s.PostDocumentShare)
+			// r.Post("/share", s.PostDocumentShare)
 
 			r.Route("/webhooks", func(r chi.Router) {
 				r.Post("/", s.PostDocumentWebhook)
@@ -116,24 +120,6 @@ func (s *Server) Routes() http.Handler {
 					r.Get("/", s.GetDocumentWebhook)
 					r.Patch("/", s.PatchDocumentWebhook)
 					r.Delete("/", s.DeleteDocumentWebhook)
-				})
-			})
-
-			previewHandler(r)
-			r.Route("/files", func(r chi.Router) {
-				r.Post("/", s.PostDocumentFile)
-				r.Route("/{fileID}", func(r chi.Router) {
-					r.Get("/", s.GetDocumentFile)
-					r.Patch("/", s.PatchDocumentFile)
-					r.Delete("/", s.DeleteDocumentFile)
-					r.Route("/versions", func(r chi.Router) {
-						r.Get("/", s.DocumentFileVersions)
-						r.Route("/{version}", func(r chi.Router) {
-							r.Get("/", s.GetDocumentFile)
-							r.Delete("/", s.DeleteDocumentFile)
-							previewHandler(r)
-						})
-					})
 				})
 			})
 		})
@@ -160,115 +146,43 @@ func (s *Server) Routes() http.Handler {
 	return r
 }
 
-func (s *Server) StyleCSS(w http.ResponseWriter, r *http.Request) {
-	style := getStyle(r)
-	cssBuff := s.styleCSS(style)
-
-	w.Header().Set("Content-Type", "text/css; charset=UTF-8")
-	w.Header().Set("Content-Length", strconv.Itoa(len(cssBuff)))
-	w.WriteHeader(http.StatusOK)
-	if r.Method == http.MethodHead {
-		return
-	}
-	_, _ = w.Write([]byte(cssBuff))
-}
-
 func (s *Server) GetVersion(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write([]byte(s.version))
-}
-
-func (s *Server) parseDocumentVersion(r *http.Request, w http.ResponseWriter) int64 {
-	version := chi.URLParam(r, "version")
-	if version == "" {
-		return 0
-	}
-
-	int64Version, err := strconv.ParseInt(version, 10, 64)
-	if err != nil {
-		s.documentNotFound(w, r)
-		return -1
-	}
-	return int64Version
-}
-
-func (s *Server) styleCSS(style *chroma.Style) string {
-	cssBuff := new(bytes.Buffer)
-	background := style.Get(chroma.Background)
-	_, _ = fmt.Fprint(cssBuff, ":root{")
-	_, _ = fmt.Fprintf(cssBuff, "--bg-primary: %s;", background.Background.String())
-	_, _ = fmt.Fprintf(cssBuff, "--bg-secondary: %s;", background.Background.BrightenOrDarken(0.07).String())
-	_, _ = fmt.Fprintf(cssBuff, "--nav-button-bg: %s;", background.Background.BrightenOrDarken(0.12).String())
-	_, _ = fmt.Fprintf(cssBuff, "--text-primary: %s;", background.Colour.String())
-	_, _ = fmt.Fprintf(cssBuff, "--text-secondary: %s;", background.Colour.BrightenOrDarken(0.2).String())
-	_, _ = fmt.Fprintf(cssBuff, "--bg-scrollbar: %s;", background.Background.BrightenOrDarken(0.1).String())
-	_, _ = fmt.Fprintf(cssBuff, "--bg-scrollbar-thumb: #%s;", background.Background.BrightenOrDarken(0.2).String())
-	_, _ = fmt.Fprintf(cssBuff, "--bg-scrollbar-thumb-hover: %s;", background.Background.BrightenOrDarken(0.3).String())
-	_, _ = fmt.Fprint(cssBuff, "}")
-	return cssBuff.String()
-}
-
-func getStyle(r *http.Request) *chroma.Style {
-	var styleName string
-	if styleCookie, err := r.Cookie("style"); err == nil {
-		styleName = styleCookie.Value
-	}
-	queryStyle := r.URL.Query().Get("style")
-	if queryStyle != "" {
-		styleName = queryStyle
-	}
-
-	style := styles.Get(styleName)
-	if style == nil {
-		return styles.Fallback
-	}
-
-	return style
-}
-
-func (s *Server) readBody(w http.ResponseWriter, r *http.Request) string {
-	content, err := io.ReadAll(r.Body)
-	if err != nil {
-		s.error(w, r, err, http.StatusInternalServerError)
-		return ""
-	}
-
-	if len(content) == 0 {
-		s.error(w, r, ErrEmptyBody, http.StatusBadRequest)
-		return ""
-	}
-	return string(content)
 }
 
 func (s *Server) redirectRoot(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-func (s *Server) documentNotFound(w http.ResponseWriter, r *http.Request) {
-	s.error(w, r, ErrDocumentNotFound, http.StatusNotFound)
-}
+func (s *Server) prettyError(w http.ResponseWriter, r *http.Request, err error) {
+	status := http.StatusInternalServerError
+	var httpErr *httperr.Error
+	if errors.As(err, &httpErr) {
+		status = httpErr.Status
+	}
 
-func (s *Server) rateLimit(w http.ResponseWriter, r *http.Request) {
-	s.error(w, r, ErrRateLimit, http.StatusTooManyRequests)
-}
-
-func (s *Server) prettyError(w http.ResponseWriter, r *http.Request, err error, status int) {
 	w.WriteHeader(status)
-
-	vars := templates.ErrorVars{
+	if tmplErr := templates.Error(templates.ErrorVars{
 		Error:     err.Error(),
 		Status:    status,
 		RequestID: middleware.GetReqID(r.Context()),
 		Path:      r.URL.Path,
-	}
-	if tmplErr := templates.Error(vars).Render(r.Context(), w); tmplErr != nil && !errors.Is(tmplErr, http.ErrHandlerTimeout) {
+	}).Render(r.Context(), w); tmplErr != nil && !errors.Is(tmplErr, http.ErrHandlerTimeout) {
 		slog.ErrorContext(r.Context(), "failed to execute error template", tint.Err(tmplErr))
 	}
 }
 
-func (s *Server) error(w http.ResponseWriter, r *http.Request, err error, status int) {
+func (s *Server) error(w http.ResponseWriter, r *http.Request, err error) {
 	if errors.Is(err, http.ErrHandlerTimeout) {
 		return
 	}
+
+	status := http.StatusInternalServerError
+	var httpErr *httperr.Error
+	if errors.As(err, &httpErr) {
+		status = httpErr.Status
+	}
+
 	if status == http.StatusInternalServerError {
 		slog.ErrorContext(r.Context(), "internal server error", tint.Err(err))
 	}
@@ -302,7 +216,7 @@ func (s *Server) json(w http.ResponseWriter, r *http.Request, v any, status int)
 
 func (s *Server) exceedsMaxDocumentSize(w http.ResponseWriter, r *http.Request, content string) bool {
 	if s.cfg.MaxDocumentSize > 0 && len([]rune(content)) > s.cfg.MaxDocumentSize {
-		s.error(w, r, ErrContentTooLarge(s.cfg.MaxDocumentSize), http.StatusBadRequest)
+		s.error(w, r, httperr.BadRequest(ErrContentTooLarge(s.cfg.MaxDocumentSize)))
 		return true
 	}
 	return false

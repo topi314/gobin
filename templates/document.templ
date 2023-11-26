@@ -33,44 +33,16 @@ templ Document(vars DocumentVars) {
     </dialog>
     @header(vars)
     <main>
-        <div class="settings">
-            <div class="first">
-                <select title="Language" id="language" autocomplete="off">
-                    <option value="auto" selected?={ vars.Language == "" }>auto</option>
-                    for _, lexer := range vars.Lexers {
-                        <option value={ lexer } selected?={ vars.Language == lexer }>{ lexer }</option>
-                    }
-                </select>
-                <select title="Style" id="style" autocomplete="off">
-                    for _, style := range vars.Styles {
-                        <option value={ style.Name } data-theme={ style.Theme } selected?={ vars.Style == style.Name }>{ style.Name }</option>
-                    }
-                </select>
-            </div>
-            <select title="Versions" id="version" autocomplete="off">
-                for _, version := range vars.Versions {
-                    <option title={ version.Time } value={ strconv.FormatInt(version.Version, 10) } selected?={ version.Version == vars.Version }>{ version.Label }</option>
-                }
-            </select>
+        <div id="files">
+            for i, file := range vars.Files {
+                <div class="file">
+                    <input type="radio" name="file" id={ "file-" + strconv.Itoa(i) }/>
+                    <label for={ "file-" + strconv.Itoa(i) }>{ file.Name }</label>
+                    <pre id="code"><code id="code-view" class="ch-chroma">@WriteUnsafe(file.ContentFormatted)</code></pre>
+                </div>
+            }
         </div>
-        <pre id="code"
-            if vars.ID == "" {
-                style="display: none;"
-            }
-        ><code id="code-view" class="ch-chroma">@WriteUnsafe(vars.Formatted)</code></pre>
-        <textarea id="code-edit" spellcheck="false"
-            if  vars.ID != "" {
-	            style="display: none;"
-            }
-            autocomplete="off">{ vars.Content }</textarea>
-        <label for="code-edit">
-            <span id="code-edit-count">{ strconv.Itoa(len(vars.Content)) }</span>
-            if vars.Max > 0 {
-                /<span id="code-edit-max">{ strconv.Itoa(vars.Max) }</span>
-            }
-        </label>
     </main>
-    <script src="/assets/script.js" defer></script>
     </body>
     </html>
 }

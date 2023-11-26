@@ -6,12 +6,18 @@ templ header(vars DocumentVars) {
 
 		<a title="GitHub" id="github" class="icon-btn" href="https://github.com/topi314/gobin" target="_blank"></a>
 
+		<select title="Style" id="style" autocomplete="off">
+            for _, style := range vars.Styles {
+                <option value={ style.Name } data-theme={ style.Theme } selected?={ vars.Style == style.Name }>{ style.Name }</option>
+            }
+        </select>
+
 		<input id="nav-btn" type="checkbox"/>
 		<label title="Open Navigation" class="hamb" for="nav-btn"><span></span></label>
 
 		<nav>
 			<a title="New" id="new" class="icon-btn" href="/" target="_blank"></a>
-			if vars.Content == "" {
+			if len(vars.Files) == 0 {
 				<button title="Edit" id="edit" class="icon-btn" disabled style="display: none"></button>
 				<button title="Save" id="save" class="icon-btn" disabled></button>
 			} else {

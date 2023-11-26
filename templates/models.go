@@ -2,7 +2,6 @@ package templates
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"strconv"
 
@@ -17,19 +16,16 @@ func WriteUnsafe(str string) templ.Component {
 }
 
 type DocumentVars struct {
-	ID        string
-	Version   int64
-	Content   string
-	Formatted string
-	CSS       string
-	ThemeCSS  string
-	Language  string
+	ID      string
+	Version int64
 
+	Files    []File
 	Versions []DocumentVersion
-	Lexers   []string
-	Styles   []Style
-	Style    string
-	Theme    string
+
+	Lexers []string
+	Styles []Style
+	Style  string
+	Theme  string
 
 	Max        int
 	Host       string
@@ -37,20 +33,11 @@ type DocumentVars struct {
 	PreviewAlt string
 }
 
-func (v DocumentVars) GetThemeCSS() string {
-	return fmt.Sprintf(`
-	<style id="theme-style">
-%s
-	</style>
-	`, v.ThemeCSS)
-}
-
-func (v DocumentVars) GetCSS() string {
-	return fmt.Sprintf(`
-	<style id="code-style">
-%s
-	</style>
-	`, v.CSS)
+type File struct {
+	Name             string
+	Content          string
+	ContentFormatted string
+	Language         string
 }
 
 func (v DocumentVars) PreviewURL() string {

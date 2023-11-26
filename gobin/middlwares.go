@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/stampede"
 	"github.com/go-jose/go-jose/v3/jwt"
+	"github.com/topi314/gobin/internal/httperr"
 )
 
 const maxUnix = int(^int32(0))
@@ -63,7 +64,7 @@ func (s *Server) RateLimit(next http.Handler) http.Handler {
 			w.Header().Set("X-RateLimit-Reset", strconv.Itoa(maxUnix))
 			w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
 			w.WriteHeader(http.StatusTooManyRequests)
-			s.rateLimit(w, r)
+			s.error(w, r, httperr.TooManyRequests(ErrRateLimit))
 			return
 		}
 		if s.rateLimitHandler == nil {
@@ -88,12 +89,12 @@ func (s *Server) JWTMiddleware(next http.Handler) http.Handler {
 		} else {
 			token, err := jwt.ParseSigned(tokenString)
 			if err != nil {
-				s.error(w, r, err, http.StatusUnauthorized)
+				s.error(w, r, httperr.Unauthorized(err))
 				return
 			}
 
 			if err = token.Claims([]byte(s.cfg.JWTSecret), &claims); err != nil {
-				s.error(w, r, err, http.StatusUnauthorized)
+				s.error(w, r, httperr.Unauthorized(err))
 				return
 			}
 		}

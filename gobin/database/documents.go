@@ -3,117 +3,100 @@ package database
 import (
 	"context"
 	"database/sql"
-	"errors"
+	"fmt"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgconn"
-	"modernc.org/sqlite"
 )
 
-type Document struct {
-	ID    string `db:"id"`
-	Files []File `db:"files"`
+type File struct {
+	DocumentID      string `db:"document_id"`
+	DocumentVersion int64  `db:"document_version"`
+	Name            string `db:"name"`
+	Content         string `db:"content"`
+	Language        string `db:"language"`
 }
 
-func (d *DB) GetDocumentVersion(ctx context.Context, documentID string, version int64) (Document, error) {
-	var doc Document
-	err := d.dbx.GetContext(ctx, &doc, "SELECT * FROM documents WHERE id = $1 AND version = $2", documentID, version)
-	return doc, err
+func (d *DB) GetDocument(ctx context.Context, documentID string) ([]File, error) {
+	var files []File
+	if err := d.dbx.SelectContext(ctx, &files, "SELECT name, document_id, document_version, content, language from (SELECT *, rank() OVER (PARTITION BY document_id ORDER BY document_version DESC) AS rank FROM files) AS f WHERE document_id = $1 AND rank = 1;", documentID); err != nil {
+		return nil, fmt.Errorf("failed to get document: %w", err)
+	}
+
+	if len(files) == 0 {
+		return nil, sql.ErrNoRows
+	}
+	return files, nil
 }
 
-func (d *DB) GetDocumentVersions(ctx context.Context, documentID string, withContent bool) ([]Document, error) {
-	var (
-		docs      []Document
-		sqlString string
-	)
-	if withContent {
-		sqlString = "SELECT id, version, content, language FROM documents where id = $1 ORDER BY version DESC"
-	} else {
-		sqlString = "SELECT id, version FROM documents where id = $1 ORDER BY version DESC"
+func (d *DB) GetDocumentVersion(ctx context.Context, documentID string, documentVersion int64) ([]File, error) {
+	var files []File
+	if err := d.dbx.SelectContext(ctx, &files, "SELECT name, document_id, document_version, content, language from files WHERE document_id = $1 AND document_version = $2;", documentID, documentVersion); err != nil {
+		return nil, fmt.Errorf("failed to get document version: %w", err)
 	}
-	err := d.dbx.SelectContext(ctx, &docs, sqlString, documentID)
-	return docs, err
+
+	if len(files) == 0 {
+		return nil, sql.ErrNoRows
+	}
+	return files, nil
 }
 
-func (d *DB) GetVersionCount(ctx context.Context, documentID string) (int, error) {
-	var count int
-	err := d.dbx.GetContext(ctx, &count, "SELECT COUNT(*) FROM documents WHERE id = $1", documentID)
-	return count, err
+func (d *DB) GetDocumentVersions(ctx context.Context, documentID string) ([]int64, error) {
+	var versions []int64
+	if err := d.dbx.SelectContext(ctx, &versions, "SELECT DISTINCT document_version FROM files WHERE document_id = $1 ORDER BY document_version DESC;", documentID); err != nil {
+		return nil, fmt.Errorf("failed to get document versions: %w", err)
+	}
+	return versions, nil
+
 }
 
-func (d *DB) CreateDocument(ctx context.Context, content string, language string) (Document, error) {
-	return d.createDocument(ctx, content, language, 0)
+func (d *DB) CreateDocument(ctx context.Context, files []File) (*string, error) {
+	documentID := d.randomString(8)
+	for i := range files {
+		files[i].DocumentID = documentID
+		files[i].DocumentVersion = 0
+	}
+
+	if _, err := d.dbx.NamedExecContext(ctx, "INSERT INTO files (name, document_id, document_version, content, language) VALUES (:name, :document_id, :document_version, :content, :language);", files); err != nil {
+		return nil, fmt.Errorf("failed to create document: %w", err)
+	}
+	return &documentID, nil
 }
 
-func (d *DB) createDocument(ctx context.Context, content string, language string, try int) (Document, error) {
-	if try >= 10 {
-		return Document{}, errors.New("failed to create document because of duplicate key after 10 tries")
+func (d *DB) UpdateDocument(ctx context.Context, documentID string, files []File) error {
+	version := time.Now().Unix()
+	for i := range files {
+		files[i].DocumentID = documentID
+		files[i].DocumentVersion = version
 	}
-	now := time.Now().Unix()
-	doc := Document{
-		ID:       d.randomString(8),
-		Content:  content,
-		Language: language,
-		Version:  now,
+	if _, err := d.dbx.NamedExecContext(ctx, "INSERT INTO files (name, document_id, document_version, content, language) VALUES (:name, :document_id, :document_version, :content, :language);", files); err != nil {
+		return fmt.Errorf("failed to update document: %w", err)
 	}
-	_, err := d.dbx.NamedExecContext(ctx, "INSERT INTO documents (id, version, content, language) VALUES (:id, :version, :content, :language) RETURNING *", doc)
-
-	if err != nil {
-		var (
-			sqliteErr *sqlite.Error
-			pgErr     *pgconn.PgError
-		)
-		if errors.As(err, &sqliteErr) || errors.As(err, &pgErr) {
-			if (sqliteErr != nil && sqliteErr.Code() == 1555) || (pgErr != nil && pgErr.Code == "23505") {
-				return d.createDocument(ctx, content, language, try+1)
-			}
-		}
-	}
-
-	return doc, err
+	return nil
 }
 
-func (d *DB) UpdateDocument(ctx context.Context, documentID string, content string, language string) (Document, error) {
-	doc := Document{
-		ID:       documentID,
-		Version:  time.Now().Unix(),
-		Content:  content,
-		Language: language,
+func (d *DB) DeleteDocument(ctx context.Context, documentID string) error {
+	if _, err := d.dbx.ExecContext(ctx, "DELETE FROM files WHERE document_id = $1;", documentID); err != nil {
+		return fmt.Errorf("failed to delete document: %w", err)
 	}
-	res, err := d.dbx.NamedExecContext(ctx, "INSERT INTO documents (id, version, content, language) VALUES (:id, :version, :content, :language)", doc)
-	if err != nil {
-		return Document{}, err
-	}
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return Document{}, err
-	}
-	if rows == 0 {
-		return Document{}, sql.ErrNoRows
-	}
-
-	return doc, nil
+	return nil
 }
 
-func (d *DB) DeleteDocument(ctx context.Context, documentID string) (Document, error) {
-	var document Document
-	if err := d.dbx.GetContext(ctx, &document, "DELETE FROM documents WHERE id = $1 RETURNING *", documentID); err != nil {
-		return Document{}, err
+func (d *DB) DeleteDocumentVersion(ctx context.Context, documentID string, documentVersion int) error {
+	if _, err := d.dbx.ExecContext(ctx, "DELETE FROM files WHERE document_id = $1 AND document_version = $2;", documentID, documentVersion); err != nil {
+		return fmt.Errorf("failed to delete document version: %w", err)
 	}
-
-	return document, nil
+	return nil
 }
 
-func (d *DB) DeleteDocumentByVersion(ctx context.Context, documentID string, version int64) (Document, error) {
-	var document Document
-	if err := d.dbx.GetContext(ctx, "DELETE FROM documents WHERE id = $1 AND version = $2 returning *", documentID, version); err != nil {
-		return Document{}, err
+func (d *DB) DeleteDocumentVersions(ctx context.Context, documentID string) error {
+	if _, err := d.dbx.ExecContext(ctx, "DELETE FROM files WHERE document_id = $1;", documentID); err != nil {
+		return fmt.Errorf("failed to delete document versions: %w", err)
 	}
-
-	return document, nil
+	return nil
 }
 
 func (d *DB) DeleteExpiredDocuments(ctx context.Context, expireAfter time.Duration) error {
-	_, err := d.dbx.ExecContext(ctx, "DELETE FROM documents WHERE version < $1", time.Now().Add(expireAfter).Unix())
-	return err
+	if _, err := d.dbx.ExecContext(ctx, "DELETE FROM files WHERE document_version < $1;", time.Now().Add(expireAfter).Unix()); err != nil {
+		return fmt.Errorf("failed to delete expired documents: %w", err)
+	}
+	return nil
 }

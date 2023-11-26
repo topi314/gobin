@@ -1,53 +1,45 @@
 package gobin
 
 import (
-	"bytes"
 	"database/sql"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
+	"mime"
 	"net/http"
-	"slices"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/alecthomas/chroma/v2"
-	"github.com/alecthomas/chroma/v2/formatters"
-	"github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/dustin/go-humanize"
 	"github.com/go-chi/chi/v5"
-	"github.com/topi314/tint"
-
 	"github.com/topi314/gobin/gobin/database"
+	"github.com/topi314/gobin/internal/httperr"
 	"github.com/topi314/gobin/templates"
+	"github.com/topi314/tint"
 )
 
 type (
 	DocumentResponse struct {
-		Key          string `json:"key,omitempty"`
-		Version      int64  `json:"version"`
-		VersionLabel string `json:"version_label,omitempty"`
-		VersionTime  string `json:"version_time,omitempty"`
-		Data         string `json:"data,omitempty"`
-		Formatted    string `json:"formatted,omitempty"`
-		CSS          string `json:"css,omitempty"`
-		ThemeCSS     string `json:"theme_css,omitempty"`
-		Language     string `json:"language"`
-		Token        string `json:"token,omitempty"`
+		Key     string         `json:"key"`
+		Version int64          `json:"version"`
+		Files   []ResponseFile `json:"files"`
+		Token   string         `json:"token,omitempty"`
 	}
 
-	ShareRequest struct {
-		Permissions []Permission `json:"permissions"`
+	ResponseFile struct {
+		Name             string `json:"name"`
+		Content          string `json:"content"`
+		ContentFormatted string `json:"content_formatted,omitempty"`
+		Language         string `json:"language"`
 	}
 
-	ShareResponse struct {
-		Token string `json:"token"`
-	}
-
-	DeleteResponse struct {
-		Versions int `json:"versions"`
+	RequestFile struct {
+		Name     string
+		Content  string
+		Language string
 	}
 
 	ErrorResponse struct {
@@ -58,603 +50,372 @@ type (
 	}
 )
 
-func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
-	documentID, _ := parseDocumentID(r)
-	withContent := r.URL.Query().Get("withData") == "true"
-
-	versions, err := s.db.GetDocumentVersions(r.Context(), documentID, withContent)
-	if err != nil {
-		s.error(w, r, fmt.Errorf("failed to get document versions: %w", err), http.StatusInternalServerError)
-		return
-	}
-	if len(versions) == 0 {
-		s.documentNotFound(w, r)
-		return
-	}
-	var response []DocumentResponse
-	for _, version := range versions {
-		response = append(response, DocumentResponse{
-			Version:  version.Version,
-			Data:     version.Content,
-			Language: version.Language,
-		})
-	}
-	s.ok(w, r, response)
-}
-
-func (s *Server) GetDocumentVersion(w http.ResponseWriter, r *http.Request) {
-	documentID, _ := parseDocumentID(r)
-	version := s.parseDocumentVersion(r, w)
-	if version == -1 {
-		return
-	}
-
-	document, err := s.db.GetDocumentVersion(r.Context(), documentID, version)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			s.documentNotFound(w, r)
-			return
-		}
-		s.error(w, r, fmt.Errorf("failed to get document version: %w", err), http.StatusInternalServerError)
-		return
-	}
-
-	s.ok(w, r, DocumentResponse{
-		Key:      document.ID,
-		Version:  document.Version,
-		Data:     document.Content,
-		Language: document.Language,
-	})
-}
-
 func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
-	documentID, extension := parseDocumentID(r)
-	version := s.parseDocumentVersion(r, w)
-	if version == -1 {
+	documentID, version, files, err := s.getDocument(r)
+	if err != nil {
+		s.prettyError(w, r, err)
 		return
 	}
 
-	var (
-		document  database.Document
-		documents []database.Document
-		err       error
-	)
-	if documentID != "" {
-		if version == 0 {
-			document, err = s.db.GetDocument(r.Context(), documentID)
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					s.redirectRoot(w, r)
-					return
-				}
-				s.prettyError(w, r, fmt.Errorf("failed to get pretty document: %w", err), http.StatusInternalServerError)
-				return
-			}
-		} else {
-			document, err = s.db.GetDocumentVersion(r.Context(), documentID, version)
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					s.redirectRoot(w, r)
-					return
-				}
-				s.prettyError(w, r, fmt.Errorf("failed to get pretty document: %w", err), http.StatusInternalServerError)
-				return
-			}
-		}
-		documents, err = s.db.GetDocumentVersions(r.Context(), documentID, false)
+	versions, err := s.db.GetDocumentVersions(r.Context(), documentID)
+	if err != nil {
+		s.prettyError(w, r, fmt.Errorf("failed to get document versions: %w", err))
+		return
+	}
+
+	formatter := s.getFormatter(r)
+	style := getStyle(r)
+
+	vars := templates.DocumentVars{
+		ID:      documentID,
+		Version: version,
+
+		Files:    make([]templates.File, len(files)),
+		Versions: make([]templates.DocumentVersion, len(versions)),
+
+		Lexers: lexers.Names(false),
+		Styles: s.styles,
+		Style:  style.Name,
+		Theme:  style.Theme,
+
+		Max:     s.cfg.MaxDocumentSize,
+		Host:    r.Host,
+		Preview: s.cfg.Preview != nil,
+	}
+
+	for i, file := range files {
+		formatted, err := s.formatFile(file, formatter, style)
 		if err != nil {
-			s.prettyError(w, r, fmt.Errorf("failed to get pretty document versions: %w", err), http.StatusInternalServerError)
+			s.prettyError(w, r, err)
 			return
 		}
+		vars.Files[i] = templates.File{
+			Name:             file.Name,
+			Content:          file.Content,
+			ContentFormatted: formatted,
+			Language:         file.Language,
+		}
 	}
 
-	w.WriteHeader(http.StatusOK)
-	if r.Method == http.MethodHead {
-		return
-	}
-
-	versions := make([]templates.DocumentVersion, 0, len(documents))
-	for i, documentVersion := range documents {
-		versionTime := time.Unix(documentVersion.Version, 0)
+	for i, v := range versions {
+		versionTime := time.Unix(v, 0)
 		versionLabel := humanize.Time(versionTime)
 		if i == 0 {
 			versionLabel += " (current)"
-		} else if i == len(documents)-1 {
+		} else if i == len(versions)-1 {
 			versionLabel += " (original)"
 		}
-		versions = append(versions, templates.DocumentVersion{
-			Version: documentVersion.Version,
+		vars.Versions[i] = templates.DocumentVersion{
+			Version: v,
 			Label:   versionLabel,
 			Time:    versionTime.Format(VersionTimeFormat),
-		})
+		}
 	}
 
-	formatted, css, language, style, err := s.renderDocument(r, document, "html", extension)
-	if err != nil {
-		s.prettyError(w, r, fmt.Errorf("failed to render document: %w", err), http.StatusInternalServerError)
-		return
-	}
-
-	vars := templates.DocumentVars{
-		ID:        document.ID,
-		Version:   document.Version,
-		Content:   document.Content,
-		Formatted: formatted,
-		CSS:       css,
-		ThemeCSS:  s.styleCSS(style),
-		Language:  language,
-
-		Versions: versions,
-		Lexers:   lexers.Names(false),
-		Styles:   s.styles,
-		Style:    style.Name,
-		Theme:    style.Theme,
-
-		Max:        s.cfg.MaxDocumentSize,
-		Host:       r.Host,
-		Preview:    s.cfg.Preview != nil,
-		PreviewAlt: s.shortContent(document.Content),
-	}
 	if err = templates.Document(vars).Render(r.Context(), w); err != nil {
 		slog.ErrorContext(r.Context(), "failed to execute template", tint.Err(err))
 	}
 }
 
-func (s *Server) GetRawDocumentFile(w http.ResponseWriter, r *http.Request) {
-
-}
-
-func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
-	document, extension := s.getDocument(w, r)
-	if document == nil {
+func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
+	documentID, version, files, err := s.getDocument(r)
+	if err != nil {
+		s.error(w, r, err)
 		return
 	}
 
-	var formatted string
-	query := r.URL.Query()
-	formatter := query.Get("formatter")
-	if formatter != "" {
-		if formatter == "html" {
-			formatter = "html-standalone"
-		}
-		if query.Get("language") != "" {
-			document.Language = query.Get("language")
-		}
-		var err error
-		formatted, _, _, _, err = s.renderDocument(r, *document, formatter, extension)
+	formatter := s.getFormatter(r)
+	style := getStyle(r)
+
+	response := DocumentResponse{
+		Key:     documentID,
+		Version: version,
+		Files:   make([]ResponseFile, len(files)),
+	}
+	for i, file := range files {
+		formatted, err := s.formatFile(file, formatter, style)
 		if err != nil {
-			s.error(w, r, fmt.Errorf("failed to render raw document: %w", err), http.StatusInternalServerError)
+			s.error(w, r, err)
 			return
 		}
+		response.Files[i] = ResponseFile{
+			Name:             file.Name,
+			Content:          file.Content,
+			ContentFormatted: formatted,
+			Language:         file.Language,
+		}
 	}
 
-	content := document.Content
-	if formatted != "" {
-		content = formatted
-	}
-
-	var contentType string
-	switch formatter {
-	case "html", "html-standalone":
-		contentType = "text/html; charset=UTF-8"
-	case "svg":
-		contentType = "image/svg+xml"
-	case "json":
-		contentType = "application/json"
-	default:
-		contentType = "text/plain; charset=UTF-8"
-	}
-
-	w.Header().Set("Content-Type", contentType)
-	if r.Method == http.MethodHead {
-		w.Header().Set("Content-Length", strconv.Itoa(len([]byte(content))))
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-	_, _ = w.Write([]byte(content))
+	s.ok(w, r, response)
 }
 
-func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
-	document, extension := s.getDocument(w, r)
-	if document == nil {
-		return
+func (s *Server) getDocument(r *http.Request) (string, int64, []database.File, error) {
+	documentID := chi.URLParam(r, "documentID")
+
+	versionStr := chi.URLParam(r, "version")
+	var version int64
+	if versionStr != "" {
+		var err error
+		version, err = strconv.ParseInt(versionStr, 10, 64)
+		if err != nil {
+			return "", 0, nil, httperr.BadRequest(ErrInvalidDocumentVersion)
+		}
 	}
 
 	var (
-		formatted string
-		css       string
-		language  string
+		files []database.File
+		err   error
 	)
-	query := r.URL.Query()
-	formatter := query.Get("formatter")
-	if formatter != "" {
-		if query.Get("language") != "" {
-			document.Language = query.Get("language")
+	if version == 0 {
+		files, err = s.db.GetDocument(r.Context(), documentID)
+	} else {
+		files, err = s.db.GetDocumentVersion(r.Context(), documentID, version)
+	}
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", 0, nil, httperr.NotFound(ErrDocumentNotFound)
 		}
-		var err error
-		formatted, css, language, _, err = s.renderDocument(r, *document, formatter, extension)
-		if err != nil {
-			s.error(w, r, fmt.Errorf("failed to render document: %w", err), http.StatusInternalServerError)
-			return
-		}
+		return "", 0, nil, fmt.Errorf("failed to get document: %w", err)
 	}
 
-	var version int64
-	if chi.URLParam(r, "version") != "" {
-		version = document.Version
+	return documentID, version, files, nil
+}
+
+func (s *Server) GetDocumentFile(w http.ResponseWriter, r *http.Request) {
+	file, err := s.getDocumentFile(r)
+	if err != nil {
+		s.error(w, r, err)
+		return
 	}
 
+	formatter := s.getFormatter(r)
 	style := getStyle(r)
-	s.ok(w, r, DocumentResponse{
-		Key:       document.ID,
-		Version:   version,
-		Data:      document.Content,
-		Formatted: formatted,
-		CSS:       css,
-		ThemeCSS:  s.styleCSS(style),
-		Language:  language,
+
+	formatted, err := s.formatFile(*file, formatter, style)
+	if err != nil {
+		s.error(w, r, err)
+		return
+	}
+
+	s.ok(w, r, ResponseFile{
+		Name:             file.Name,
+		Content:          file.Content,
+		ContentFormatted: formatted,
+		Language:         file.Language,
 	})
 }
 
-func (s *Server) GetDocumentPreview(w http.ResponseWriter, r *http.Request) {
-	document, extension := s.getDocument(w, r)
-	if document == nil {
-		return
+func (s *Server) getDocumentFile(r *http.Request) (*database.File, error) {
+	documentID := chi.URLParam(r, "documentID")
+
+	versionStr := chi.URLParam(r, "version")
+	var version int64
+	if versionStr != "" {
+		var err error
+		version, err = strconv.ParseInt(versionStr, 10, 64)
+		if err != nil {
+			return nil, httperr.BadRequest(ErrInvalidDocumentVersion)
+		}
 	}
 
-	document.Content = s.shortContent(document.Content)
+	fileName := chi.URLParam(r, "fileName")
+	if fileName == "" {
+		return nil, httperr.NotFound(ErrDocumentFileNotFound)
+	}
 
-	formatted, _, _, _, err := s.renderDocument(r, *document, "svg", extension)
+	var (
+		file *database.File
+		err  error
+	)
+	if version == 0 {
+		file, err = s.db.GetDocumentFile(r.Context(), documentID, fileName)
+	} else {
+		file, err = s.db.GetDocumentFileVersion(r.Context(), documentID, version, fileName)
+	}
 	if err != nil {
-		s.prettyError(w, r, fmt.Errorf("failed to render document preview: %w", err), http.StatusInternalServerError)
-		return
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, httperr.NotFound(ErrDocumentFileNotFound)
+		}
+		return nil, fmt.Errorf("failed to get document file: %w", err)
 	}
 
-	png, err := s.convertSVG2PNG(r.Context(), formatted)
-	if err != nil {
-		s.error(w, r, fmt.Errorf("failed to convert document preview: %w", err), http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "image/png")
-	if r.Method == http.MethodHead {
-		w.Header().Set("Content-Length", strconv.Itoa(len(png)))
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-	_, _ = w.Write(png)
+	return file, nil
 }
 
 func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
-	language := r.URL.Query().Get("language")
-	content := s.readBody(w, r)
-	if content == "" {
-		return
-	}
-
-	if s.exceedsMaxDocumentSize(w, r, content) {
-		return
-	}
-
-	var lexer chroma.Lexer
-	if language == "auto" || language == "" {
-		lexer = lexers.Analyse(content)
-	} else {
-		lexer = lexers.Get(language)
-	}
-	if lexer == nil {
-		lexer = lexers.Fallback
-	}
-
-	document, err := s.db.CreateDocument(r.Context(), content, lexer.Config().Name)
+	files, err := parseDocumentFiles(r)
 	if err != nil {
-		s.error(w, r, fmt.Errorf("failed to create document: %w", err), http.StatusInternalServerError)
+		s.error(w, r, err)
 		return
 	}
 
-	var (
-		formatted     string
-		css           string
-		finalLanguage string
-		data          string
-	)
-	formatter := r.URL.Query().Get("formatter")
-	if formatter != "" {
-		formatted, css, finalLanguage, _, err = s.renderDocument(r, document, formatter, "")
-		if err != nil {
-			s.error(w, r, fmt.Errorf("failed to render document: %w", err), http.StatusInternalServerError)
-			return
-		}
-		data = document.Content
+	var dbFiles []database.File
+	for _, file := range files {
+		dbFiles = append(dbFiles, database.File{
+			Name:     file.Name,
+			Content:  file.Content,
+			Language: file.Language,
+		})
 	}
 
-	token, err := s.NewToken(document.ID, []Permission{PermissionWrite, PermissionDelete, PermissionShare})
+	documentID, err := s.db.CreateDocument(r.Context(), dbFiles)
 	if err != nil {
-		s.error(w, r, fmt.Errorf("failed to create jwt token: %w", err), http.StatusInternalServerError)
+		s.error(w, r, fmt.Errorf("failed to create document: %w", err))
 		return
 	}
 
-	versionTime := time.Unix(document.Version, 0)
-	s.ok(w, r, DocumentResponse{
-		Key:          document.ID,
-		Version:      document.Version,
-		VersionLabel: humanize.Time(versionTime) + " (original)",
-		VersionTime:  versionTime.Format(VersionTimeFormat),
-		Data:         data,
-		Formatted:    formatted,
-		CSS:          css,
-		Language:     finalLanguage,
-		Token:        token,
-	})
+	var rsFiles []ResponseFile
+	for _, file := range dbFiles {
+		rsFiles = append(rsFiles, ResponseFile{
+			Name:     file.Name,
+			Content:  file.Content,
+			Language: file.Language,
+		})
+	}
+
+	s.json(w, r, DocumentResponse{
+		Key:     *documentID,
+		Version: 0,
+		Files:   rsFiles,
+		Token:   "todo",
+	}, http.StatusCreated)
+
 }
 
 func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
-	documentID, extension := parseDocumentID(r)
-	language := r.URL.Query().Get("language")
-
-	claims := GetClaims(r)
-	if claims.Subject != documentID || !slices.Contains(claims.Permissions, PermissionWrite) {
-		s.documentNotFound(w, r)
-		return
-	}
-
-	content := s.readBody(w, r)
-	if content == "" {
-		return
-	}
-
-	if s.exceedsMaxDocumentSize(w, r, content) {
-		return
-	}
-
-	var lexer chroma.Lexer
-	if language == "auto" || language == "" {
-		if extension != "" {
-			lexer = lexers.Match(extension)
-		} else {
-			lexer = lexers.Analyse(content)
-		}
-	} else {
-		lexer = lexers.Get(language)
-	}
-	if lexer == nil {
-		lexer = lexers.Fallback
-	}
-
-	document, err := s.db.UpdateDocument(r.Context(), documentID, content, lexer.Config().Name)
+	files, err := parseDocumentFiles(r)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			s.documentNotFound(w, r)
-			return
-		}
-		s.error(w, r, err, http.StatusInternalServerError)
+		s.error(w, r, err)
 		return
 	}
 
-	var (
-		data          string
-		formatted     string
-		css           string
-		finalLanguage string
-	)
-	formatter := r.URL.Query().Get("formatter")
-	if formatter != "" {
-		formatted, css, finalLanguage, _, err = s.renderDocument(r, document, formatter, "")
-		if err != nil {
-			s.error(w, r, fmt.Errorf("failed to render update document"), http.StatusInternalServerError)
-			return
-		}
-		data = document.Content
+	documentID := chi.URLParam(r, "documentID")
+
+	var dbFiles []database.File
+	for _, file := range files {
+		dbFiles = append(dbFiles, database.File{
+			Name:     file.Name,
+			Content:  file.Content,
+			Language: file.Language,
+		})
 	}
 
-	s.ExecuteWebhooks(r.Context(), WebhookEventUpdate, WebhookDocument{
-		Key:      document.ID,
-		Version:  document.Version,
-		Language: finalLanguage,
-		Data:     document.Content,
-	})
+	if err = s.db.UpdateDocument(r.Context(), documentID, dbFiles); err != nil {
+		s.error(w, r, fmt.Errorf("failed to update document: %w", err))
+		return
+	}
 
-	versionTime := time.Unix(document.Version, 0)
-	s.ok(w, r, DocumentResponse{
-		Key:          document.ID,
-		Version:      document.Version,
-		VersionLabel: humanize.Time(versionTime) + " (current)",
-		VersionTime:  versionTime.Format(VersionTimeFormat),
-		Data:         data,
-		Formatted:    formatted,
-		CSS:          css,
-		Language:     finalLanguage,
-	})
+	var rsFiles []ResponseFile
+	for _, file := range dbFiles {
+		rsFiles = append(rsFiles, ResponseFile{
+			Name:     file.Name,
+			Content:  file.Content,
+			Language: file.Language,
+		})
+	}
+
+	s.json(w, r, DocumentResponse{
+		Key:     documentID,
+		Version: 0,
+		Files:   rsFiles,
+		Token:   "todo",
+	}, http.StatusOK)
+}
+
+func parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
+	var files []RequestFile
+	contentType, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse content type: %w", err)
+	}
+	if contentType == "multipart/form-data" {
+		mr, err := r.MultipartReader()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get multipart reader: %w", err)
+		}
+		for {
+			part, err := mr.NextPart()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return nil, fmt.Errorf("failed to get multipart part: %w", err)
+			}
+
+			data, err := io.ReadAll(part)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read part data: %w", err)
+			}
+
+			language := part.Header.Get("Language")
+			if language == "" {
+				partContentType := part.Header.Get("Content-Type")
+				if partContentType != "" {
+					partContentType, _, _ = mime.ParseMediaType(partContentType)
+				}
+				language = getLanguage(partContentType, part.FileName(), string(data))
+			}
+			files = append(files, RequestFile{
+				Name:     part.FileName(),
+				Content:  string(data),
+				Language: language,
+			})
+		}
+
+	} else {
+		data, err := io.ReadAll(r.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read request body: %w", err)
+		}
+
+		name := params["filename"]
+		if name == "" {
+			name = "untitled"
+		}
+
+		files = []RequestFile{{
+			Name:     name,
+			Content:  string(data),
+			Language: getLanguage(contentType, params["filename"], string(data)),
+		}}
+	}
+	return files, nil
+}
+
+func getLanguage(contentType string, fileName string, content string) string {
+	fmt.Printf("contentType: %s, fileName: %s, content: %s\n", contentType, fileName, content)
+	var lexer chroma.Lexer
+	if contentType != "" {
+		lexer = lexers.MatchMimeType(contentType)
+	}
+	if lexer != nil {
+		return lexer.Config().Name
+	}
+
+	if fileName != "" {
+		lexer = lexers.Match(fileName)
+	}
+	if lexer != nil {
+		return lexer.Config().Name
+	}
+
+	if len(content) > 0 {
+		lexer = lexers.Analyse(content)
+	}
+	if lexer != nil {
+		return lexer.Config().Name
+	}
+
+	return "plaintext"
 }
 
 func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
-	documentID, _ := parseDocumentID(r)
-	version := s.parseDocumentVersion(r, w)
-	if version == -1 {
-		return
-	}
-
-	claims := GetClaims(r)
-	if claims.Subject != documentID || !slices.Contains(claims.Permissions, PermissionDelete) {
-		s.documentNotFound(w, r)
-		return
-	}
-
-	var (
-		document database.Document
-		err      error
-	)
-	if version == 0 {
-		document, err = s.db.DeleteDocument(r.Context(), documentID)
-	} else {
-		document, err = s.db.DeleteDocumentByVersion(r.Context(), documentID, version)
-	}
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			s.documentNotFound(w, r)
-			return
-		}
-		s.error(w, r, err, http.StatusInternalServerError)
-		return
-	}
-	if version == 0 {
-		w.WriteHeader(http.StatusNoContent)
-	}
-
-	count, err := s.db.GetVersionCount(r.Context(), documentID)
-	if err != nil {
-		s.error(w, r, err, http.StatusInternalServerError)
-		return
-	}
-
-	s.ExecuteWebhooks(r.Context(), WebhookEventDelete, WebhookDocument{
-		Key:      document.ID,
-		Version:  document.Version,
-		Language: document.Language,
-		Data:     document.Content,
-	})
-
-	s.ok(w, r, DeleteResponse{
-		Versions: count,
-	})
-}
-
-func (s *Server) PostDocumentShare(w http.ResponseWriter, r *http.Request) {
-	documentID, _ := parseDocumentID(r)
-
-	var shareRequest ShareRequest
-	if err := json.NewDecoder(r.Body).Decode(&shareRequest); err != nil {
-		s.error(w, r, err, http.StatusBadRequest)
-		return
-	}
-
-	if len(shareRequest.Permissions) == 0 {
-		s.error(w, r, ErrNoPermissions, http.StatusBadRequest)
-		return
-	}
-
-	for _, permission := range shareRequest.Permissions {
-		if !permission.IsValid() {
-			s.error(w, r, ErrUnknownPermission(permission), http.StatusBadRequest)
-			return
-		}
-	}
-
-	claims := GetClaims(r)
-	if claims.Subject != documentID || !slices.Contains(claims.Permissions, PermissionShare) {
-		s.documentNotFound(w, r)
-		return
-	}
-
-	for _, permission := range shareRequest.Permissions {
-		if !slices.Contains(claims.Permissions, permission) {
-			s.error(w, r, ErrPermissionDenied(permission), http.StatusBadRequest)
-			return
-		}
-	}
-
-	token, err := s.NewToken(documentID, shareRequest.Permissions)
-	if err != nil {
-		s.error(w, r, err, http.StatusInternalServerError)
-		return
-	}
-
-	s.ok(w, r, ShareResponse{
-		Token: token,
-	})
-}
-
-func (s *Server) getDocument(w http.ResponseWriter, r *http.Request) (*database.Document, string) {
-	documentID, extension := parseDocumentID(r)
-	if documentID == "" {
-		return &database.Document{}, ""
-	}
-
-	version := s.parseDocumentVersion(r, w)
-	if version == -1 {
-		return nil, ""
-	}
-
-	var (
-		document database.Document
-		err      error
-	)
-	if version == 0 {
-		document, err = s.db.GetDocument(r.Context(), documentID)
-	} else {
-		document, err = s.db.GetDocumentVersion(r.Context(), documentID, version)
-	}
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			s.documentNotFound(w, r)
-			return nil, ""
-		}
-		s.error(w, r, err, http.StatusInternalServerError)
-		return nil, ""
-	}
-	return &document, extension
-}
-
-func parseDocumentID(r *http.Request) (string, string) {
 	documentID := chi.URLParam(r, "documentID")
-	if documentID == "" {
-		return "", ""
+
+	if err := s.db.DeleteDocument(r.Context(), documentID); err != nil {
+		s.error(w, r, fmt.Errorf("failed to delete document: %w", err))
+		return
 	}
 
-	// get the filename and extension from the documentID
-	filename := documentID
-	extension := ""
-	if index := strings.LastIndex(documentID, "."); index != -1 {
-		filename = documentID[:index]
-		extension = documentID[index+1:]
-	}
-
-	return filename, extension
-}
-
-func (s *Server) renderDocument(r *http.Request, document database.Document, formatterName string, extension string) (string, string, string, *chroma.Style, error) {
-	var (
-		languageName = document.Language
-		lexer        chroma.Lexer
-	)
-
-	if s.cfg.MaxHighlightSize > 0 && len([]rune(document.Content)) > s.cfg.MaxHighlightSize {
-		lexer = lexers.Get("plaintext")
-	} else if extension != "" {
-		lexer = lexers.Match(fmt.Sprintf("%s.%s", document.ID, extension))
-	} else {
-		lexer = lexers.Get(languageName)
-	}
-	if lexer == nil {
-		lexer = lexers.Fallback
-	}
-
-	iterator, err := lexer.Tokenise(nil, document.Content)
-	if err != nil {
-		return "", "", "", nil, err
-	}
-
-	formatter := formatters.Get(formatterName)
-	if formatter == nil {
-		formatter = formatters.Fallback
-	}
-
-	style := getStyle(r)
-
-	buff := new(bytes.Buffer)
-	if err = formatter.Format(buff, style, iterator); err != nil {
-		return "", "", "", nil, err
-	}
-
-	cssBuff := new(bytes.Buffer)
-	if htmlFormatter, ok := formatter.(*html.Formatter); ok {
-		if err = htmlFormatter.WriteCSS(cssBuff, style); err != nil {
-			return "", "", "", nil, err
-		}
-	}
-
-	language := lexer.Config().Name
-	if document.ID == "" {
-		language = "auto"
-	}
-	return buff.String(), cssBuff.String(), language, style, nil
+	s.ok(w, r, nil)
 }
