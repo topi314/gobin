@@ -383,10 +383,14 @@ func main() {
 
 A successful request will return a `200 OK` response with a JSON body containing the document key and token to update the document.
 
-```json
+```json5
 {
   "key": "hocwr6i6",
   "version": 1,
+  "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
+  "formatted": "...", // only if formatter is set
+  "css": "...", // only if formatter=html
+  "language": "go",
   "token": "kiczgez33j7qkvqdg9f7ksrd8jk88wba"
 }
 ```
@@ -407,7 +411,7 @@ The response will be a `200 OK` with the document content as `application/json` 
 ```json5
 {
   "key": "hocwr6i6",
-  "version": "1",
+  "version": 1,
   "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
   "formatted": "...", // only if formatter is set
   "css": "...", // only if formatter=html
@@ -424,8 +428,6 @@ To get a documents versions you have to send a `GET` request to `/documents/{key
 | Query Parameter | Type                         | Description                                        |
 |-----------------|------------------------------|----------------------------------------------------|
 | withData?       | bool                         | If the data should be included in the response.    |
-| language?       | [language](#language-enum)   | In which language the document should be rendered. |
-| formatter?      | [formatter](#formatter-enum) | The formatter to use for rendering the document.   |
 
 The response will be a `200 OK` with the document content as `application/json` body.
 
@@ -434,15 +436,11 @@ The response will be a `200 OK` with the document content as `application/json` 
   {
     "version": 1,
     "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
-    "formatted": "...", // only if formatter is set
-    "css": "...", // only if formatter=html
     "language": "go"
   },
   {
     "version": 2,
     "data": "package main\n\nfunc main() {\n    println(\"Hello World2!\")\n}",
-    "formatted": "...", // only if formatter is set
-    "css": "...", // only if formatter=html
     "language": "go"
   }
 ]
@@ -505,6 +503,7 @@ A successful request will return a `200 OK` response with a JSON body containing
   "data": "package main\n\nfunc main() {\n    println(\"Hello World Updated!\")\n}", // only if formatter is set
   "formatted": "...", // only if formatter is set
   "css": "...", // only if formatter=html
+  "language": "go"
 }
 ```
 
