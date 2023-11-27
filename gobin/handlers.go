@@ -77,31 +77,6 @@ func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
 	s.ok(w, r, response)
 }
 
-func (s *Server) GetDocumentVersion(w http.ResponseWriter, r *http.Request) {
-	documentID, _ := parseDocumentID(r)
-	version := parseDocumentVersion(r, s, w)
-	if version == -1 {
-		return
-	}
-
-	document, err := s.db.GetDocumentVersion(r.Context(), documentID, version)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			s.documentNotFound(w, r)
-			return
-		}
-		s.error(w, r, fmt.Errorf("failed to get document version: %w", err), http.StatusInternalServerError)
-		return
-	}
-
-	s.ok(w, r, DocumentResponse{
-		Key:      document.ID,
-		Version:  document.Version,
-		Data:     document.Content,
-		Language: document.Language,
-	})
-}
-
 func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	documentID, extension := parseDocumentID(r)
 	version := parseDocumentVersion(r, s, w)
@@ -362,8 +337,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 	var (
 		formatted     string
 		css           string
-		finalLanguage string
-		data          string
+		finalLanguage = document.Language
 	)
 	formatter := r.URL.Query().Get("formatter")
 	if formatter != "" {
@@ -372,7 +346,6 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 			s.error(w, r, fmt.Errorf("failed to render document: %w", err), http.StatusInternalServerError)
 			return
 		}
-		data = document.Content
 	}
 
 	token, err := s.NewToken(document.ID, []Permission{PermissionWrite, PermissionDelete, PermissionShare})
@@ -387,7 +360,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 		Version:      document.Version,
 		VersionLabel: humanize.Time(versionTime) + " (original)",
 		VersionTime:  versionTime.Format(VersionTimeFormat),
-		Data:         data,
+		Data:         document.Content,
 		Formatted:    formatted,
 		CSS:          css,
 		Language:     finalLanguage,
@@ -439,10 +412,9 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var (
-		data          string
 		formatted     string
 		css           string
-		finalLanguage string
+		finalLanguage = document.Language
 	)
 	formatter := r.URL.Query().Get("formatter")
 	if formatter != "" {
@@ -451,7 +423,6 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 			s.error(w, r, fmt.Errorf("failed to render update document"), http.StatusInternalServerError)
 			return
 		}
-		data = document.Content
 	}
 
 	versionTime := time.Unix(document.Version, 0)
@@ -460,7 +431,7 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 		Version:      document.Version,
 		VersionLabel: humanize.Time(versionTime) + " (current)",
 		VersionTime:  versionTime.Format(VersionTimeFormat),
-		Data:         data,
+		Data:         document.Content,
 		Formatted:    formatted,
 		CSS:          css,
 		Language:     finalLanguage,
