@@ -242,7 +242,8 @@ Create a new `gobin.json` file with the following content:
     "max_backoff": "5m"
   },
   // load custom chroma xml or base16 yaml themes from this directory, omit to disable
-  "custom_styles": "custom_styles"
+  "custom_styles": "custom_styles",
+  "default_style": "snazzy"
 }
 ```
 
@@ -293,6 +294,7 @@ GOBIN_WEBHOOK_BACKOFF_FACTOR=2
 GOBIN_WEBHOOK_MAX_BACKOFF=5m
 
 GOBIN_CUSTOM_STYLES=custom_styles
+GOBIN_DEFAULT_STYLE=snazzy
 ```
 
 </details>

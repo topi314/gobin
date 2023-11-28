@@ -24,10 +24,11 @@ type Config struct {
 	Otel             *OtelConfig      `cfg:"otel"`
 	Webhook          *WebhookConfig   `cfg:"webhook"`
 	CustomStyles     string           `cfg:"custom_styles"`
+	DefaultStyle     string           `cfg:"default_style"`
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("\n Log: %s\n Debug: %t\n DevMode: %t\n ListenAddr: %s\n HTTPTimeout: %s\n Database: %s\n MaxDocumentSize: %d\n MaxHighlightSize: %d\n RateLimit: %s\n JWTSecret: %s\n Preview: %s\n Otel: %s\n Webhook: %s\n CustomStyles: %s\n",
+	return fmt.Sprintf("\n Log: %s\n Debug: %t\n DevMode: %t\n ListenAddr: %s\n HTTPTimeout: %s\n Database: %s\n MaxDocumentSize: %d\n MaxHighlightSize: %d\n RateLimit: %s\n JWTSecret: %s\n Preview: %s\n Otel: %s\n Webhook: %s\n CustomStyles: %s\n DefaultStyle: %s\n",
 		c.Log,
 		c.Debug,
 		c.DevMode,
@@ -41,6 +42,7 @@ func (c Config) String() string {
 		c.Otel,
 		c.Webhook,
 		c.CustomStyles,
+		c.DefaultStyle,
 	)
 }
 
