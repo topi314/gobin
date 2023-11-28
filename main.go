@@ -21,10 +21,11 @@ import (
 	"github.com/mattn/go-colorable"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
-	"github.com/topi314/gobin/gobin"
 	"github.com/topi314/tint"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/topi314/gobin/gobin"
 )
 
 //go:generate go run github.com/a-h/templ/cmd/templ@latest generate
@@ -71,6 +72,7 @@ func main() {
 	viper.SetDefault("database_database", "gobin")
 	viper.SetDefault("database_ssl_mode", "disable")
 	viper.SetDefault("max_document_size", 0)
+	viper.SetDefault("default_style", "onedark")
 
 	if *cfgPath != "" {
 		viper.SetConfigFile(*cfgPath)
@@ -148,7 +150,7 @@ func main() {
 	loadEmbeddedStyles()
 	loadLocalStyles(cfg.CustomStyles)
 
-	styles.Fallback = styles.Get("onedark")
+	styles.Fallback = styles.Get(cfg.DefaultStyle)
 	lexers.Fallback = lexers.Get("plaintext")
 	htmlFormatter := html.New(
 		html.WithClasses(true),

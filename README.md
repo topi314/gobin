@@ -224,7 +224,8 @@ Create a new `gobin.json` file with the following content:
     }
   },
   // load custom chroma xml or base16 yaml themes from this directory, omit to disable
-  "custom_styles": "custom_styles"
+  "custom_styles": "custom_styles",
+  "default_style": "snazzy"
 }
 ```
 
@@ -269,6 +270,7 @@ GOBIN_PREVIEW_CACHE_SIZE=1024
 GOBIN_PREVIEW_CACHE_TTL=1h
 
 GOBIN_CUSTOM_STYLES=custom_styles
+GOBIN_DEFAULT_STYLE=snazzy
 ```
 
 </details>
