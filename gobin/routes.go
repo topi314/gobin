@@ -13,11 +13,10 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/stampede"
 	"github.com/riandyrn/otelchi"
-	slogchi "github.com/samber/slog-chi"
+	"github.com/samber/slog-chi"
 	"github.com/topi314/gobin/internal/httperr"
-	"github.com/topi314/tint"
-
 	"github.com/topi314/gobin/templates"
+	"github.com/topi314/tint"
 )
 
 var (

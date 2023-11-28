@@ -7,7 +7,7 @@ templ head(vars DocumentVars) {
 		<meta name="description" content="gobin is a simple hastebin compatible paste server written in Go."/>
 
 		<link rel="stylesheet" type="text/css" href="/assets/style.css"/>
-		<link rel="stylesheet" type="text/css" href="/assets/theme.css"/>
+		<link id="theme-css" rel="stylesheet" type="text/css" href={ vars.ThemeCSSURL() }/>
 
 		<link rel="icon" href="/assets/favicon.png"/>
 		<meta name="viewport" content="width=device-width, initial-scale=1"/>

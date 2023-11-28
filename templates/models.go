@@ -2,6 +2,7 @@ package templates
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"strconv"
 
@@ -18,19 +19,21 @@ func WriteUnsafe(str string) templ.Component {
 type DocumentVars struct {
 	ID      string
 	Version int64
+	Edit    bool
 
-	Files    []File
-	Versions []DocumentVersion
+	Files     []File
+	FileIndex int
+	Versions  []DocumentVersion
+
+	Preview    bool
+	PreviewAlt string
 
 	Lexers []string
 	Styles []Style
 	Style  string
 	Theme  string
-
-	Max        int
-	Host       string
-	Preview    bool
-	PreviewAlt string
+	Max    int
+	Host   string
 }
 
 type File struct {
@@ -38,6 +41,14 @@ type File struct {
 	Content          string
 	ContentFormatted string
 	Language         string
+}
+
+func (v DocumentVars) FileClasses(i int) string {
+	classes := "file"
+	if i == v.FileIndex {
+		classes += " selected"
+	}
+	return classes
 }
 
 func (v DocumentVars) PreviewURL() string {
@@ -50,6 +61,10 @@ func (v DocumentVars) PreviewURL() string {
 
 func (v DocumentVars) URL() string {
 	return "https://" + v.Host
+}
+
+func (v DocumentVars) ThemeCSSURL() string {
+	return fmt.Sprintf("/assets/theme.css?style=%s", v.Style)
 }
 
 type DocumentVersion struct {

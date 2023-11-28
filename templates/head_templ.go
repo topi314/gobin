@@ -32,7 +32,15 @@ func head(vars DocumentVars) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</title><meta name=\"description\" content=\"gobin is a simple hastebin compatible paste server written in Go.\"><link rel=\"stylesheet\" type=\"text/css\" href=\"/assets/style.css\"><link rel=\"stylesheet\" type=\"text/css\" href=\"/assets/theme.css\"><link rel=\"icon\" href=\"/assets/favicon.png\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><meta name=\"theme-color\" content=\"#1f2228\"><meta property=\"og:title\" content=\"gobin\"><meta property=\"og:url\" content=\"")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</title><meta name=\"description\" content=\"gobin is a simple hastebin compatible paste server written in Go.\"><link rel=\"stylesheet\" type=\"text/css\" href=\"/assets/style.css\"><link id=\"theme-css\" rel=\"stylesheet\" type=\"text/css\" href=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(vars.ThemeCSSURL()))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\"><link rel=\"icon\" href=\"/assets/favicon.png\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><meta name=\"theme-color\" content=\"#1f2228\"><meta property=\"og:title\" content=\"gobin\"><meta property=\"og:url\" content=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

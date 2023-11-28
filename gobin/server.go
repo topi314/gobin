@@ -36,12 +36,9 @@ func NewServer(version string, debug bool, cfg Config, db *database.DB, signer j
 		})
 	}
 
-	s := &Server{
-		version: version,
-		debug:   debug,
-		cfg:     cfg,
-		db:      db,
-		client: &http.Client{
+	var client *http.Client
+	if cfg.Webhook != nil {
+		client = &http.Client{
 			Transport: otelhttp.NewTransport(
 				http.DefaultTransport,
 				otelhttp.WithClientTrace(func(ctx context.Context) *httptrace.ClientTrace {
@@ -49,7 +46,15 @@ func NewServer(version string, debug bool, cfg Config, db *database.DB, signer j
 				}),
 			),
 			Timeout: cfg.Webhook.Timeout,
-		},
+		}
+	}
+
+	s := &Server{
+		version:       version,
+		debug:         debug,
+		cfg:           cfg,
+		db:            db,
+		client:        client,
 		signer:        signer,
 		tracer:        tracer,
 		meter:         meter,

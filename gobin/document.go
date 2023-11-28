@@ -53,12 +53,26 @@ type (
 func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	documentID, version, files, err := s.getDocument(r)
 	if err != nil {
-		s.prettyError(w, r, err)
-		return
+		if !errors.Is(err, ErrDocumentNotFound) {
+			s.prettyError(w, r, err)
+			return
+		}
+		if r.URL.Path != "/" {
+			s.redirectRoot(w, r)
+			return
+		}
+	}
+
+	if len(files) == 0 {
+		files = []database.File{{
+			Name:     "untitled",
+			Content:  "",
+			Language: "plaintext",
+		}}
 	}
 
 	versions, err := s.db.GetDocumentVersions(r.Context(), documentID)
-	if err != nil {
+	if err != nil && errors.Is(err, sql.ErrNoRows) {
 		s.prettyError(w, r, fmt.Errorf("failed to get document versions: %w", err))
 		return
 	}
@@ -66,11 +80,14 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	formatter := s.getFormatter(r)
 	style := getStyle(r)
 
+	edit := r.URL.Query().Get("edit") == "true" || documentID == ""
+
 	vars := templates.DocumentVars{
 		ID:      documentID,
 		Version: version,
+		Edit:    edit,
 
-		Files:    make([]templates.File, len(files)),
+		Files:    make([]string, len(files)),
 		Versions: make([]templates.DocumentVersion, len(versions)),
 
 		Lexers: lexers.Names(false),
@@ -83,18 +100,18 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		Preview: s.cfg.Preview != nil,
 	}
 
-	for i, file := range files {
-		formatted, err := s.formatFile(file, formatter, style)
+	if len(files) > 0 {
+		formatted, err := s.formatFile(files[0], formatter, style)
 		if err != nil {
 			s.prettyError(w, r, err)
 			return
 		}
-		vars.Files[i] = templates.File{
-			Name:             file.Name,
-			Content:          file.Content,
-			ContentFormatted: formatted,
-			Language:         file.Language,
-		}
+		vars.Content = files[0].Content
+		vars.ContentFormatted = formatted
+	}
+
+	for i, file := range files {
+		vars.Files[i] = file.Name
 	}
 
 	for i, v := range versions {

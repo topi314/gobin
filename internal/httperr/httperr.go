@@ -17,7 +17,7 @@ func (e *Error) Error() string {
 func (e *Error) Is(target error) bool {
 	t, ok := target.(*Error)
 	if !ok {
-		return false
+		return errors.Is(e.Err, target)
 	}
 	return t.Status == e.Status && errors.Is(t.Err, e.Err)
 }

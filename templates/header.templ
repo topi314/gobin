@@ -3,14 +3,7 @@ package templates
 templ header(vars DocumentVars) {
 	<header>
 		<a title="gobin" id="title" href="/">gobin</a>
-
 		<a title="GitHub" id="github" class="icon-btn" href="https://github.com/topi314/gobin" target="_blank"></a>
-
-		<select title="Style" id="style" autocomplete="off">
-            for _, style := range vars.Styles {
-                <option value={ style.Name } data-theme={ style.Theme } selected?={ vars.Style == style.Name }>{ style.Name }</option>
-            }
-        </select>
 
 		<input id="nav-btn" type="checkbox"/>
 		<label title="Open Navigation" class="hamb" for="nav-btn"><span></span></label>

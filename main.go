@@ -26,8 +26,6 @@ import (
 	"github.com/topi314/tint"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
-
-	"github.com/topi314/gobin/gobin"
 )
 
 //go:generate go run github.com/a-h/templ/cmd/templ@latest generate
