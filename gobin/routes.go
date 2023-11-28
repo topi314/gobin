@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -255,7 +256,7 @@ func (s *Server) styleCSS(style *chroma.Style) string {
 func getStyle(r *http.Request) *chroma.Style {
 	var styleName string
 	if styleCookie, err := r.Cookie("style"); err == nil {
-		styleName = styleCookie.Value
+		styleName, _ = url.QueryUnescape(styleCookie.Value)
 	}
 	queryStyle := r.URL.Query().Get("style")
 	if queryStyle != "" {
