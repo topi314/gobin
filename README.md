@@ -22,6 +22,7 @@ gobin is a simple lightweight haste-server alternative written in Go, HTML, JS a
         - [Build](#build)
         - [Run](#run)
 - [Configuration](#configuration)
+- [Custom Themes](#custom-themes)
 - [Rate Limit](#rate-limits)
 - [API](#api)
     - [Create a document](#create-a-document)
@@ -52,6 +53,7 @@ gobin is a simple lightweight haste-server alternative written in Go, HTML, JS a
 - One binary and config file
 - Docker image available
 - ~~Metrics (to be implemented)~~
+- [base16](https://github.com/chriskempson/base16) & [chroma](https://github.com/topi314/chroma) custom themes
 
 ## Installation
 
@@ -203,7 +205,26 @@ Create a new `gobin.json` file with the following content:
     "cache_size": 1024,
     // how long should previews be cached
     "cache_duration": "1h"
-  }
+  },
+  // open telemetry settings, omit to disable
+  "otel": {
+    // the instance id of the server
+    "instance_id": "1",
+    // otel trace settings, omit to disable
+    "trace": {
+      // the address of the tempo instance
+      "endpoint": "tempo:4318",
+      // whether to use an insecure connection
+      "insecure": true
+    },
+    // otel metrics settings, omit to disable
+    "metrics": {
+      // the address where the metrics should be exposed
+      "listen_addr": ":9100"
+    }
+  },
+  // load custom chroma xml or base16 yaml themes from this directory, omit to disable
+  "custom_styles": "custom_styles"
 }
 ```
 
@@ -246,11 +267,45 @@ GOBIN_PREVIEW_MAX_LINES=10
 GOBIN_PREVIEW_DPI=96
 GOBIN_PREVIEW_CACHE_SIZE=1024
 GOBIN_PREVIEW_CACHE_TTL=1h
+
+GOBIN_CUSTOM_STYLES=custom_styles
 ```
 
 </details>
 
 ---
+
+## Custom Themes
+
+You can add your own themes to gobin by adding the `custom_styles` directory to the config file and adding your themes to it.
+
+The themes have to be in the following format:
+
+```yaml file=custom_styles/name.yaml
+scheme: "name"
+author: "author"
+theme: "dark" # or "light"
+base00: "282a36"
+base01: "34353e"
+base02: "43454f"
+base03: "78787e"
+base04: "a5a5a9"
+base05: "e2e4e5"
+base06: "eff0eb"
+base07: "f1f1f0"
+base08: "ff5c57"
+base09: "ff9f43"
+base0A: "f3f99d"
+base0B: "5af78e"
+base0C: "9aedfe"
+base0D: "57c7ff"
+base0E: "ff6ac1"
+base0F: "b2643c"
+```
+
+See [base16](https://github.com/chriskempson/base16) for more information.
+
+Or you can use the [chroma](https://github.com/topi314/chroma/tree/master/styles/embedded) XML themes.
 
 ## Rate Limits
 

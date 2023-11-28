@@ -20,10 +20,11 @@ type Config struct {
 	JWTSecret        string           `cfg:"jwt_secret"`
 	Preview          *PreviewConfig   `cfg:"preview"`
 	Otel             *OtelConfig      `cfg:"otel"`
+	CustomStyles     string           `cfg:"custom_styles"`
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("\n Log: %s\n Debug: %t\n DevMode: %t\n ListenAddr: %s\n HTTPTimeout: %s\n Database: %s\n MaxDocumentSize: %d\n MaxHighlightSize: %d\n RateLimit: %s\n JWTSecret: %s\n Preview: %s\n Otel: %s\n",
+	return fmt.Sprintf("\n Log: %s\n Debug: %t\n DevMode: %t\n ListenAddr: %s\n HTTPTimeout: %s\n Database: %s\n MaxDocumentSize: %d\n MaxHighlightSize: %d\n RateLimit: %s\n JWTSecret: %s\n Preview: %s\n Otel: %s\n CustomStyles: %s\n",
 		c.Log,
 		c.Debug,
 		c.DevMode,
@@ -35,6 +36,7 @@ func (c Config) String() string {
 		c.RateLimit, strings.Repeat("*", len(c.JWTSecret)),
 		c.Preview,
 		c.Otel,
+		c.CustomStyles,
 	)
 }
 
