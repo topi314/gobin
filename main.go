@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"flag"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -44,6 +45,9 @@ var (
 
 	//go:embed sql/schema.sql
 	Schema string
+
+	//go:embed styles
+	Styles embed.FS
 )
 
 func main() {
@@ -141,6 +145,9 @@ func main() {
 		assets = http.FS(Assets)
 	}
 
+	loadEmbeddedStyles()
+	loadLocalStyles(cfg.CustomStyles)
+
 	styles.Fallback = styles.Get("onedark")
 	lexers.Fallback = lexers.Get("plaintext")
 	htmlFormatter := html.New(
@@ -225,4 +232,39 @@ func setupLogger(cfg gobin.LogConfig) {
 		os.Exit(-1)
 	}
 	slog.SetDefault(slog.New(handler))
+}
+
+func loadEmbeddedStyles() {
+	slog.Info("Loading embedded styles")
+	stylesSub, err := fs.Sub(Styles, "styles")
+	if err != nil {
+		slog.Error("Failed to get sub fs for embedded styles", tint.Err(err))
+		return
+	}
+	cStyles, err := styles.LoadFromFS(stylesSub)
+	if err != nil {
+		slog.Error("Failed to load embedded styles", tint.Err(err))
+		return
+	}
+	for _, style := range cStyles {
+		slog.Debug("Loaded embedded style", slog.String("name", style.Name))
+		styles.Register(style)
+	}
+}
+
+func loadLocalStyles(stylesDir string) {
+	if stylesDir == "" {
+		return
+	}
+
+	slog.Info("Loading local styles", slog.String("dir", stylesDir))
+	cStyles, err := styles.LoadFromFS(os.DirFS(stylesDir))
+	if err != nil {
+		slog.Error("Failed to load local styles", tint.Err(err))
+		return
+	}
+	for _, style := range cStyles {
+		slog.Debug("Loaded local style", slog.String("name", style.Name))
+		styles.Register(style)
+	}
 }
