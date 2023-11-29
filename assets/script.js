@@ -6,7 +6,49 @@ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (ev
     updateFaviconStyle(event.matches);
 });
 
-document.querySelector("#code-edit").addEventListener("keydown", (event) => {
+async function onFileAdd() {
+    await htmx.ajax("POST", "/documents", {
+        event: "add-file",
+        swap: "multi:#"
+    })
+}
+
+function onFileDblClick(e) {
+    if (e.target.tagName.toLowerCase() !== "label") {
+        return;
+    }
+    e.target.contentEditable = true;
+    e.target.focus();
+}
+
+function onFileFocusOut(e) {
+    if (e.target.tagName.toLowerCase() !== "label") {
+        return;
+    }
+    e.target.contentEditable = false;
+}
+
+function onFileKeyPress(e) {
+    if (e.which === 13) {
+        e.preventDefault();
+        if (e.target.contentEditable) {
+            e.target.blur();
+        }
+    }
+}
+
+function onFileSelect(e) {
+    for (const tab of document.getElementsByClassName("file-tab")) {
+        tab.style.display = "none";
+    }
+
+    const tab = document.getElementById(e.target.value);
+    if (tab) {
+        tab.style.display = "flex";
+    }
+}
+
+function onCodeEditKeyDown(event) {
     if (event.key !== "Tab" || event.shiftKey) {
         return;
     }
@@ -16,13 +58,11 @@ document.querySelector("#code-edit").addEventListener("keydown", (event) => {
     const end = event.target.selectionEnd;
     event.target.value = event.target.value.substring(0, start) + "\t" + event.target.value.substring(end);
     event.target.selectionStart = event.target.selectionEnd = start + 1;
-});
+}
 
-document.querySelector("#code-edit").addEventListener("input", (event) => {
-    updateCodeEditCount(event.target.value.length);
-})
+function onCodeEditInput(event) {
+    const count = event.target.value.length;
 
-function updateCodeEditCount(count) {
     const countElement = document.querySelector("#code-edit-count");
     countElement.innerHTML = count
     const maxElement = document.querySelector("#code-edit-max");
@@ -34,7 +74,7 @@ function updateCodeEditCount(count) {
     }
 }
 
-document.querySelector("#style").addEventListener("change", async (event) => {
+function onStyleChange(event) {
     const style = event.target.value;
     const theme = event.target.options.item(event.target.selectedIndex).dataset.theme;
     setCookie("style", style);
@@ -45,7 +85,17 @@ document.querySelector("#style").addEventListener("change", async (event) => {
     const href = new URL(themeCssElement.href);
     href.searchParams.set("style", style);
     themeCssElement.href = href.toString();
-});
+}
+
+function onVersionChange(event) {
+
+}
+
+
+function onLanguageChange(event) {
+
+}
+
 
 function getToken(key) {
     const documents = localStorage.getItem("documents")

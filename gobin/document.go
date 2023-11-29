@@ -30,10 +30,10 @@ type (
 	}
 
 	ResponseFile struct {
-		Name             string `json:"name"`
-		Content          string `json:"content"`
-		ContentFormatted string `json:"content_formatted,omitempty"`
-		Language         string `json:"language"`
+		Name      string `json:"name"`
+		Content   string `json:"content"`
+		Formatted string `json:"formatted,omitempty"`
+		Language  string `json:"language"`
 	}
 
 	RequestFile struct {
@@ -80,15 +80,44 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	formatter := s.getFormatter(r)
 	style := getStyle(r)
 
-	edit := r.URL.Query().Get("edit") == "true" || documentID == ""
+	templateFiles := make([]templates.File, len(files))
+	for i, file := range files {
+		formatted, err := s.formatFile(files[i], formatter, style)
+		if err != nil {
+			s.prettyError(w, r, err)
+			return
+		}
+		templateFiles[i] = templates.File{
+			Name:      file.Name,
+			Content:   file.Content,
+			Formatted: formatted,
+			Language:  file.Language,
+		}
+	}
+
+	templateVersions := make([]templates.DocumentVersion, len(versions))
+	for i, v := range versions {
+		versionTime := time.Unix(v, 0)
+		versionLabel := humanize.Time(versionTime)
+		if i == 0 {
+			versionLabel += " (current)"
+		} else if i == len(versions)-1 {
+			versionLabel += " (original)"
+		}
+		templateVersions[i] = templates.DocumentVersion{
+			Version: v,
+			Label:   versionLabel,
+			Time:    versionTime.Format(VersionTimeFormat),
+		}
+	}
 
 	vars := templates.DocumentVars{
 		ID:      documentID,
 		Version: version,
-		Edit:    edit,
+		Edit:    r.URL.Query().Get("edit") == "true" || documentID == "",
 
-		Files:    make([]string, len(files)),
-		Versions: make([]templates.DocumentVersion, len(versions)),
+		Files:    templateFiles,
+		Versions: templateVersions,
 
 		Lexers: lexers.Names(false),
 		Styles: s.styles,
@@ -99,36 +128,6 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		Host:    r.Host,
 		Preview: s.cfg.Preview != nil,
 	}
-
-	if len(files) > 0 {
-		formatted, err := s.formatFile(files[0], formatter, style)
-		if err != nil {
-			s.prettyError(w, r, err)
-			return
-		}
-		vars.Content = files[0].Content
-		vars.ContentFormatted = formatted
-	}
-
-	for i, file := range files {
-		vars.Files[i] = file.Name
-	}
-
-	for i, v := range versions {
-		versionTime := time.Unix(v, 0)
-		versionLabel := humanize.Time(versionTime)
-		if i == 0 {
-			versionLabel += " (current)"
-		} else if i == len(versions)-1 {
-			versionLabel += " (original)"
-		}
-		vars.Versions[i] = templates.DocumentVersion{
-			Version: v,
-			Label:   versionLabel,
-			Time:    versionTime.Format(VersionTimeFormat),
-		}
-	}
-
 	if err = templates.Document(vars).Render(r.Context(), w); err != nil {
 		slog.ErrorContext(r.Context(), "failed to execute template", tint.Err(err))
 	}
@@ -156,10 +155,10 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		response.Files[i] = ResponseFile{
-			Name:             file.Name,
-			Content:          file.Content,
-			ContentFormatted: formatted,
-			Language:         file.Language,
+			Name:      file.Name,
+			Content:   file.Content,
+			Formatted: formatted,
+			Language:  file.Language,
 		}
 	}
 
@@ -215,10 +214,10 @@ func (s *Server) GetDocumentFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.ok(w, r, ResponseFile{
-		Name:             file.Name,
-		Content:          file.Content,
-		ContentFormatted: formatted,
-		Language:         file.Language,
+		Name:      file.Name,
+		Content:   file.Content,
+		Formatted: formatted,
+		Language:  file.Language,
 	})
 }
 

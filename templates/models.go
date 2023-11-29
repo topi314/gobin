@@ -37,16 +37,24 @@ type DocumentVars struct {
 }
 
 type File struct {
-	Name             string
-	Content          string
-	ContentFormatted string
-	Language         string
+	Name      string
+	Content   string
+	Formatted string
+	Language  string
 }
 
 func (v DocumentVars) FileClasses(i int) string {
 	classes := "file"
 	if i == v.FileIndex {
 		classes += " selected"
+	}
+	return classes
+}
+
+func (v DocumentVars) FileTabClasses(i int) string {
+	classes := "file-tab"
+	if i == v.FileIndex {
+		classes += " initial"
 	}
 	return classes
 }

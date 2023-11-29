@@ -1,64 +1,28 @@
 package templates
 
-import (
-	"strconv"
-)
-
 templ Document(vars DocumentVars) {
 	<!DOCTYPE html>
 	<html lang="en" class={ vars.Theme }>
 	@head(vars)
-	<body>
+	<body hx-ext="multi-swap">
 	<div id="error-popup" style="display: none;"></div>
 	@header(vars)
 	<main>
-		<div id="files">
+		<div id="files" hx-on:change="onFileSelect(event)" hx-on:dblclick="onFileDblClick(event)" hx-on:focusout="onFileFocusOut(event)" hx-on:keypress="onFileKeyPress(event)">
 			for i, file := range vars.Files {
-				<div class={ vars.FileClasses(i) }>
-					<span>{ name }</span>
-				</div>
+				@fileSelect(i, file, i == vars.FileIndex)
 			}
 			if vars.Edit {
-				<div hx-get="/" class="file add"></div>
+				<div hx-on:click="onFileAdd()" class="file add"></div>
 			}
 		</div>
-		<div id="file-contents">
-			for i, name := range vars.Files {
-				if vars.Edit {
-				    <textarea id="code-edit" spellcheck="false" autocomplete="off">{ vars.Content }</textarea>
-				} else {
-					<pre id="code"><code id="code-view" class="ch-chroma">@WriteUnsafe(vars.ContentFormatted)</code></pre>
-				}
-				<div id="footer">
-					<select title="Versions" id="version" autocomplete="off">
-						for _, version := range vars.Versions {
-							<option title={ version.Time } value={ strconv.FormatInt(version.Version, 10) } selected?={ version.Version == vars.Version }>{ version.Label }</option>
-						}
-					</select>
-					<select title="Style" id="style" autocomplete="off">
-						for _, style := range vars.Styles {
-							<option value={ style.Name } data-theme={ style.Theme } selected?={ vars.Style == style.Name }>{ style.Name }</option>
-						}
-					</select>
-					<div class="spacer"></div>
-					<label title="Characters" for="code-edit">
-		                <span id="code-edit-count">{ strconv.Itoa(len(vars.Content)) }</span>
-		                if vars.Max > 0 {
-		                    <span id="code-edit-max">/{ strconv.Itoa(vars.Max) }</span>
-		                }
-		            </label>
-		            <select title="Language" id="language" autocomplete="off">
-		                <option value="auto" selected?={ vars.Language == "" }>auto</option>
-		                for _, lexer := range vars.Lexers {
-		                    <option value={ lexer } selected?={ vars.Language == lexer }>{ lexer }</option>
-		                }
-		            </select>
-				</div>
-			}
-		</div>
+		for i, file := range vars.Files {
+			@fileTab(vars, i, file, i == vars.FileIndex)
+		}
 	</main>
 	<script src="/assets/script.js"></script>
 	<script src="/assets/js/htmx.min.js"></script>
+	<script src="/assets/js/multi-swap.js"></script>
 	<script src="/assets/js/response-targets.js"></script>
 	</body>
 	</html>

@@ -32,22 +32,7 @@ func header(vars DocumentVars) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</a> <a title=\"GitHub\" id=\"github\" class=\"icon-btn\" href=\"https://github.com/topi314/gobin\" target=\"_blank\"></a> <input id=\"nav-btn\" type=\"checkbox\"> <label title=\"Open Navigation\" class=\"hamb\" for=\"nav-btn\"><span></span></label><nav><a title=\"New\" id=\"new\" class=\"icon-btn\" href=\"/\" target=\"_blank\"></a> ")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if len(vars.Files) == 0 {
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<button title=\"Edit\" id=\"edit\" class=\"icon-btn\" disabled style=\"display: none\"></button> <button title=\"Save\" id=\"save\" class=\"icon-btn\" disabled></button>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		} else {
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<button title=\"Edit\" id=\"edit\" class=\"icon-btn\" disabled></button> <button title=\"Save\" id=\"save\" class=\"icon-btn\" disabled style=\"display: none\"></button>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<button title=\"Delete\" id=\"delete\" class=\"icon-btn\" disabled></button> <button title=\"Copy\" id=\"copy\" class=\"icon-btn\" disabled></button> <button title=\"Raw\" id=\"raw\" class=\"icon-btn\" disabled></button> <button title=\"Share\" id=\"share\" class=\"icon-btn\" disabled></button></nav></header>")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</a> <a title=\"GitHub\" id=\"github\" class=\"icon-btn\" href=\"https://github.com/topi314/gobin\" target=\"_blank\"></a> <input id=\"nav-btn\" type=\"checkbox\"> <label title=\"Open Navigation\" class=\"hamb\" for=\"nav-btn\"><span></span></label><nav><a title=\"New\" id=\"new\" class=\"icon-btn\" href=\"/\" target=\"_blank\"></a> <button title=\"Save\" id=\"save\" class=\"icon-btn\" disabled></button> <button title=\"Edit\" id=\"edit\" class=\"icon-btn\" disabled></button> <button title=\"Delete\" id=\"delete\" class=\"icon-btn\" disabled></button> <button title=\"Copy\" id=\"copy\" class=\"icon-btn\" disabled></button> <button title=\"Raw\" id=\"raw\" class=\"icon-btn\" disabled></button> <button title=\"Share\" id=\"share\" class=\"icon-btn\" disabled></button></nav></header>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
