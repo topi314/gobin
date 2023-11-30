@@ -22,9 +22,9 @@ type DocumentVars struct {
 	Version int64
 	Edit    bool
 
-	Files     []File
-	FileIndex int
-	Versions  []DocumentVersion
+	Files       []File
+	CurrentFile int
+	Versions    []DocumentVersion
 
 	Preview    bool
 	PreviewAlt string
@@ -37,11 +37,6 @@ type DocumentVars struct {
 	Host   string
 }
 
-func (v DocumentVars) FilesJSON() string {
-	data, _ := json.Marshal(v.Files)
-	return string(data)
-}
-
 type File struct {
 	Name      string `json:"name"`
 	Content   string `json:"content"`
@@ -49,9 +44,32 @@ type File struct {
 	Language  string `json:"language"`
 }
 
+type gobin struct {
+	Key         string `json:"key"`
+	Version     string `json:"version"`
+	Mode        string `json:"mode"`
+	Files       []File `json:"files"`
+	CurrentFile int    `json:"current_file"`
+}
+
+func (v DocumentVars) StateJSON() string {
+	mode := "edit"
+	if !v.Edit {
+		mode = "view"
+	}
+	data, _ := json.Marshal(gobin{
+		Key:         v.ID,
+		Version:     strconv.FormatInt(v.Version, 10),
+		Mode:        mode,
+		Files:       v.Files,
+		CurrentFile: v.CurrentFile,
+	})
+	return fmt.Sprintf(`<script id="state" type="application/json">%s</script>`, string(data))
+}
+
 func (v DocumentVars) FileClasses(i int) string {
 	classes := "file"
-	if i == v.FileIndex {
+	if i == v.CurrentFile {
 		classes += " selected"
 	}
 	return classes
@@ -59,7 +77,7 @@ func (v DocumentVars) FileClasses(i int) string {
 
 func (v DocumentVars) FileTabClasses(i int) string {
 	classes := "file-tab"
-	if i == v.FileIndex {
+	if i == v.CurrentFile {
 		classes += " initial"
 	}
 	return classes

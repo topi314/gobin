@@ -301,6 +301,7 @@ main {
     grid-area: files;
     cursor: pointer;
     padding: 0.2rem 1rem;
+    /*flex-grow: 1;*/
 
     border-right: 1px solid var(--bg-primary);
     border-bottom: 1px solid var(--bg-primary);
@@ -317,7 +318,6 @@ main {
 }
 
 #file-add {
-    height: 100%;
     width: 1.7em;
     padding: 0;
     cursor: pointer;

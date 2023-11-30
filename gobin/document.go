@@ -340,10 +340,16 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 
 func parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 	var files []RequestFile
-	contentType, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse content type: %w", err)
+	contentType := r.Header.Get("Content-Type")
+	params := make(map[string]string)
+	if contentType != "" {
+		var err error
+		contentType, params, err = mime.ParseMediaType(contentType)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse content type: %w", err)
+		}
 	}
+
 	if contentType == "multipart/form-data" {
 		mr, err := r.MultipartReader()
 		if err != nil {
