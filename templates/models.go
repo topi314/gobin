@@ -2,6 +2,7 @@ package templates
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strconv"
@@ -36,11 +37,16 @@ type DocumentVars struct {
 	Host   string
 }
 
+func (v DocumentVars) FilesJSON() string {
+	data, _ := json.Marshal(v.Files)
+	return string(data)
+}
+
 type File struct {
-	Name      string
-	Content   string
-	Formatted string
-	Language  string
+	Name      string `json:"name"`
+	Content   string `json:"content"`
+	Formatted string `json:"formatted"`
+	Language  string `json:"language"`
 }
 
 func (v DocumentVars) FileClasses(i int) string {

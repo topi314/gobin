@@ -316,7 +316,7 @@ main {
     color: var(--text-primary);
 }
 
-.file.add {
+#file-add {
     height: 100%;
     width: 1.7em;
     padding: 0;
@@ -328,12 +328,18 @@ main {
     background-size: 1rem;
 }
 
-.file.add:hover {
+#file-add:hover {
     filter: opacity(0.7);
 }
 
 .file-tab {
     display: none;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+#content {
+    display: flex;
     flex-direction: column;
     flex-grow: 1;
 }

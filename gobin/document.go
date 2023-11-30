@@ -114,7 +114,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	vars := templates.DocumentVars{
 		ID:      documentID,
 		Version: version,
-		Edit:    r.URL.Query().Get("edit") == "true" || documentID == "",
+		Edit:    documentID == "",
 
 		Files:    templateFiles,
 		Versions: templateVersions,
