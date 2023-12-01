@@ -89,29 +89,29 @@ func (s *Server) Routes() http.Handler {
 	r.Route("/documents", func(r chi.Router) {
 		r.Post("/", s.PostDocument)
 
-		r.Route("/versions", func(r chi.Router) {
-			// r.Get("/", s.DocumentVersions)
-			r.Route("/{version}", func(r chi.Router) {
-				r.Get("/", s.GetDocument)
-				r.Delete("/", s.DeleteDocument)
-
-				previewHandler(r)
-				r.Route("/files", func(r chi.Router) {
-					// r.Post("/", s.PostDocumentFile)
-					r.Route("/{fileName}", func(r chi.Router) {
-						r.Get("/", s.GetDocumentFile)
-						// r.Patch("/", s.PatchDocumentFile)
-						// r.Delete("/", s.DeleteDocumentFile)
-					})
-				})
-			})
-		})
-
 		r.Route("/{documentID}", func(r chi.Router) {
 			r.Get("/", s.GetDocument)
 			r.Patch("/", s.PatchDocument)
 			r.Delete("/", s.DeleteDocument)
 			// r.Post("/share", s.PostDocumentShare)
+
+			r.Route("/versions", func(r chi.Router) {
+				// r.Get("/", s.DocumentVersions)
+				r.Route("/{version}", func(r chi.Router) {
+					r.Get("/", s.GetDocument)
+					r.Delete("/", s.DeleteDocument)
+
+					previewHandler(r)
+					r.Route("/files", func(r chi.Router) {
+						// r.Post("/", s.PostDocumentFile)
+						r.Route("/{fileName}", func(r chi.Router) {
+							r.Get("/", s.GetDocumentFile)
+							// r.Patch("/", s.PatchDocumentFile)
+							// r.Delete("/", s.DeleteDocumentFile)
+						})
+					})
+				})
+			})
 
 			r.Route("/webhooks", func(r chi.Router) {
 				r.Post("/", s.PostDocumentWebhook)

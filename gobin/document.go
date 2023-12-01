@@ -24,7 +24,7 @@ import (
 type (
 	DocumentResponse struct {
 		Key     string         `json:"key"`
-		Version int64          `json:"version"`
+		Version string         `json:"version"`
 		Files   []ResponseFile `json:"files"`
 		Token   string         `json:"token,omitempty"`
 	}
@@ -77,7 +77,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	formatter := s.getFormatter(r)
+	formatter := s.getFormatter(r, true)
 	style := getStyle(r)
 
 	templateFiles := make([]templates.File, len(files))
@@ -105,7 +105,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 			versionLabel += " (original)"
 		}
 		templateVersions[i] = templates.DocumentVersion{
-			Version: v,
+			Version: strconv.FormatInt(v, 10),
 			Label:   versionLabel,
 			Time:    versionTime.Format(VersionTimeFormat),
 		}
@@ -113,7 +113,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 
 	vars := templates.DocumentVars{
 		ID:      documentID,
-		Version: version,
+		Version: strconv.FormatInt(version, 10),
 		Edit:    documentID == "",
 
 		Files:    templateFiles,
@@ -140,12 +140,12 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	formatter := s.getFormatter(r)
+	formatter := s.getFormatter(r, false)
 	style := getStyle(r)
 
 	response := DocumentResponse{
 		Key:     documentID,
-		Version: version,
+		Version: strconv.FormatInt(version, 10),
 		Files:   make([]ResponseFile, len(files)),
 	}
 	for i, file := range files {
@@ -204,7 +204,7 @@ func (s *Server) GetDocumentFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	formatter := s.getFormatter(r)
+	formatter := s.getFormatter(r, false)
 	style := getStyle(r)
 
 	formatted, err := s.formatFile(*file, formatter, style)
@@ -274,24 +274,33 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	documentID, err := s.db.CreateDocument(r.Context(), dbFiles)
+	documentID, version, err := s.db.CreateDocument(r.Context(), dbFiles)
 	if err != nil {
 		s.error(w, r, fmt.Errorf("failed to create document: %w", err))
 		return
 	}
 
+	formatter := s.getFormatter(r, false)
+	style := getStyle(r)
+
 	var rsFiles []ResponseFile
 	for _, file := range dbFiles {
+		formatted, err := s.formatFile(file, formatter, style)
+		if err != nil {
+			s.error(w, r, err)
+			return
+		}
 		rsFiles = append(rsFiles, ResponseFile{
-			Name:     file.Name,
-			Content:  file.Content,
-			Language: file.Language,
+			Name:      file.Name,
+			Content:   file.Content,
+			Formatted: formatted,
+			Language:  file.Language,
 		})
 	}
 
 	s.json(w, r, DocumentResponse{
 		Key:     *documentID,
-		Version: 0,
+		Version: strconv.FormatInt(*version, 10),
 		Files:   rsFiles,
 		Token:   "todo",
 	}, http.StatusCreated)
@@ -316,26 +325,47 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	if err = s.db.UpdateDocument(r.Context(), documentID, dbFiles); err != nil {
+	version, err := s.db.UpdateDocument(r.Context(), documentID, dbFiles)
+	if err != nil {
 		s.error(w, r, fmt.Errorf("failed to update document: %w", err))
 		return
 	}
 
+	formatter := s.getFormatter(r, false)
+	style := getStyle(r)
+
 	var rsFiles []ResponseFile
 	for _, file := range dbFiles {
+		formatted, err := s.formatFile(file, formatter, style)
+		if err != nil {
+			s.error(w, r, err)
+			return
+		}
 		rsFiles = append(rsFiles, ResponseFile{
-			Name:     file.Name,
-			Content:  file.Content,
-			Language: file.Language,
+			Name:      file.Name,
+			Content:   file.Content,
+			Formatted: formatted,
+			Language:  file.Language,
 		})
 	}
 
 	s.json(w, r, DocumentResponse{
 		Key:     documentID,
-		Version: 0,
+		Version: strconv.FormatInt(*version, 10),
 		Files:   rsFiles,
 		Token:   "todo",
 	}, http.StatusOK)
+}
+
+func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
+	documentID := chi.URLParam(r, "documentID")
+
+	if err := s.db.DeleteDocument(r.Context(), documentID); err != nil {
+		s.error(w, r, fmt.Errorf("failed to delete document: %w", err))
+		return
+	}
+
+	s.ok(w, r, nil)
 }
 
 func parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
@@ -405,10 +435,16 @@ func parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 }
 
 func getLanguage(contentType string, fileName string, content string) string {
-	fmt.Printf("contentType: %s, fileName: %s, content: %s\n", contentType, fileName, content)
 	var lexer chroma.Lexer
 	if contentType != "" {
 		lexer = lexers.MatchMimeType(contentType)
+	}
+	if lexer != nil {
+		return lexer.Config().Name
+	}
+
+	if contentType != "" {
+		lexer = lexers.Get(contentType)
 	}
 	if lexer != nil {
 		return lexer.Config().Name
@@ -429,15 +465,4 @@ func getLanguage(contentType string, fileName string, content string) string {
 	}
 
 	return "plaintext"
-}
-
-func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
-	documentID := chi.URLParam(r, "documentID")
-
-	if err := s.db.DeleteDocument(r.Context(), documentID); err != nil {
-		s.error(w, r, fmt.Errorf("failed to delete document: %w", err))
-		return
-	}
-
-	s.ok(w, r, nil)
 }

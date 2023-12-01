@@ -48,29 +48,30 @@ func (d *DB) GetDocumentVersions(ctx context.Context, documentID string) ([]int6
 
 }
 
-func (d *DB) CreateDocument(ctx context.Context, files []File) (*string, error) {
+func (d *DB) CreateDocument(ctx context.Context, files []File) (*string, *int64, error) {
 	documentID := d.randomString(8)
+	version := time.Now().Unix()
 	for i := range files {
 		files[i].DocumentID = documentID
-		files[i].DocumentVersion = 0
+		files[i].DocumentVersion = version
 	}
 
 	if _, err := d.dbx.NamedExecContext(ctx, "INSERT INTO files (name, document_id, document_version, content, language) VALUES (:name, :document_id, :document_version, :content, :language);", files); err != nil {
-		return nil, fmt.Errorf("failed to create document: %w", err)
+		return nil, nil, fmt.Errorf("failed to create document: %w", err)
 	}
-	return &documentID, nil
+	return &documentID, &version, nil
 }
 
-func (d *DB) UpdateDocument(ctx context.Context, documentID string, files []File) error {
+func (d *DB) UpdateDocument(ctx context.Context, documentID string, files []File) (*int64, error) {
 	version := time.Now().Unix()
 	for i := range files {
 		files[i].DocumentID = documentID
 		files[i].DocumentVersion = version
 	}
 	if _, err := d.dbx.NamedExecContext(ctx, "INSERT INTO files (name, document_id, document_version, content, language) VALUES (:name, :document_id, :document_version, :content, :language);", files); err != nil {
-		return fmt.Errorf("failed to update document: %w", err)
+		return nil, fmt.Errorf("failed to update document: %w", err)
 	}
-	return nil
+	return &version, nil
 }
 
 func (d *DB) DeleteDocument(ctx context.Context, documentID string) error {

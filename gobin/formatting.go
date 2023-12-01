@@ -11,9 +11,12 @@ import (
 	"github.com/topi314/gobin/gobin/database"
 )
 
-func (s *Server) getFormatter(r *http.Request) chroma.Formatter {
+func (s *Server) getFormatter(r *http.Request, fallback bool) chroma.Formatter {
 	formatterName := r.URL.Query().Get("formatter")
 	if formatterName == "" {
+		if !fallback {
+			return formatters.NoOp
+		}
 		formatterName = "html"
 	}
 

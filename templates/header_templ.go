@@ -32,7 +32,27 @@ func header(vars DocumentVars) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</a> <a title=\"GitHub\" id=\"github\" class=\"icon-btn\" href=\"https://github.com/topi314/gobin\" target=\"_blank\"></a> <input id=\"nav-btn\" type=\"checkbox\"> <label title=\"Open Navigation\" class=\"hamb\" for=\"nav-btn\"><span></span></label><nav><a title=\"New\" id=\"new\" class=\"icon-btn\" href=\"/\" target=\"_blank\"></a> <button title=\"Save\" id=\"save\" class=\"icon-btn\" disabled></button> <button title=\"Edit\" id=\"edit\" class=\"icon-btn\" disabled></button> <button title=\"Delete\" id=\"delete\" class=\"icon-btn\" disabled></button> <button title=\"Copy\" id=\"copy\" class=\"icon-btn\" disabled></button> <button title=\"Raw\" id=\"raw\" class=\"icon-btn\" disabled></button> <button title=\"Share\" id=\"share\" class=\"icon-btn\" disabled></button></nav></header>")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</a> <a title=\"GitHub\" id=\"github\" class=\"icon-btn\" href=\"https://github.com/topi314/gobin\" target=\"_blank\"></a> <input id=\"nav-btn\" type=\"checkbox\"> <label title=\"Open Navigation\" class=\"hamb\" for=\"nav-btn\"><span></span></label><nav><a title=\"New\" id=\"new\" class=\"icon-btn\" href=\"/\" target=\"_blank\"></a> <button title=\"Save\" id=\"save\" class=\"icon-btn\" disabled></button> <button title=\"Edit\" id=\"edit\" class=\"icon-btn\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if vars.Edit {
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(" disabled")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("></button> <button title=\"Delete\" id=\"delete\" class=\"icon-btn\" disabled></button> <button title=\"Copy\" id=\"copy\" class=\"icon-btn\"></button> <button title=\"Raw\" id=\"raw\" class=\"icon-btn\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if !vars.Edit {
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(" disabled")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("></button> <button title=\"Share\" id=\"share\" class=\"icon-btn\" disabled></button></nav></header>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

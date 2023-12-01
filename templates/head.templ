@@ -3,7 +3,11 @@ package templates
 templ head(vars DocumentVars) {
 	<head>
 		<meta charset="utf-8"/>
-		<title>gobin</title>
+		if vars.ID == "" {
+			<title>gobin</title>
+		} else {
+			<title>gobin - { vars.ID }</title>
+		}
 		<meta name="description" content="gobin is a simple hastebin compatible paste server written in Go."/>
 
 		<link rel="stylesheet" type="text/css" href="/assets/style.css"/>
