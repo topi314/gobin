@@ -7,7 +7,9 @@ import (
 	"io"
 	"log/slog"
 	"mime"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"strconv"
 	"time"
 
@@ -21,17 +23,25 @@ import (
 	"github.com/topi314/tint"
 )
 
+var (
+	ErrInvalidMultipartPartName   = errors.New("invalid multipart part name")
+	ErrInvalidDocumentFileName    = errors.New("invalid document file name")
+	ErrInvalidDocumentFileContent = errors.New("invalid document file content")
+)
+
 type (
 	DocumentResponse struct {
-		Key     string         `json:"key"`
-		Version string         `json:"version"`
-		Files   []ResponseFile `json:"files"`
-		Token   string         `json:"token,omitempty"`
+		Key          string         `json:"key"`
+		Version      string         `json:"version"`
+		VersionLabel string         `json:"version_label,omitempty"`
+		VersionTime  string         `json:"version_time,omitempty"`
+		Files        []ResponseFile `json:"files"`
+		Token        string         `json:"token,omitempty"`
 	}
 
 	ResponseFile struct {
 		Name      string `json:"name"`
-		Content   string `json:"content"`
+		Content   string `json:"content,omitempty"`
 		Formatted string `json:"formatted,omitempty"`
 		Language  string `json:"language"`
 	}
@@ -50,6 +60,10 @@ type (
 	}
 )
 
+func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
+
+}
+
 func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	documentID, version, files, err := s.getDocument(r)
 	if err != nil {
@@ -67,7 +81,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		files = []database.File{{
 			Name:     "untitled",
 			Content:  "",
-			Language: "plaintext",
+			Language: "auto",
 		}}
 	}
 
@@ -97,7 +111,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 
 	templateVersions := make([]templates.DocumentVersion, len(versions))
 	for i, v := range versions {
-		versionTime := time.Unix(v, 0)
+		versionTime := time.UnixMilli(v)
 		versionLabel := humanize.Time(versionTime)
 		if i == 0 {
 			versionLabel += " (current)"
@@ -165,6 +179,78 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 	s.ok(w, r, response)
 }
 
+func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
+	_, _, files, err := s.getDocument(r)
+	if err != nil {
+		s.error(w, r, err)
+		return
+	}
+
+	if len(files) == 1 {
+		file := files[0]
+
+		w.Header().Set("Content-Disposition", mime.FormatMediaType("inline", map[string]string{
+			"name":     file.Name,
+			"filename": file.Name,
+		}))
+
+		lexer := lexers.Get(file.Language)
+		if lexer == nil {
+			lexer = lexers.Fallback
+		}
+		w.Header().Set("Language", lexer.Config().Name)
+
+		mimetype := "application/octet-stream"
+		if len(lexer.Config().MimeTypes) > 0 {
+			mimetype = lexer.Config().MimeTypes[0]
+		}
+		w.Header().Set("Content-Type", mimetype)
+
+		if _, err = w.Write([]byte(files[0].Content)); err != nil {
+			s.error(w, r, err)
+		}
+		return
+	}
+
+	mpw := multipart.NewWriter(w)
+	for i, file := range files {
+		headers := make(textproto.MIMEHeader, 2)
+		headers.Set("Content-Disposition", mime.FormatMediaType("form-data", map[string]string{
+			"name":     fmt.Sprintf("file-%d", i),
+			"filename": file.Name,
+		}))
+
+		lexer := lexers.Get(file.Language)
+		if lexer == nil {
+			lexer = lexers.Fallback
+		}
+
+		headers.Set("Language", lexer.Config().Name)
+
+		mimetype := "text/plain; charset=utf-8"
+		if len(lexer.Config().MimeTypes) > 0 {
+			mimetype = lexer.Config().MimeTypes[0]
+		}
+		headers.Set("Content-Type", mimetype)
+
+		var part io.Writer
+		part, err = mpw.CreatePart(headers)
+		if err != nil {
+			s.error(w, r, err)
+			return
+		}
+		if _, err = part.Write([]byte(file.Content + "\n")); err != nil {
+			s.error(w, r, err)
+			return
+		}
+	}
+
+	if err = mpw.Close(); err != nil {
+		s.error(w, r, err)
+		return
+	}
+}
+
 func (s *Server) getDocument(r *http.Request) (string, int64, []database.File, error) {
 	documentID := chi.URLParam(r, "documentID")
 
@@ -219,6 +305,19 @@ func (s *Server) GetDocumentFile(w http.ResponseWriter, r *http.Request) {
 		Formatted: formatted,
 		Language:  file.Language,
 	})
+}
+
+func (s *Server) GetRawDocumentFile(w http.ResponseWriter, r *http.Request) {
+	file, err := s.getDocumentFile(r)
+	if err != nil {
+		s.error(w, r, err)
+		return
+	}
+
+	if _, err := w.Write([]byte(file.Content)); err != nil {
+		s.error(w, r, err)
+		return
+	}
 }
 
 func (s *Server) getDocumentFile(r *http.Request) (*database.File, error) {
@@ -298,11 +397,20 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	token, err := s.NewToken(*documentID, []Permission{PermissionWrite, PermissionDelete, PermissionShare})
+	if err != nil {
+		s.error(w, r, fmt.Errorf("failed to create jwt token: %w", err))
+		return
+	}
+
+	versionTime := time.UnixMilli(*version)
 	s.json(w, r, DocumentResponse{
-		Key:     *documentID,
-		Version: strconv.FormatInt(*version, 10),
-		Files:   rsFiles,
-		Token:   "todo",
+		Key:          *documentID,
+		Version:      strconv.FormatInt(*version, 10),
+		VersionLabel: humanize.Time(versionTime) + " (original)",
+		VersionTime:  versionTime.Format(VersionTimeFormat),
+		Files:        rsFiles,
+		Token:        token,
 	}, http.StatusCreated)
 
 }
@@ -349,11 +457,13 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	versionTime := time.UnixMilli(*version)
 	s.json(w, r, DocumentResponse{
-		Key:     documentID,
-		Version: strconv.FormatInt(*version, 10),
-		Files:   rsFiles,
-		Token:   "todo",
+		Key:          documentID,
+		Version:      strconv.FormatInt(*version, 10),
+		VersionLabel: humanize.Time(versionTime) + " (current)",
+		VersionTime:  versionTime.Format(VersionTimeFormat),
+		Files:        rsFiles,
 	}, http.StatusOK)
 }
 
@@ -385,7 +495,7 @@ func parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to get multipart reader: %w", err)
 		}
-		for {
+		for i := 0; ; i++ {
 			part, err := mr.NextPart()
 			if err == io.EOF {
 				break
@@ -394,9 +504,21 @@ func parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 				return nil, fmt.Errorf("failed to get multipart part: %w", err)
 			}
 
+			if part.FormName() != fmt.Sprintf("file-%d", i) {
+				return nil, httperr.BadRequest(ErrInvalidMultipartPartName)
+			}
+
+			if part.FileName() == "" {
+				return nil, httperr.BadRequest(ErrInvalidDocumentFileName)
+			}
+
 			data, err := io.ReadAll(part)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read part data: %w", err)
+			}
+
+			if len(data) == 0 {
+				return nil, httperr.BadRequest(ErrInvalidDocumentFileContent)
 			}
 
 			language := part.Header.Get("Language")

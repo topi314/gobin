@@ -10,8 +10,16 @@ templ header(vars DocumentVars) {
 
 		<nav>
 			<a title="New" id="new" class="icon-btn" href="/" target="_blank"></a>
-			<button title="Save" id="save" class="icon-btn" disabled></button>
-			<button title="Edit" id="edit" class="icon-btn" disabled?={ vars.Edit }></button>
+			<button title="Save" id="save" class="icon-btn"
+				if !vars.Edit {
+                    style="display: none;"
+                }
+			></button>
+			<button title="Edit" id="edit" class="icon-btn"
+				if vars.Edit {
+					style="display: none;"
+				}
+			></button>
 			<button title="Delete" id="delete" class="icon-btn" disabled></button>
 			<button title="Copy" id="copy" class="icon-btn"></button>
 			<button title="Raw" id="raw" class="icon-btn" disabled?={ !vars.Edit }></button>

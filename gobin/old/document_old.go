@@ -109,7 +109,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 
 	versions := make([]templates.DocumentVersion, 0, len(documents))
 	for i, documentVersion := range documents {
-		versionTime := time.Unix(documentVersion.Version, 0)
+		versionTime := time.UnixMilli(documentVersion.Version)
 		versionLabel := humanize.Time(versionTime)
 		if i == 0 {
 			versionLabel += " (current)"

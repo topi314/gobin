@@ -50,7 +50,7 @@ func (d *DB) GetDocumentVersions(ctx context.Context, documentID string) ([]int6
 
 func (d *DB) CreateDocument(ctx context.Context, files []File) (*string, *int64, error) {
 	documentID := d.randomString(8)
-	version := time.Now().Unix()
+	version := time.Now().UnixMilli()
 	for i := range files {
 		files[i].DocumentID = documentID
 		files[i].DocumentVersion = version
@@ -63,7 +63,7 @@ func (d *DB) CreateDocument(ctx context.Context, files []File) (*string, *int64,
 }
 
 func (d *DB) UpdateDocument(ctx context.Context, documentID string, files []File) (*int64, error) {
-	version := time.Now().Unix()
+	version := time.Now().UnixMilli()
 	for i := range files {
 		files[i].DocumentID = documentID
 		files[i].DocumentVersion = version
@@ -96,7 +96,7 @@ func (d *DB) DeleteDocumentVersions(ctx context.Context, documentID string) erro
 }
 
 func (d *DB) DeleteExpiredDocuments(ctx context.Context, expireAfter time.Duration) error {
-	if _, err := d.dbx.ExecContext(ctx, "DELETE FROM files WHERE document_version < $1;", time.Now().Add(expireAfter).Unix()); err != nil {
+	if _, err := d.dbx.ExecContext(ctx, "DELETE FROM files WHERE document_version < $1;", time.Now().Add(expireAfter).UnixMilli()); err != nil {
 		return fmt.Errorf("failed to delete expired documents: %w", err)
 	}
 	return nil

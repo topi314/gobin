@@ -41,7 +41,7 @@ templ Document(vars DocumentVars) {
                         checked
                     }
                 />
-                <label for={ fmt.Sprintf("file-%d", i) }>{ file.Name }</label>
+                <label for={ fmt.Sprintf("file-%d", i) }>{ file.Name }<button class="file-remove" disabled?={ !vars.Edit }></button></label>
 			}
 			<div id="file-add"
 				if !vars.Edit {

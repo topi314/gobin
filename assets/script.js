@@ -60,7 +60,34 @@ document.getElementById("files").addEventListener("keypress", (e) => {
 
 document.getElementById("files").addEventListener("input", (e) => {
     const state = getState();
+    console.log("input", e, state);
     state.files[state.current_file].name = e.target.innerText;
+    setState(state);
+})
+
+document.getElementById("files").addEventListener("click", (e) => {
+    if (e.target.tagName.toLowerCase() !== "button") {
+        return;
+    }
+    const state = getState();
+    const index = parseInt(document.getElementById(e.target.parentElement.htmlFor).value);
+    state.files.splice(index, 1);
+
+    if (index === state.current_file) {
+        state.current_file = 0;
+    }
+
+    if (state.files.length === 0) {
+        state.files.push({
+            name: "untitled",
+            content: "",
+            formatted: "",
+            language: "auto"
+        })
+    }
+
+    updateFiles(state);
+    updateCode(state);
     setState(state);
 })
 
@@ -153,6 +180,9 @@ document.getElementById("version").addEventListener("change", async (e) => {
 
     state.version = document.version;
     state.files = document.files;
+    if (state.current_file >= state.files.length) {
+        state.current_file = state.files.length - 1;
+    }
 
     updateVersionSelect(e.target.selectedIndex);
 
@@ -531,16 +561,16 @@ function updateFiles(state) {
 
         const label = document.createElement("label");
         label.htmlFor = `file-${i}`;
-        label.innerText = file.name;
+        label.innerHTML += `${file.name}<button class="file-remove" ${state.mode === "view" ? "disabled" : ""}></button>`;
 
         nodes.push(input);
         nodes.push(label);
     }
 
     const files = document.getElementById("files");
-    nodes.push(files.lastElementChild)
+    nodes.push(files.lastElementChild);
 
-    files.replaceChildren(...nodes)
+    files.replaceChildren(...nodes);
 }
 
 function updateCode(state) {
@@ -565,16 +595,17 @@ function updateCode(state) {
 }
 
 function updateButtons(state) {
-    if (!state) return;
-    const {key, mode, files} = state;
-    const token = getToken(key);
+    const token = getToken(state.key);
     // update page title
-    if (key) {
-        document.title = `gobin - ${key}`;
+    if (state.key) {
+        document.title = `gobin - ${state.key}`;
     } else {
         document.title = "gobin";
     }
 
+    document.querySelectorAll(".file-remove").forEach((element) => element.disabled = state.mode === "view");
+
+    const fileAddButton = document.getElementById("file-add");
     const saveButton = document.getElementById("save");
     const editButton = document.getElementById("edit");
     const deleteButton = document.getElementById("delete");
@@ -583,17 +614,19 @@ function updateButtons(state) {
     const shareButton = document.getElementById("share");
     const versionSelect = document.getElementById("version");
     versionSelect.disabled = versionSelect.options.length <= 1;
-    if (mode === "view") {
-        saveButton.disabled = true;
-        editButton.disabled = false;
+    if (state.mode === "view") {
+        fileAddButton.style.display = "none";
+        saveButton.style.display = "none";
+        editButton.style.display = "block";
         deleteButton.disabled = !hasPermission(token, "delete");
         copyButton.disabled = false;
         rawButton.disabled = false;
         shareButton.disabled = false;
-        return
+        return;
     }
-    saveButton.disabled = files.findIndex(file => file.content.length > 0) === -1;
-    editButton.disabled = true;
+    fileAddButton.style.display = "block";
+    saveButton.style.display = state.files.findIndex(file => file.content.length > 0) === -1 ? "none" : "block";
+    editButton.style.display = "none";
     deleteButton.disabled = true;
     copyButton.disabled = true;
     rawButton.disabled = true;

@@ -77,7 +77,7 @@ Will return the document with the id of jis74978.`,
 
 				var documentVersions string
 				for _, documentVersion := range documentVersionsRs {
-					documentVersions += fmt.Sprintf("%d: %s\n", documentVersion.Version, humanize.Time(time.Unix(documentVersion.Version, 0)))
+					documentVersions += fmt.Sprintf("%d: %s\n", documentVersion.Version, humanize.Time(time.UnixMilli(documentVersion.Version, 0)))
 				}
 
 				cmd.Printf("Document versions(%d):\n%s", len(documentVersions), documentVersions)
