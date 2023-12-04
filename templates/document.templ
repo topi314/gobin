@@ -28,6 +28,9 @@ templ Document(vars DocumentVars) {
 
                 <label for="share-permissions-share">Share</label>
                 <input id="share-permissions-share" type="checkbox"/>
+
+                <label for="share-permissions-webhook">Webhook</label>
+                <input id="share-permissions-webhook" type="checkbox"/>
             </div>
             <button id="share-copy">Copy</button>
         </div>
@@ -41,7 +44,7 @@ templ Document(vars DocumentVars) {
                         checked
                     }
                 />
-                <label for={ fmt.Sprintf("file-%d", i) }>{ file.Name }<button class="file-remove" disabled?={ !vars.Edit }></button></label>
+                <label for={ fmt.Sprintf("file-%d", i) }><span>{ file.Name }</span><button class="file-remove" disabled?={ !vars.Edit }></button></label>
 			}
 			<div id="file-add"
 				if !vars.Edit {

@@ -2,6 +2,7 @@ package gobin
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -10,14 +11,17 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"slices"
 	"strconv"
 	"time"
 
 	"github.com/alecthomas/chroma/v2"
+	"github.com/alecthomas/chroma/v2/formatters"
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/dustin/go-humanize"
 	"github.com/go-chi/chi/v5"
 	"github.com/topi314/gobin/gobin/database"
+	"github.com/topi314/gobin/internal/flags"
 	"github.com/topi314/gobin/internal/httperr"
 	"github.com/topi314/gobin/templates"
 	"github.com/topi314/tint"
@@ -58,14 +62,65 @@ type (
 		Path      string `json:"path"`
 		RequestID string `json:"request_id"`
 	}
+
+	ShareRequest struct {
+		Permissions []string `json:"permissions"`
+	}
+
+	ShareResponse struct {
+		Token string `json:"token"`
+	}
 )
 
 func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
+	documentID := chi.URLParam(r, "documentID")
+	withContent := r.URL.Query().Get("withContent") == "true"
 
+	versions, err := s.db.GetDocumentVersionsWithFiles(r.Context(), documentID, withContent)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			s.error(w, r, httperr.NotFound(err))
+			return
+		}
+		s.error(w, r, fmt.Errorf("failed to get document versions: %w", err))
+		return
+	}
+
+	formatter := getFormatter(r, false)
+	style := getStyle(r)
+
+	var response []DocumentResponse
+	for version, dbFiles := range versions {
+		files := make([]ResponseFile, len(dbFiles))
+		for i, file := range dbFiles {
+			var formatted string
+			if withContent {
+				formatted, err = s.formatFile(file, formatter, style)
+				if err != nil {
+					s.error(w, r, err)
+					return
+				}
+			}
+
+			files[i] = ResponseFile{
+				Name:      file.Name,
+				Content:   file.Content,
+				Formatted: formatted,
+				Language:  file.Language,
+			}
+		}
+		response = append(response, DocumentResponse{
+			Key:     documentID,
+			Version: strconv.FormatInt(version, 10),
+			Files:   nil,
+		})
+	}
+
+	s.ok(w, r, response)
 }
 
 func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
-	documentID, version, files, err := s.getDocument(r)
+	document, err := s.getDocument(r)
 	if err != nil {
 		if !errors.Is(err, ErrDocumentNotFound) {
 			s.prettyError(w, r, err)
@@ -77,26 +132,28 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if len(files) == 0 {
-		files = []database.File{{
-			Name:     "untitled",
-			Content:  "",
-			Language: "auto",
-		}}
+	if document == nil {
+		document = &database.Document{
+			Files: []database.File{{
+				Name:     "untitled",
+				Content:  "",
+				Language: "auto",
+			}},
+		}
 	}
 
-	versions, err := s.db.GetDocumentVersions(r.Context(), documentID)
+	versions, err := s.db.GetDocumentVersions(r.Context(), document.ID)
 	if err != nil && errors.Is(err, sql.ErrNoRows) {
 		s.prettyError(w, r, fmt.Errorf("failed to get document versions: %w", err))
 		return
 	}
 
-	formatter := s.getFormatter(r, true)
+	formatter := getFormatter(r, true)
 	style := getStyle(r)
 
-	templateFiles := make([]templates.File, len(files))
-	for i, file := range files {
-		formatted, err := s.formatFile(files[i], formatter, style)
+	templateFiles := make([]templates.File, len(document.Files))
+	for i, file := range document.Files {
+		formatted, err := s.formatFile(file, formatter, style)
 		if err != nil {
 			s.prettyError(w, r, err)
 			return
@@ -125,10 +182,10 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	vars := templates.DocumentVars{
-		ID:      documentID,
-		Version: strconv.FormatInt(version, 10),
-		Edit:    documentID == "",
+	if err = templates.Document(templates.DocumentVars{
+		ID:      document.ID,
+		Version: strconv.FormatInt(document.Version, 10),
+		Edit:    document.ID == "",
 
 		Files:    templateFiles,
 		Versions: templateVersions,
@@ -141,28 +198,27 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		Max:     s.cfg.MaxDocumentSize,
 		Host:    r.Host,
 		Preview: s.cfg.Preview != nil,
-	}
-	if err = templates.Document(vars).Render(r.Context(), w); err != nil {
+	}).Render(r.Context(), w); err != nil {
 		slog.ErrorContext(r.Context(), "failed to execute template", tint.Err(err))
 	}
 }
 
 func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
-	documentID, version, files, err := s.getDocument(r)
+	document, err := s.getDocument(r)
 	if err != nil {
 		s.error(w, r, err)
 		return
 	}
 
-	formatter := s.getFormatter(r, false)
+	formatter := getFormatter(r, false)
 	style := getStyle(r)
 
 	response := DocumentResponse{
-		Key:     documentID,
-		Version: strconv.FormatInt(version, 10),
-		Files:   make([]ResponseFile, len(files)),
+		Key:     document.ID,
+		Version: strconv.FormatInt(document.Version, 10),
+		Files:   make([]ResponseFile, len(document.Files)),
 	}
-	for i, file := range files {
+	for i, file := range document.Files {
 		formatted, err := s.formatFile(file, formatter, style)
 		if err != nil {
 			s.error(w, r, err)
@@ -180,14 +236,17 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
-	_, _, files, err := s.getDocument(r)
+	document, err := s.getDocument(r)
 	if err != nil {
 		s.error(w, r, err)
 		return
 	}
 
-	if len(files) == 1 {
-		file := files[0]
+	formatter := getFormatter(r, false)
+	style := getStyle(r)
+
+	if len(document.Files) == 1 {
+		file := document.Files[0]
 
 		w.Header().Set("Content-Disposition", mime.FormatMediaType("inline", map[string]string{
 			"name":     file.Name,
@@ -200,20 +259,36 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Language", lexer.Config().Name)
 
-		mimetype := "application/octet-stream"
-		if len(lexer.Config().MimeTypes) > 0 {
-			mimetype = lexer.Config().MimeTypes[0]
+		formatted, err := s.formatFile(file, formatter, style)
+		if err != nil {
+			s.error(w, r, fmt.Errorf("failed to render raw document: %w", err))
+			return
 		}
-		w.Header().Set("Content-Type", mimetype)
 
-		if _, err = w.Write([]byte(files[0].Content)); err != nil {
+		var contentType string
+		switch formatter {
+		case s.htmlFormatter, s.standaloneHTMLFormatter:
+			contentType = "text/html; charset=UTF-8"
+		case formatters.SVG:
+			contentType = "image/svg+xml"
+		case formatters.JSON:
+			contentType = "application/json"
+		default:
+			contentType = "application/octet-stream"
+			if len(lexer.Config().MimeTypes) > 0 {
+				contentType = lexer.Config().MimeTypes[0]
+			}
+		}
+
+		w.Header().Set("Content-Type", contentType)
+		if _, err = w.Write([]byte(formatted)); err != nil {
 			s.error(w, r, err)
 		}
 		return
 	}
 
 	mpw := multipart.NewWriter(w)
-	for i, file := range files {
+	for i, file := range document.Files {
 		headers := make(textproto.MIMEHeader, 2)
 		headers.Set("Content-Disposition", mime.FormatMediaType("form-data", map[string]string{
 			"name":     fmt.Sprintf("file-%d", i),
@@ -224,14 +299,30 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 		if lexer == nil {
 			lexer = lexers.Fallback
 		}
-
 		headers.Set("Language", lexer.Config().Name)
 
-		mimetype := "text/plain; charset=utf-8"
-		if len(lexer.Config().MimeTypes) > 0 {
-			mimetype = lexer.Config().MimeTypes[0]
+		formatted, err := s.formatFile(file, formatter, style)
+		if err != nil {
+			s.error(w, r, fmt.Errorf("failed to render raw document: %w", err))
+			return
 		}
-		headers.Set("Content-Type", mimetype)
+
+		var contentType string
+		switch formatter {
+		case s.htmlFormatter, s.standaloneHTMLFormatter:
+			contentType = "text/html; charset=UTF-8"
+		case formatters.SVG:
+			contentType = "image/svg+xml"
+		case formatters.JSON:
+			contentType = "application/json"
+		default:
+			contentType = "application/octet-stream"
+			if len(lexer.Config().MimeTypes) > 0 {
+				contentType = lexer.Config().MimeTypes[0]
+			}
+		}
+
+		headers.Set("Content-Type", contentType)
 
 		var part io.Writer
 		part, err = mpw.CreatePart(headers)
@@ -239,7 +330,7 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 			s.error(w, r, err)
 			return
 		}
-		if _, err = part.Write([]byte(file.Content + "\n")); err != nil {
+		if _, err = part.Write([]byte(formatted + "\n")); err != nil {
 			s.error(w, r, err)
 			return
 		}
@@ -251,16 +342,48 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) getDocument(r *http.Request) (string, int64, []database.File, error) {
+func (s *Server) GetDocumentPreview(w http.ResponseWriter, r *http.Request) {
+	document, err := s.getDocument(r)
+	if err != nil {
+		s.error(w, r, err)
+	}
+
+	formatter := getFormatter(r, true)
+	style := getStyle(r)
+
+	file := document.Files[0]
+	file.Content = s.shortContent(document.Files[0].Content)
+
+	formatted, err := s.formatFile(file, formatter, style)
+	if err != nil {
+		s.prettyError(w, r, fmt.Errorf("failed to render document preview: %w", err))
+		return
+	}
+
+	png, err := s.convertSVG2PNG(r.Context(), formatted)
+	if err != nil {
+		s.error(w, r, fmt.Errorf("failed to convert document preview: %w", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/png")
+	if r.Method == http.MethodHead {
+		w.Header().Set("Content-Length", strconv.Itoa(len(png)))
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	_, _ = w.Write(png)
+}
+
+func (s *Server) getDocument(r *http.Request) (*database.Document, error) {
 	documentID := chi.URLParam(r, "documentID")
 
-	versionStr := chi.URLParam(r, "version")
 	var version int64
-	if versionStr != "" {
+	if versionStr := chi.URLParam(r, "version"); versionStr != "" {
 		var err error
 		version, err = strconv.ParseInt(versionStr, 10, 64)
 		if err != nil {
-			return "", 0, nil, httperr.BadRequest(ErrInvalidDocumentVersion)
+			return nil, httperr.BadRequest(ErrInvalidDocumentVersion)
 		}
 	}
 
@@ -275,12 +398,16 @@ func (s *Server) getDocument(r *http.Request) (string, int64, []database.File, e
 	}
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", 0, nil, httperr.NotFound(ErrDocumentNotFound)
+			return nil, httperr.NotFound(ErrDocumentNotFound)
 		}
-		return "", 0, nil, fmt.Errorf("failed to get document: %w", err)
+		return nil, fmt.Errorf("failed to get document: %w", err)
 	}
 
-	return documentID, version, files, nil
+	return &database.Document{
+		ID:      documentID,
+		Version: version,
+		Files:   files,
+	}, nil
 }
 
 func (s *Server) GetDocumentFile(w http.ResponseWriter, r *http.Request) {
@@ -290,7 +417,7 @@ func (s *Server) GetDocumentFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	formatter := s.getFormatter(r, false)
+	formatter := getFormatter(r, false)
 	style := getStyle(r)
 
 	formatted, err := s.formatFile(*file, formatter, style)
@@ -379,7 +506,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	formatter := s.getFormatter(r, false)
+	formatter := getFormatter(r, false)
 	style := getStyle(r)
 
 	var rsFiles []ResponseFile
@@ -397,7 +524,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	token, err := s.NewToken(*documentID, []Permission{PermissionWrite, PermissionDelete, PermissionShare})
+	token, err := s.NewToken(*documentID, AllPermissions)
 	if err != nil {
 		s.error(w, r, fmt.Errorf("failed to create jwt token: %w", err))
 		return
@@ -422,6 +549,12 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	claims := GetClaims(r)
+	if flags.Misses(claims.Permissions, PermissionWrite) {
+		s.error(w, r, httperr.Forbidden(ErrPermissionDenied("webhook")))
+		return
+	}
+
 	documentID := chi.URLParam(r, "documentID")
 
 	var dbFiles []database.File
@@ -439,7 +572,7 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	formatter := s.getFormatter(r, false)
+	formatter := getFormatter(r, false)
 	style := getStyle(r)
 
 	var rsFiles []ResponseFile
@@ -468,6 +601,12 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
+	claims := GetClaims(r)
+	if flags.Misses(claims.Permissions, PermissionDelete) {
+		s.error(w, r, httperr.Forbidden(ErrPermissionDenied("webhook")))
+		return
+	}
+
 	documentID := chi.URLParam(r, "documentID")
 
 	if err := s.db.DeleteDocument(r.Context(), documentID); err != nil {
@@ -476,6 +615,48 @@ func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.ok(w, r, nil)
+}
+
+func (s *Server) PostDocumentShare(w http.ResponseWriter, r *http.Request) {
+	documentID := chi.URLParam(r, "documentID")
+
+	var shareRequest ShareRequest
+	if err := json.NewDecoder(r.Body).Decode(&shareRequest); err != nil {
+		s.error(w, r, httperr.BadRequest(err))
+		return
+	}
+
+	if len(shareRequest.Permissions) == 0 {
+		s.error(w, r, httperr.BadRequest(ErrNoPermissions))
+		return
+	}
+
+	for _, permission := range shareRequest.Permissions {
+		if !slices.Contains(AllStringPermissions, permission) {
+			s.error(w, r, httperr.BadRequest(ErrUnknownPermission(permission)))
+			return
+		}
+	}
+
+	claims := GetClaims(r)
+	if claims.Subject != documentID || flags.Misses(claims.Permissions, PermissionShare) {
+		s.error(w, r, httperr.Forbidden(ErrPermissionDenied("share")))
+		return
+	}
+
+	perms, err := parsePermissions(claims.Permissions, shareRequest.Permissions)
+	if err != nil {
+		s.error(w, r, httperr.Forbidden(err))
+		return
+	}
+
+	token, err := s.NewToken(documentID, perms)
+	if err != nil {
+		s.error(w, r, fmt.Errorf("failed to create new token: %w", err))
+		return
+	}
+
+	s.ok(w, r, ShareResponse{Token: token})
 }
 
 func parseDocumentFiles(r *http.Request) ([]RequestFile, error) {

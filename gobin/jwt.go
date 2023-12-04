@@ -6,31 +6,28 @@ import (
 	"time"
 
 	"github.com/go-jose/go-jose/v3/jwt"
+	"github.com/topi314/gobin/internal/flags"
 )
 
-type Permission string
+type Permissions int
 
 const (
-	PermissionWrite   Permission = "write"
-	PermissionDelete  Permission = "delete"
-	PermissionShare   Permission = "share"
-	PermissionWebhook Permission = "webhook"
+	PermissionWrite Permissions = 1 << iota
+	PermissionDelete
+	PermissionShare
+	PermissionWebhook
 )
 
-var AllPermissions = []Permission{
-	PermissionWrite,
-	PermissionDelete,
-	PermissionShare,
-	PermissionWebhook,
-}
+var AllPermissions = PermissionWrite |
+	PermissionDelete |
+	PermissionShare |
+	PermissionWebhook
 
-func (p Permission) IsValid() bool {
-	return p == PermissionWrite || p == PermissionDelete || p == PermissionShare || p == PermissionWebhook
-}
+var AllStringPermissions = []string{"write", "delete", "share", "webhook"}
 
 type Claims struct {
 	jwt.Claims
-	Permissions []Permission `json:"permissions"`
+	Permissions Permissions `json:"pms"`
 }
 
 type claimsKey struct{}
@@ -45,12 +42,12 @@ func SetClaims(r *http.Request, claims Claims) *http.Request {
 	return r.WithContext(context.WithValue(r.Context(), claimsContextKey, claims))
 }
 
-func (s *Server) NewToken(documentID string, permissions []Permission) (string, error) {
+func (s *Server) NewToken(documentID string, permissions Permissions) (string, error) {
 	claims := newClaims(documentID, permissions)
 	return jwt.Signed(s.signer).Claims(claims).CompactSerialize()
 }
 
-func newClaims(documentID string, permissions []Permission) Claims {
+func newClaims(documentID string, permissions Permissions) Claims {
 	return Claims{
 		Claims: jwt.Claims{
 			IssuedAt: jwt.NewNumericDate(time.Now()),
@@ -61,5 +58,34 @@ func newClaims(documentID string, permissions []Permission) Claims {
 }
 
 func EmptyClaims(documentID string) Claims {
-	return newClaims(documentID, nil)
+	return newClaims(documentID, 0)
+}
+
+func parsePermissions(perms Permissions, stringPerms []string) (Permissions, error) {
+	var permissions Permissions
+	for _, perm := range stringPerms {
+		switch perm {
+		case "write":
+			if flags.Misses(perms, PermissionWrite) {
+				return 0, ErrPermissionDenied(perm)
+			}
+			permissions = flags.Add(permissions, PermissionWrite)
+		case "delete":
+			if flags.Misses(perms, PermissionDelete) {
+				return 0, ErrPermissionDenied(perm)
+			}
+			permissions = flags.Add(permissions, PermissionDelete)
+		case "share":
+			if flags.Misses(perms, PermissionShare) {
+				return 0, ErrPermissionDenied(perm)
+			}
+			permissions = flags.Add(permissions, PermissionShare)
+		case "webhook":
+			if flags.Misses(perms, PermissionWebhook) {
+				return 0, ErrPermissionDenied(perm)
+			}
+			permissions = flags.Add(permissions, PermissionWebhook)
+		}
+	}
+	return permissions, nil
 }

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/topi314/gobin/internal/flags"
 	"github.com/topi314/gobin/internal/httperr"
 	"github.com/topi314/tint"
 	"go.opentelemetry.io/otel/attribute"
@@ -217,8 +218,8 @@ func (s *Server) PostDocumentWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	claims := GetClaims(r)
-	if !slices.Contains(claims.Permissions, PermissionWebhook) {
-		s.error(w, r, httperr.Forbidden(ErrPermissionDenied(PermissionWebhook)))
+	if flags.Misses(claims.Permissions, PermissionWebhook) {
+		s.error(w, r, httperr.Forbidden(ErrPermissionDenied("webhook")))
 		return
 	}
 

@@ -27,7 +27,7 @@ import (
 	"github.com/topi314/gobin/templates"
 )
 
-func NewServer(version string, debug bool, cfg Config, db *database.DB, signer jose.Signer, tracer trace.Tracer, meter metric.Meter, assets http.FileSystem, htmlFormatter *html.Formatter) *Server {
+func NewServer(version string, debug bool, cfg Config, db *database.DB, signer jose.Signer, tracer trace.Tracer, meter metric.Meter, assets http.FileSystem, htmlFormatter *html.Formatter, standaloneHTMLFormatter *html.Formatter) *Server {
 	var allStyles []templates.Style
 	for _, name := range styles.Names() {
 		allStyles = append(allStyles, templates.Style{
@@ -50,17 +50,18 @@ func NewServer(version string, debug bool, cfg Config, db *database.DB, signer j
 	}
 
 	s := &Server{
-		version:       version,
-		debug:         debug,
-		cfg:           cfg,
-		db:            db,
-		client:        client,
-		signer:        signer,
-		tracer:        tracer,
-		meter:         meter,
-		assets:        assets,
-		styles:        allStyles,
-		htmlFormatter: htmlFormatter,
+		version:                 version,
+		debug:                   debug,
+		cfg:                     cfg,
+		db:                      db,
+		client:                  client,
+		signer:                  signer,
+		tracer:                  tracer,
+		meter:                   meter,
+		assets:                  assets,
+		styles:                  allStyles,
+		htmlFormatter:           htmlFormatter,
+		standaloneHTMLFormatter: standaloneHTMLFormatter,
 	}
 
 	s.server = &http.Server{
@@ -86,20 +87,21 @@ func NewServer(version string, debug bool, cfg Config, db *database.DB, signer j
 }
 
 type Server struct {
-	version          string
-	debug            bool
-	cfg              Config
-	db               *database.DB
-	server           *http.Server
-	client           *http.Client
-	signer           jose.Signer
-	tracer           trace.Tracer
-	meter            metric.Meter
-	assets           http.FileSystem
-	htmlFormatter    *html.Formatter
-	styles           []templates.Style
-	rateLimitHandler func(http.Handler) http.Handler
-	webhookWaitGroup sync.WaitGroup
+	version                 string
+	debug                   bool
+	cfg                     Config
+	db                      *database.DB
+	server                  *http.Server
+	client                  *http.Client
+	signer                  jose.Signer
+	tracer                  trace.Tracer
+	meter                   metric.Meter
+	assets                  http.FileSystem
+	htmlFormatter           *html.Formatter
+	standaloneHTMLFormatter *html.Formatter
+	styles                  []templates.Style
+	rateLimitHandler        func(http.Handler) http.Handler
+	webhookWaitGroup        sync.WaitGroup
 }
 
 func (s *Server) Start() {

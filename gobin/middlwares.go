@@ -19,10 +19,10 @@ const maxUnix = int(^int32(0))
 
 var (
 	ErrNoPermissions     = errors.New("no permissions provided")
-	ErrUnknownPermission = func(p Permission) error {
+	ErrUnknownPermission = func(p string) error {
 		return fmt.Errorf("unknown permission: %s", p)
 	}
-	ErrPermissionDenied = func(p Permission) error {
+	ErrPermissionDenied = func(p string) error {
 		return fmt.Errorf("permission denied: %s", p)
 	}
 )

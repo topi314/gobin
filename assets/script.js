@@ -35,7 +35,11 @@ document.getElementById("files").addEventListener("change", (e) => {
 })
 
 document.getElementById("files").addEventListener("dblclick", (e) => {
-    if (e.target.tagName.toLowerCase() !== "label") {
+    if (e.target.tagName.toLowerCase() !== "span") {
+        return;
+    }
+    const state = getState();
+    if (state.mode !== "edit") {
         return;
     }
     e.target.contentEditable = true;
@@ -43,13 +47,21 @@ document.getElementById("files").addEventListener("dblclick", (e) => {
 });
 
 document.getElementById("files").addEventListener("focusout", (e) => {
-    if (e.target.tagName.toLowerCase() !== "label") {
+    if (e.target.tagName.toLowerCase() !== "span") {
+        return;
+    }
+    const state = getState();
+    if (state.mode !== "edit") {
         return;
     }
     e.target.contentEditable = false;
 });
 
 document.getElementById("files").addEventListener("keypress", (e) => {
+    const state = getState();
+    if (state.mode !== "edit") {
+        return;
+    }
     if (e.key === "Enter") {
         e.preventDefault();
         if (e.target.contentEditable) {
@@ -59,8 +71,10 @@ document.getElementById("files").addEventListener("keypress", (e) => {
 });
 
 document.getElementById("files").addEventListener("input", (e) => {
+    if (e.target.name === "files") {
+        return;
+    }
     const state = getState();
-    console.log("input", e, state);
     state.files[state.current_file].name = e.target.innerText;
     setState(state);
 })
@@ -103,7 +117,6 @@ document.getElementById("file-add").addEventListener("click", (e) => {
     }
 
     updateFiles(state)
-
     setState(state);
     document.querySelector(`label[for="file-${index}"]`).click();
 });
@@ -219,10 +232,10 @@ document.addEventListener("keydown", (event) => {
     doKeyboardAction(event, shortcuts[event.key]);
 })
 
-const doKeyboardAction = (event, elementName) => {
+const doKeyboardAction = (event, elementId) => {
     event.preventDefault();
-    if (document.querySelector(`#${elementName}`).disabled) return;
-    document.querySelector(`#${elementName}`).click();
+    if (document.getElementById(elementId).disabled) return;
+    document.getElementById(elementId).click();
 }
 
 /* Navigation Action Button Events */
@@ -231,7 +244,7 @@ document.getElementById("edit").addEventListener("click", async () => {
     if (document.getElementById("edit").disabled) return;
 
     const state = getState();
-    if (!hasPermission(getToken(state.key), "write")) {
+    if (!hasPermission(getToken(state.key), PermissionWrite)) {
         state.key = "";
     }
     state.mode = "edit";
@@ -345,7 +358,7 @@ document.getElementById("share").addEventListener("click", async () => {
 
     const {key} = getState();
     const token = getToken(key);
-    if (!hasPermission(token, "share")) {
+    if (!hasPermission(token, PermissionShare)) {
         await navigator.clipboard.writeText(window.location.href);
         return;
     }
@@ -371,6 +384,9 @@ document.getElementById("share-copy").addEventListener("click", async () => {
     }
     if (document.getElementById("share-permissions-share").checked) {
         permissions.push("share");
+    }
+    if (document.getElementById("share-permissions-webhook").checked) {
+        permissions.push("webhook");
     }
 
     if (permissions.length === 0) {
@@ -496,7 +512,6 @@ function setState(state) {
 
 function addState(state) {
     const url = `/${state.key}${state.version !== "0" ? `/${state.version}` : ""}${window.location.hash}`;
-    console.log("url", state, url);
     window.history.pushState(state, "", url)
 }
 
@@ -527,11 +542,16 @@ function deleteToken(key) {
     localStorage.setItem("documents", JSON.stringify(parsedDocuments));
 }
 
+const PermissionWrite = 1
+const PermissionDelete = 2
+const PermissionShare = 4
+const PermissionWebhook = 8
+
 function hasPermission(token, permission) {
     if (!token) return false;
     const tokenSplit = token.split(".")
     if (tokenSplit.length !== 3) return false;
-    return JSON.parse(atob(tokenSplit[1])).permissions.includes(permission);
+    return (JSON.parse(atob(tokenSplit[1])).pms & permission) === permission;
 }
 
 function updateVersionSelect(currentIndex) {
@@ -550,7 +570,7 @@ function updateVersionSelect(currentIndex) {
 function updateFiles(state) {
     const nodes = [];
     for (const [i, file] of state.files.entries()) {
-        const input =  document.createElement("input");
+        const input = document.createElement("input");
         input.id = `file-${i}`;
         input.type = "radio";
         input.name = "files";
@@ -561,7 +581,7 @@ function updateFiles(state) {
 
         const label = document.createElement("label");
         label.htmlFor = `file-${i}`;
-        label.innerHTML += `${file.name}<button class="file-remove" ${state.mode === "view" ? "disabled" : ""}></button>`;
+        label.innerHTML += `<span>${file.name}</span><button class="file-remove" ${state.mode === "view" ? "disabled" : ""}></button>`;
 
         nodes.push(input);
         nodes.push(label);
@@ -618,7 +638,7 @@ function updateButtons(state) {
         fileAddButton.style.display = "none";
         saveButton.style.display = "none";
         editButton.style.display = "block";
-        deleteButton.disabled = !hasPermission(token, "delete");
+        deleteButton.disabled = !hasPermission(token, PermissionDelete);
         copyButton.disabled = false;
         rawButton.disabled = false;
         shareButton.disabled = false;

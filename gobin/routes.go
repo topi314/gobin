@@ -23,6 +23,7 @@ var (
 	ErrDocumentNotFound       = errors.New("document not found")
 	ErrDocumentFileNotFound   = errors.New("document file not found")
 	ErrInvalidDocumentVersion = errors.New("document version is invalid")
+	ErrPreviewsDisabled       = errors.New("document previews disabled")
 	ErrRateLimit              = errors.New("rate limit exceeded")
 	ErrContentTooLarge        = func(maxLength int) error {
 		return fmt.Errorf("content too large, must be less than %d chars", maxLength)
@@ -54,7 +55,7 @@ func (s *Server) Routes() http.Handler {
 	if s.cfg.RateLimit != nil {
 		r.Use(s.RateLimit)
 	}
-	// r.Use(s.JWTMiddleware)
+	r.Use(s.JWTMiddleware)
 	r.Use(middleware.GetHead)
 
 	if s.cfg.Debug {
@@ -62,7 +63,11 @@ func (s *Server) Routes() http.Handler {
 	}
 
 	var previewCache func(http.Handler) http.Handler
-	previewHandler := func(r chi.Router) {}
+	previewHandler := func(r chi.Router) {
+		r.Get("/preview", func(w http.ResponseWriter, r *http.Request) {
+			s.error(w, r, httperr.NotFound(ErrPreviewsDisabled))
+		})
+	}
 	if s.cfg.Preview != nil && s.cfg.Preview.CacheSize > 0 && s.cfg.Preview.CacheTTL > 0 {
 		previewCache = stampede.HandlerWithKey(s.cfg.Preview.CacheSize, s.cfg.Preview.CacheTTL, s.cacheKeyFunc)
 	}
@@ -72,7 +77,7 @@ func (s *Server) Routes() http.Handler {
 				if previewCache != nil {
 					r.Use(previewCache)
 				}
-				// r.Get("/", s.GetDocumentPreview)
+				r.Get("/", s.GetDocumentPreview)
 			})
 		}
 	}
@@ -98,8 +103,9 @@ func (s *Server) Routes() http.Handler {
 			r.Get("/", s.GetDocument)
 			r.Patch("/", s.PatchDocument)
 			r.Delete("/", s.DeleteDocument)
-			// r.Post("/share", s.PostDocumentShare)
+			r.Post("/share", s.PostDocumentShare)
 
+			previewHandler(r)
 			r.Route("/versions", func(r chi.Router) {
 				r.Get("/", s.DocumentVersions)
 				r.Route("/{version}", func(r chi.Router) {

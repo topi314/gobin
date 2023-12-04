@@ -24,8 +24,8 @@ import (
 	"github.com/topi314/gobin/gobin"
 	"github.com/topi314/gobin/gobin/database"
 	"github.com/topi314/tint"
-	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/trace"
+	meternoop "go.opentelemetry.io/otel/metric/noop"
+	tracenoop "go.opentelemetry.io/otel/trace/noop"
 )
 
 //go:generate go run github.com/a-h/templ/cmd/templ@latest generate
@@ -104,8 +104,8 @@ func main() {
 	slog.Info("Config", slog.String("config", cfg.String()))
 
 	var (
-		tracer trace.Tracer
-		meter  metric.Meter
+		tracer = tracenoop.NewTracerProvider().Tracer(Name)
+		meter  = meternoop.NewMeterProvider().Meter(Name)
 		err    error
 	)
 	if cfg.Otel != nil {
@@ -162,15 +162,16 @@ func main() {
 		html.WithLinkableLineNumbers(true, "L"),
 		html.TabWidth(4),
 	)
-	formatters.Register("html", htmlFormatter)
-	formatters.Register("html-standalone", html.New(
+	standaloneHTMLFormatter := html.New(
 		html.Standalone(true),
 		html.WithLineNumbers(true),
 		html.WithLinkableLineNumbers(true, "L"),
 		html.TabWidth(4),
-	))
+	)
+	formatters.Register("html", htmlFormatter)
+	formatters.Register("html-standalone", standaloneHTMLFormatter)
 
-	s := gobin.NewServer(gobin.FormatBuildVersion(Version, Commit, buildTime), cfg.DevMode, cfg, db, signer, tracer, meter, assets, htmlFormatter)
+	s := gobin.NewServer(gobin.FormatBuildVersion(Version, Commit, buildTime), cfg.DevMode, cfg, db, signer, tracer, meter, assets, htmlFormatter, standaloneHTMLFormatter)
 	slog.Info("Gobin started...", slog.String("address", cfg.ListenAddr))
 	go s.Start()
 	defer s.Close()

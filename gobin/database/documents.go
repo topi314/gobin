@@ -15,6 +15,12 @@ type File struct {
 	Language        string `db:"language"`
 }
 
+type Document struct {
+	ID      string
+	Version int64
+	Files   []File
+}
+
 func (d *DB) GetDocument(ctx context.Context, documentID string) ([]File, error) {
 	var files []File
 	if err := d.dbx.SelectContext(ctx, &files, "SELECT name, document_id, document_version, content, language from (SELECT *, rank() OVER (PARTITION BY document_id ORDER BY document_version DESC) AS rank FROM files) AS f WHERE document_id = $1 AND rank = 1;", documentID); err != nil {
@@ -45,6 +51,31 @@ func (d *DB) GetDocumentVersions(ctx context.Context, documentID string) ([]int6
 		return nil, fmt.Errorf("failed to get document versions: %w", err)
 	}
 	return versions, nil
+
+}
+
+func (d *DB) GetDocumentVersionsWithFiles(ctx context.Context, documentID string, withContent bool) (map[int64][]File, error) {
+	var query string
+	if withContent {
+		query = "SELECT name, document_id, document_version, content, language WHERE document_id = $1 ORDER BY document_version DESC;"
+	} else {
+		query = "SELECT name, document_id, document_version, language WHERE document_id = $1 ORDER BY document_version DESC;"
+	}
+
+	var files []File
+	if err := d.dbx.SelectContext(ctx, &files, query, documentID); err != nil {
+		return nil, fmt.Errorf("failed to get document: %w", err)
+	}
+
+	if len(files) == 0 {
+		return nil, sql.ErrNoRows
+	}
+
+	mapFiles := make(map[int64][]File)
+	for _, file := range files {
+		mapFiles[file.DocumentVersion] = append(mapFiles[file.DocumentVersion], file)
+	}
+	return mapFiles, nil
 
 }
 
