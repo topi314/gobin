@@ -321,6 +321,7 @@ document.getElementById("delete").addEventListener("click", async () => {
 
     state.key = "";
     state.vesion = "0";
+    state.mode = "edit"
     state.files = [{
         name: "untitled",
         content: "",

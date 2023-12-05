@@ -79,6 +79,9 @@ const (
 )
 
 func (s *Server) ExecuteWebhooks(ctx context.Context, event string, document WebhookDocument) {
+	if s.cfg.Webhook == nil {
+		return
+	}
 	s.webhookWaitGroup.Add(1)
 	ctx, span := s.tracer.Start(context.WithoutCancel(ctx), "executeWebhooks", trace.WithAttributes(
 		attribute.String("event", event),
