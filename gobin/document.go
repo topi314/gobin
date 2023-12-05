@@ -590,6 +590,20 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	webhooksFiles := make([]WebhookDocumentFile, len(files))
+	for i, file := range files {
+		webhooksFiles[i] = WebhookDocumentFile{
+			Name:     file.Name,
+			Content:  file.Content,
+			Language: file.Language,
+		}
+	}
+	s.ExecuteWebhooks(r.Context(), WebhookEventUpdate, WebhookDocument{
+		Key:     documentID,
+		Version: *version,
+		Files:   webhooksFiles,
+	})
+
 	versionTime := time.UnixMilli(*version)
 	s.json(w, r, DocumentResponse{
 		Key:          documentID,
@@ -608,11 +622,43 @@ func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
 	}
 
 	documentID := chi.URLParam(r, "documentID")
+	var version int64
+	if versionStr := chi.URLParam(r, "version"); versionStr != "" {
+		var err error
+		version, err = strconv.ParseInt(versionStr, 10, 64)
+		if err != nil {
+			s.error(w, r, httperr.BadRequest(ErrInvalidDocumentVersion))
+			return
+		}
+	}
 
-	if err := s.db.DeleteDocument(r.Context(), documentID); err != nil {
+	var (
+		document *database.Document
+		err      error
+	)
+	if version == 0 {
+		document, err = s.db.DeleteDocument(r.Context(), documentID)
+	} else {
+		document, err = s.db.DeleteDocumentVersion(r.Context(), documentID, version)
+	}
+	if err != nil {
 		s.error(w, r, fmt.Errorf("failed to delete document: %w", err))
 		return
 	}
+
+	webhooksFiles := make([]WebhookDocumentFile, len(document.Files))
+	for i, file := range document.Files {
+		webhooksFiles[i] = WebhookDocumentFile{
+			Name:     file.Name,
+			Content:  file.Content,
+			Language: file.Language,
+		}
+	}
+	s.ExecuteWebhooks(r.Context(), WebhookEventDelete, WebhookDocument{
+		Key:     document.ID,
+		Version: document.Version,
+		Files:   webhooksFiles,
+	})
 
 	s.ok(w, r, nil)
 }
@@ -702,18 +748,15 @@ func parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 				return nil, httperr.BadRequest(ErrInvalidDocumentFileContent)
 			}
 
-			language := part.Header.Get("Language")
-			if language == "" {
-				partContentType := part.Header.Get("Content-Type")
-				if partContentType != "" {
-					partContentType, _, _ = mime.ParseMediaType(partContentType)
-				}
-				language = getLanguage(partContentType, part.FileName(), string(data))
+			partContentType := part.Header.Get("Content-Type")
+			if partContentType != "" {
+				partContentType, _, _ = mime.ParseMediaType(partContentType)
 			}
+
 			files = append(files, RequestFile{
 				Name:     part.FileName(),
 				Content:  string(data),
-				Language: language,
+				Language: getLanguage(part.Header.Get("Language"), partContentType, part.FileName(), string(data)),
 			})
 		}
 
@@ -731,14 +774,21 @@ func parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 		files = []RequestFile{{
 			Name:     name,
 			Content:  string(data),
-			Language: getLanguage(contentType, params["filename"], string(data)),
+			Language: getLanguage(r.Header.Get("Language"), contentType, params["filename"], string(data)),
 		}}
 	}
 	return files, nil
 }
 
-func getLanguage(contentType string, fileName string, content string) string {
+func getLanguage(language string, contentType string, fileName string, content string) string {
 	var lexer chroma.Lexer
+	if language != "" {
+		lexer = lexers.Get(language)
+	}
+	if lexer != nil {
+		return lexer.Config().Name
+	}
+
 	if contentType != "" {
 		lexer = lexers.MatchMimeType(contentType)
 	}

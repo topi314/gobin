@@ -61,10 +61,15 @@ type (
 	}
 
 	WebhookDocument struct {
-		Key      string `json:"key"`
-		Version  int64  `json:"version"`
+		Key     string                `json:"key"`
+		Version int64                 `json:"version"`
+		Files   []WebhookDocumentFile `json:"files"`
+	}
+
+	WebhookDocumentFile struct {
+		Name     string `json:"name"`
+		Content  string `json:"content"`
 		Language string `json:"language"`
-		Data     string `json:"data"`
 	}
 )
 

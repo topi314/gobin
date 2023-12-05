@@ -105,18 +105,46 @@ func (d *DB) UpdateDocument(ctx context.Context, documentID string, files []File
 	return &version, nil
 }
 
-func (d *DB) DeleteDocument(ctx context.Context, documentID string) error {
-	if _, err := d.dbx.ExecContext(ctx, "DELETE FROM files WHERE document_id = $1;", documentID); err != nil {
-		return fmt.Errorf("failed to delete document: %w", err)
+func (d *DB) DeleteDocument(ctx context.Context, documentID string) (*Document, error) {
+	var files []File
+	if err := d.dbx.SelectContext(ctx, &files, "DELETE FROM files WHERE document_id = $1 RETURNING *", documentID); err != nil {
+		return nil, fmt.Errorf("failed to delete document: %w", err)
 	}
-	return nil
+
+	if len(files) == 0 {
+		return nil, sql.ErrNoRows
+	}
+
+	var lastDeletedFiles []File
+	for i := len(files) - 1; i >= 0; i-- {
+		if files[i].DocumentVersion != files[len(files)-1].DocumentVersion {
+			break
+		}
+		lastDeletedFiles = append(lastDeletedFiles, files[i])
+	}
+
+	return &Document{
+		ID:      documentID,
+		Version: files[len(files)-1].DocumentVersion,
+		Files:   lastDeletedFiles,
+	}, nil
 }
 
-func (d *DB) DeleteDocumentVersion(ctx context.Context, documentID string, documentVersion int) error {
-	if _, err := d.dbx.ExecContext(ctx, "DELETE FROM files WHERE document_id = $1 AND document_version = $2;", documentID, documentVersion); err != nil {
-		return fmt.Errorf("failed to delete document version: %w", err)
+func (d *DB) DeleteDocumentVersion(ctx context.Context, documentID string, documentVersion int64) (*Document, error) {
+	var files []File
+	if err := d.dbx.SelectContext(ctx, &files, "DELETE FROM files WHERE document_id = $1 AND document_version = $2 RETURNING *;", documentID, documentVersion); err != nil {
+		return nil, fmt.Errorf("failed to delete document version: %w", err)
 	}
-	return nil
+
+	if len(files) == 0 {
+		return nil, sql.ErrNoRows
+	}
+
+	return &Document{
+		ID:      documentID,
+		Version: documentVersion,
+		Files:   files,
+	}, nil
 }
 
 func (d *DB) DeleteDocumentVersions(ctx context.Context, documentID string) error {
