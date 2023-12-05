@@ -14,14 +14,13 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/topi314/gobin/gobin/database"
 	"github.com/topi314/gobin/internal/flags"
 	"github.com/topi314/gobin/internal/httperr"
 	"github.com/topi314/tint"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
-
-	"github.com/topi314/gobin/gobin/database"
 )
 
 var (

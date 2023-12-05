@@ -14,7 +14,6 @@ require (
 	github.com/alecthomas/chroma/v2 v2.12.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/go-chi/chi/v5 v5.0.10
-	github.com/go-chi/httprate v0.7.4
 	github.com/go-chi/stampede v0.5.1
 	github.com/go-jose/go-jose/v3 v3.0.1
 	github.com/jackc/pgx/v5 v5.5.0
@@ -26,6 +25,7 @@ require (
 	github.com/samber/slog-chi v1.6.1
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.17.0
+	github.com/topi314/httprate v0.0.0-20231205230946-44cd415a12f6
 	github.com/topi314/tint v0.0.0-20231106205902-77268b701ca6
 	go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace v0.46.1
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.46.1

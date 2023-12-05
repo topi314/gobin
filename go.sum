@@ -33,8 +33,6 @@ github.com/go-chi/chi/v5 v5.0.10 h1:rLz5avzKpjqxrYwXNfmjkrYYXOyLJd37pz53UFHC6vk=
 github.com/go-chi/chi/v5 v5.0.10/go.mod h1:DslCQbL2OYiznFReuXYUmQ2hGd1aDpCnlMNITLSKoi8=
 github.com/go-chi/cors v1.2.0 h1:tV1g1XENQ8ku4Bq3K9ub2AtgG+p16SmzeMSGTwrOKdE=
 github.com/go-chi/cors v1.2.0/go.mod h1:sSbTewc+6wYHBBCW7ytsFSn836hqM7JxpglAy2Vzc58=
-github.com/go-chi/httprate v0.7.4 h1:a2GIjv8he9LRf3712zxxnRdckQCm7I8y8yQhkJ84V6M=
-github.com/go-chi/httprate v0.7.4/go.mod h1:6GOYBSwnpra4CQfAKXu8sQZg+nZ0M1g9QnyFvxrAB8A=
 github.com/go-chi/stampede v0.5.1 h1:faVKiLt5dCFrfTmAOzWxcW/YLfKUNJCNbbfUgGn8ESU=
 github.com/go-chi/stampede v0.5.1/go.mod h1:lrMOBraJLDgizaoAD+LQoC/sVB2t9mYsGwqDTjUHPCE=
 github.com/go-jose/go-jose/v3 v3.0.1 h1:pWmKFVtt+Jl0vBZTIpz/eAKwsm6LkIxDVVbFHKkchhA=
@@ -152,6 +150,8 @@ github.com/subosito/gotenv v1.6.0 h1:9NlTDc1FTs4qu0DDq7AEtTPNw6SVm7uBMsUCUjABIf8
 github.com/subosito/gotenv v1.6.0/go.mod h1:Dk4QP5c2W3ibzajGcXpNraDfq2IrhjMIvMSWPKKo0FU=
 github.com/topi314/chroma/v2 v2.0.0-20231205001444-7ac776043257 h1:uZOzMNc6sjDjEO1lNX4N6Yu3C+NSmZjBfsrHixuGWJs=
 github.com/topi314/chroma/v2 v2.0.0-20231205001444-7ac776043257/go.mod h1:EQVOmBo3vBDX14AnJdxWWubYXDSCKrL2xdItnEURQAA=
+github.com/topi314/httprate v0.0.0-20231205230946-44cd415a12f6 h1:0plfQDAcE1lKqAsY+HjuQLNqk0jZPB/vJ2+ZqW+vhxc=
+github.com/topi314/httprate v0.0.0-20231205230946-44cd415a12f6/go.mod h1:Mb1PuALccBRNfDusCr7mu7q0lcklaLP0wWlfR9I/6bE=
 github.com/topi314/otelchi v0.0.0-20231102200450-1f008a097ec7 h1:3gvvH2EygB2wFo2XZ00P6NW9YYwc+NoP3e397+59C2I=
 github.com/topi314/otelchi v0.0.0-20231102200450-1f008a097ec7/go.mod h1:BPS3hpeCxkgg5Qaz/bTc6Vov8oAthkB9I0KNE3jZVAU=
 github.com/topi314/slog-chi v0.0.0-20231201185010-aa7188a9aab9 h1:76+YssnqxwXwYZrvL/CdI38OMFhth+3f2vW9qzr0A+o=

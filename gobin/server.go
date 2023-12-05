@@ -14,17 +14,16 @@ import (
 
 	"github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/alecthomas/chroma/v2/styles"
-	"github.com/go-chi/httprate"
 	"github.com/go-jose/go-jose/v3"
+	"github.com/topi314/gobin/gobin/database"
 	"github.com/topi314/gobin/internal/httperr"
+	"github.com/topi314/gobin/templates"
+	"github.com/topi314/httprate"
 	"github.com/topi314/tint"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
-
-	"github.com/topi314/gobin/gobin/database"
-	"github.com/topi314/gobin/templates"
 )
 
 func NewServer(version string, debug bool, cfg Config, db *database.DB, signer jose.Signer, tracer trace.Tracer, meter metric.Meter, assets http.FileSystem, htmlFormatter *html.Formatter, standaloneHTMLFormatter *html.Formatter) *Server {
