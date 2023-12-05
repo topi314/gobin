@@ -11,21 +11,21 @@ import (
 	"github.com/topi314/gobin/gobin/database"
 )
 
-func getFormatter(r *http.Request, fallback bool) chroma.Formatter {
+func getFormatter(r *http.Request, fallback bool) (chroma.Formatter, string) {
 	formatterName := r.URL.Query().Get("formatter")
 	if formatterName == "" {
 		if !fallback {
-			return formatters.NoOp
+			return formatters.NoOp, ""
 		}
 		formatterName = "html"
 	}
 
 	formatter := formatters.Get(formatterName)
 	if formatter == nil {
-		return formatters.Fallback
+		return formatters.Fallback, ""
 	}
 
-	return formatter
+	return formatter, formatterName
 }
 
 func (s *Server) formatFile(file database.File, formatter chroma.Formatter, style *chroma.Style) (string, error) {

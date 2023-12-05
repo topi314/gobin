@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/alecthomas/chroma/v2"
-	"github.com/alecthomas/chroma/v2/formatters"
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/dustin/go-humanize"
 	"github.com/go-chi/chi/v5"
@@ -86,7 +85,7 @@ func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	formatter := getFormatter(r, false)
+	formatter, _ := getFormatter(r, false)
 	style := getStyle(r)
 
 	var response []DocumentResponse
@@ -148,7 +147,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	formatter := getFormatter(r, true)
+	formatter, _ := getFormatter(r, true)
 	style := getStyle(r)
 
 	templateFiles := make([]templates.File, len(document.Files))
@@ -210,7 +209,7 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	formatter := getFormatter(r, false)
+	formatter, _ := getFormatter(r, false)
 	style := getStyle(r)
 
 	response := DocumentResponse{
@@ -242,7 +241,7 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	formatter := getFormatter(r, false)
+	formatter, formatterName := getFormatter(r, false)
 	style := getStyle(r)
 
 	if len(document.Files) == 1 {
@@ -266,12 +265,12 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var contentType string
-		switch formatter {
-		case s.htmlFormatter, s.standaloneHTMLFormatter:
+		switch formatterName {
+		case "html", "standalone-html":
 			contentType = "text/html; charset=UTF-8"
-		case formatters.SVG:
+		case "svg":
 			contentType = "image/svg+xml"
-		case formatters.JSON:
+		case "json":
 			contentType = "application/json"
 		default:
 			contentType = "application/octet-stream"
@@ -308,12 +307,12 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var contentType string
-		switch formatter {
-		case s.htmlFormatter, s.standaloneHTMLFormatter:
+		switch formatterName {
+		case "html", "standalone-html":
 			contentType = "text/html; charset=UTF-8"
-		case formatters.SVG:
+		case "svg":
 			contentType = "image/svg+xml"
-		case formatters.JSON:
+		case "json":
 			contentType = "application/json"
 		default:
 			contentType = "application/octet-stream"
@@ -348,7 +347,7 @@ func (s *Server) GetDocumentPreview(w http.ResponseWriter, r *http.Request) {
 		s.error(w, r, err)
 	}
 
-	formatter := getFormatter(r, true)
+	formatter, _ := getFormatter(r, true)
 	style := getStyle(r)
 
 	file := document.Files[0]
@@ -417,7 +416,7 @@ func (s *Server) GetDocumentFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	formatter := getFormatter(r, false)
+	formatter, _ := getFormatter(r, false)
 	style := getStyle(r)
 
 	formatted, err := s.formatFile(*file, formatter, style)
@@ -506,7 +505,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	formatter := getFormatter(r, false)
+	formatter, _ := getFormatter(r, false)
 	style := getStyle(r)
 
 	var rsFiles []ResponseFile
@@ -572,7 +571,7 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	formatter := getFormatter(r, false)
+	formatter, _ := getFormatter(r, false)
 	style := getStyle(r)
 
 	var rsFiles []ResponseFile
