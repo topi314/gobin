@@ -17,8 +17,8 @@ import (
 	"github.com/go-jose/go-jose/v3"
 	"github.com/topi314/gobin/gobin/database"
 	"github.com/topi314/gobin/internal/httperr"
+	"github.com/topi314/gobin/internal/httprate"
 	"github.com/topi314/gobin/templates"
-	"github.com/topi314/httprate"
 	"github.com/topi314/tint"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -72,13 +72,9 @@ func NewServer(version string, debug bool, cfg Config, db *database.DB, signer j
 		s.rateLimitHandler = httprate.NewRateLimiter(
 			cfg.RateLimit.Requests,
 			cfg.RateLimit.Duration,
-			httprate.WithLimitHandler(func(w http.ResponseWriter, r *http.Request) {
+			func(w http.ResponseWriter, r *http.Request) {
 				s.error(w, r, httperr.TooManyRequests(ErrRateLimit))
-			}),
-			httprate.WithKeyFuncs(
-				httprate.KeyByIP,
-				httprate.KeyByEndpoint,
-			),
+			},
 		).Handler
 	}
 
