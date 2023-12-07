@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/chroma/v2"
+	"github.com/alecthomas/chroma/v2/formatters"
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/dustin/go-humanize"
 	"github.com/go-chi/chi/v5"
@@ -347,7 +348,7 @@ func (s *Server) GetDocumentPreview(w http.ResponseWriter, r *http.Request) {
 		s.error(w, r, err)
 	}
 
-	formatter, _ := getFormatter(r, true)
+	formatter := formatters.Get("svg")
 	style := getStyle(r)
 
 	file := document.Files[0]
