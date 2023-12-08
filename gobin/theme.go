@@ -51,7 +51,7 @@ func (s *Server) themeCSS(style *chroma.Style) string {
 	_, _ = fmt.Fprintf(cssBuff, "--text-primary: %s;", background.Colour.String())
 	_, _ = fmt.Fprintf(cssBuff, "--text-secondary: %s;", background.Colour.BrightenOrDarken(0.2).String())
 	_, _ = fmt.Fprintf(cssBuff, "--bg-scrollbar: %s;", background.Background.BrightenOrDarken(0.1).String())
-	_, _ = fmt.Fprintf(cssBuff, "--bg-scrollbar-thumb: #%s;", background.Background.BrightenOrDarken(0.2).String())
+	_, _ = fmt.Fprintf(cssBuff, "--bg-scrollbar-thumb: %s;", background.Background.BrightenOrDarken(0.2).String())
 	_, _ = fmt.Fprintf(cssBuff, "--bg-scrollbar-thumb-hover: %s;", background.Background.BrightenOrDarken(0.3).String())
 	_, _ = fmt.Fprint(cssBuff, "}")
 
