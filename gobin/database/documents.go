@@ -45,6 +45,12 @@ func (d *DB) GetDocumentVersion(ctx context.Context, documentID string, document
 	return files, nil
 }
 
+func (d *DB) GetVersionCount(ctx context.Context, documentID string) (int, error) {
+	var count int
+	err := d.dbx.GetContext(ctx, &count, "SELECT COUNT(DISTINCT document_version) FROM files WHERE document_id = $1;", documentID)
+	return count, err
+}
+
 func (d *DB) GetDocumentVersions(ctx context.Context, documentID string) ([]int64, error) {
 	var versions []int64
 	if err := d.dbx.SelectContext(ctx, &versions, "SELECT DISTINCT document_version FROM files WHERE document_id = $1 ORDER BY document_version DESC;", documentID); err != nil {

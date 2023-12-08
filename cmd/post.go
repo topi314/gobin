@@ -1,9 +1,13 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"io"
+	"mime"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"os"
 	"strings"
 
@@ -19,15 +23,15 @@ func NewPostCmd(parent *cobra.Command) {
 		Use:     "post",
 		GroupID: "actions",
 		Short:   "Posts a document to the gobin server",
-		Example: `gobin post "hello world!
+		Example: `gobin post "hello world!"
 		
 Will post "hello world!" to the server`,
-		Args: cobra.RangeArgs(0, 1),
+		Args: cobra.ArbitraryArgs,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if err := viper.BindPFlag("server", cmd.Flags().Lookup("server")); err != nil {
 				return err
 			}
-			if err := viper.BindPFlag("file", cmd.Flags().Lookup("file")); err != nil {
+			if err := viper.BindPFlag("files", cmd.Flags().Lookup("files")); err != nil {
 				return err
 			}
 			if err := viper.BindPFlag("document", cmd.Flags().Lookup("document")); err != nil {
@@ -39,19 +43,21 @@ Will post "hello world!" to the server`,
 			return viper.BindPFlag("language", cmd.Flags().Lookup("language"))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			file := viper.GetString("file")
+			files := viper.GetStringSlice("files")
 			documentID := viper.GetString("document")
 			token := viper.GetString("token")
 			language := viper.GetString("language")
 
 			var (
-				r   io.Reader
-				err error
+				readers []io.Reader
 			)
-			if file != "" {
-				r, err = os.Open(file)
-				if err != nil {
-					return fmt.Errorf("failed to open document file: %w", err)
+			if len(files) > 0 {
+				for _, file := range files {
+					fr, err := os.Open(strings.TrimSpace(file))
+					if err != nil {
+						return fmt.Errorf("failed to open document file: %w", err)
+					}
+					readers = append(readers, fr)
 				}
 			} else {
 				info, err := os.Stdin.Stat()
@@ -59,35 +65,89 @@ Will post "hello world!" to the server`,
 					return fmt.Errorf("failed to get stdin info: %w", err)
 				}
 
-				if info.Mode()&os.ModeNamedPipe == 0 {
-					r = nil
-				} else {
-					r = os.Stdin
+				if info.Mode()&os.ModeNamedPipe != 0 {
+					readers = append(readers, os.Stdin)
 				}
 			}
+			defer func() {
+				for _, r := range readers {
+					if rc, ok := r.(io.Closer); ok {
+						_ = rc.Close()
+					}
+				}
+			}()
 
-			var content string
-			if r == nil {
+			if len(readers) == 0 {
 				if len(args) == 0 {
 					return fmt.Errorf("no document provided")
 				}
-				content = args[0]
-			} else {
-				data, err := io.ReadAll(r)
-				if err != nil {
-					return fmt.Errorf("failed to read from std in or file: %w", err)
+				if len(args) == 1 {
+					readers = append(readers, bytes.NewReader([]byte(args[0])))
+				} else {
+					for _, arg := range args {
+						readers = append(readers, bytes.NewReader([]byte(arg)))
+					}
 				}
-				content = string(data)
 			}
 
-			contentReader := strings.NewReader(content)
-			var rs *http.Response
+			var r io.Reader
+			if len(readers) == 0 {
+				if file, ok := r.(*os.File); ok {
+					r = ezhttp.NewHeaderReader(file, http.Header{
+						"Content-Type": []string{
+							mime.FormatMediaType("application/octet-stream", map[string]string{
+								"filename": file.Name(),
+							}),
+						},
+					})
+				} else {
+					r = readers[0]
+				}
+			} else {
+				buff := new(bytes.Buffer)
+				mpw := multipart.NewWriter(buff)
+
+				for i, rr := range readers {
+					fileName := fmt.Sprintf("untitiled%d", i)
+					if file, ok := rr.(*os.File); ok {
+						fileName = file.Name()
+					}
+					part, err := mpw.CreatePart(textproto.MIMEHeader{
+						"Content-Disposition": []string{
+							mime.FormatMediaType("form-data", map[string]string{
+								"name":     fmt.Sprintf("file-%d", i),
+								"filename": fileName,
+							}),
+						},
+					})
+					if err != nil {
+						return fmt.Errorf("failed to create multipart part")
+					}
+					if _, err = io.Copy(part, rr); err != nil {
+						return fmt.Errorf("failed to write multipart part")
+					}
+				}
+
+				if err := mpw.Close(); err != nil {
+					return fmt.Errorf("failed to close multipart writer")
+				}
+				r = ezhttp.NewHeaderReader(buff, http.Header{
+					"Content-Type": []string{
+						mpw.FormDataContentType(),
+					},
+				})
+			}
+
+			var (
+				rs  *http.Response
+				err error
+			)
 			if documentID == "" {
 				path := "/documents"
 				if language != "" {
 					path += "?language=" + language
 				}
-				rs, err = ezhttp.Post(path, contentReader)
+				rs, err = ezhttp.Post(path, r)
 				if err != nil {
 					return fmt.Errorf("failed to create document: %w", err)
 				}
@@ -102,7 +162,7 @@ Will post "hello world!" to the server`,
 				if language != "" {
 					path += "?language=" + language
 				}
-				rs, err = ezhttp.Patch(path, token, contentReader)
+				rs, err = ezhttp.Patch(path, token, r)
 				if err != nil {
 					return fmt.Errorf("failed to update document: %w", err)
 				}
@@ -138,7 +198,7 @@ Will post "hello world!" to the server`,
 	parent.AddCommand(cmd)
 
 	cmd.Flags().StringP("server", "s", "", "Gobin server address")
-	cmd.Flags().StringP("file", "f", "", "The file to post")
+	cmd.Flags().StringSliceP("files", "f", nil, "The files to post")
 	cmd.Flags().StringP("document", "d", "", "The document to update")
 	cmd.Flags().StringP("token", "t", "", "The token for the document to update")
 	cmd.Flags().StringP("language", "l", "", "The language of the document")

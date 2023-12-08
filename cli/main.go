@@ -24,6 +24,7 @@ func main() {
 	cmd.NewImportCmd(rootCmd)
 	cmd.NewShareCmd(rootCmd)
 	cmd.NewVersionCmd(rootCmd, gobin.FormatBuildVersion(Version, Commit, buildTime))
+	cmd.NewEnvCmd(rootCmd)
 	cmd.NewCompletionCmd(rootCmd)
 	cmd.Execute(rootCmd)
 }

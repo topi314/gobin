@@ -183,7 +183,7 @@ document.getElementById("version").addEventListener("change", async (e) => {
         return;
     }
     if (e.target.options.item(0).value === newVersion) {
-        newVersion = "0";
+        newVersion = 0;
     }
 
     const document = await fetchDocument(state.key, newVersion);
@@ -248,7 +248,7 @@ document.getElementById("edit").addEventListener("click", async () => {
         state.key = "";
     }
     state.mode = "edit";
-    state.version = "0";
+    state.version = 0;
 
     updateCode(state);
     updateButtons(state);
@@ -273,7 +273,7 @@ document.getElementById("save").addEventListener("click", async () => {
         return;
     }
     state.key = doc.key;
-    state.version = "0";
+    state.version = 0;
     state.files = doc.files;
     state.mode = "view";
 
@@ -320,7 +320,7 @@ document.getElementById("delete").addEventListener("click", async () => {
     deleteToken(state.key);
 
     state.key = "";
-    state.vesion = "0";
+    state.vesion = 0;
     state.mode = "edit"
     state.files = [{
         name: "untitled",
@@ -351,7 +351,7 @@ document.getElementById("raw").addEventListener("click", () => {
 
     const {key, version} = getState();
     if (!key) return;
-    window.open(`/raw/${key}${version !== "0" ? `/versions/${version}` : ""}`, "_blank").focus();
+    window.open(`/raw/${key}${version !== 0 ? `/versions/${version}` : ""}`, "_blank").focus();
 })
 
 document.getElementById("share").addEventListener("click", async () => {
@@ -449,11 +449,17 @@ async function saveDocument(key, files) {
         body = {message: body};
     }
 
+    if (!response.ok) {
+        showErrorPopup(body.message || response.statusText);
+        console.error("error saving document:", response);
+        return;
+    }
+
     return body
 }
 
 async function fetchDocument(key, version) {
-    const response = await fetch(`/documents/${key}${version !== "0" ? `/versions/${version}` : ""}?formatter=html`, {
+    const response = await fetch(`/documents/${key}${version !== 0 ? `/versions/${version}` : ""}?formatter=html`, {
         method: "GET"
     });
 
@@ -514,7 +520,7 @@ function getURL(state) {
     } else {
         url.searchParams.delete("file");
     }
-    url.pathname = `/${state.key}${state.version !== "0" ? `/${state.version}` : ""}`;
+    url.pathname = `/${state.key}${state.version !== 0 ? `/${state.version}` : ""}`;
     return url.toString();
 }
 

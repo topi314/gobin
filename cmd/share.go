@@ -48,12 +48,12 @@ Will create a new share the document jis74978 with the permissions write, delete
 				return fmt.Errorf("no token found or provided for document: %s", documentID)
 			}
 
-			perms := make([]gobin.Permission, 0, len(permissions))
+			perms := make([]string, len(permissions))
 			for i, perm := range permissions {
-				if !slices.Contains(gobin.AllPermissions, gobin.Permission(perm)) {
+				if !slices.Contains(gobin.AllStringPermissions, perm) {
 					return fmt.Errorf("invalid permission: %s", perm)
 				}
-				perms[i] = gobin.Permission(perm)
+				perms[i] = perm
 			}
 
 			shareRq := gobin.ShareRequest{

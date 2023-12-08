@@ -67,7 +67,7 @@ templ Document(vars DocumentVars) {
 		<div id="footer">
             <select title="Version" id="version" autocomplete="off">
                 for _, version := range vars.Versions {
-                    <option title={ version.Time } value={ version.Version } selected?={ version.Version == vars.Version }>{ version.Label }</option>
+                    <option title={ version.Time } value={ strconv.FormatInt(version.Version, 10) } selected?={ version.Version == vars.Version }>{ version.Label }</option>
                 }
             </select>
             <select title="Style" id="style" autocomplete="off">

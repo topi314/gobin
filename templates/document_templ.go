@@ -260,7 +260,7 @@ func Document(vars DocumentVars) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(version.Version))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(strconv.FormatInt(version.Version, 10)))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

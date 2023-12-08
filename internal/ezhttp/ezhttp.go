@@ -11,6 +11,27 @@ import (
 	"github.com/topi314/gobin/gobin"
 )
 
+type Reader interface {
+	io.Reader
+	Headers() http.Header
+}
+
+func NewHeaderReader(r io.Reader, headers http.Header) Reader {
+	return &reader{
+		Reader:  r,
+		headers: headers,
+	}
+}
+
+type reader struct {
+	io.Reader
+	headers http.Header
+}
+
+func (r *reader) Headers() http.Header {
+	return r.headers
+}
+
 var defaultClient = &http.Client{
 	Timeout: 10 * time.Second,
 }
@@ -18,6 +39,9 @@ var defaultClient = &http.Client{
 func Do(method string, path string, token string, body io.Reader) (*http.Response, error) {
 	server := viper.GetString("server")
 	request, err := http.NewRequest(method, server+path, body)
+	if r, ok := body.(Reader); ok {
+		request.Header = r.Headers()
+	}
 	if err != nil {
 		return nil, err
 	}

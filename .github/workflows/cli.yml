@@ -41,6 +41,7 @@ jobs:
           echo "VERSION=$(git describe --tags)" >> $GITHUB_ENV
           echo "COMMIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
           echo "BUILD_TIME=$(date --rfc-3339=seconds)" >> $GITHUB_ENV
+          echo $GITHUB_ENV
 
       - name: Build
         run: |

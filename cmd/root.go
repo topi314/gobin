@@ -20,7 +20,7 @@ func NewRootCmd() *cobra.Command {
 	})
 
 	var cfgFile string
-	cmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.gobin)")
+	cmd.PersistentFlags().StringVar(&cfgFile, "config", os.Getenv("GOBIN_CONFIG"), "config file (default is $HOME/.gobin)")
 	cmd.PersistentFlags().BoolP("help", "h", false, "help for gobin")
 	cmd.CompletionOptions.DisableDescriptions = true
 	cobra.OnInitialize(initConfig(cfgFile))

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
 
 	"github.com/a-h/templ"
 )
@@ -18,7 +19,7 @@ func WriteUnsafe(str string) templ.Component {
 
 type DocumentVars struct {
 	ID      string
-	Version string
+	Version int64
 	Edit    bool
 
 	Files       []File
@@ -45,7 +46,7 @@ type File struct {
 
 type gobin struct {
 	Key         string `json:"key"`
-	Version     string `json:"version"`
+	Version     int64  `json:"version"`
 	Mode        string `json:"mode"`
 	Files       []File `json:"files"`
 	CurrentFile int    `json:"current_file"`
@@ -84,8 +85,8 @@ func (v DocumentVars) FileTabClasses(i int) string {
 
 func (v DocumentVars) PreviewURL() string {
 	url := "https://" + v.Host + "/" + v.ID
-	if v.Version > "0" {
-		url += "/" + v.Version
+	if v.Version > 0 {
+		url += "/" + strconv.FormatInt(v.Version, 10)
 	}
 	var query string
 	if len(v.Files) > 0 {
@@ -103,7 +104,7 @@ func (v DocumentVars) ThemeCSSURL() string {
 }
 
 type DocumentVersion struct {
-	Version string
+	Version int64
 	Label   string
 	Time    string
 }

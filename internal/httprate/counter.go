@@ -1,7 +1,6 @@
 package httprate
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -66,7 +65,6 @@ func (c *counter) doCleanup() {
 	now := time.Now()
 	for k, v := range c.counters {
 		if now.After(v.resetAt) {
-			fmt.Printf("removed: %d", k)
 			delete(c.counters, k)
 		}
 	}

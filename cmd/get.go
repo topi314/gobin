@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"net/url"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -48,7 +50,10 @@ Will return the document with the id of jis74978.`,
 			if err := viper.BindPFlag("language", cmd.Flags().Lookup("language")); err != nil {
 				return err
 			}
-			return viper.BindPFlag("style", cmd.Flags().Lookup("style"))
+			if err := viper.BindPFlag("style", cmd.Flags().Lookup("style")); err != nil {
+				return err
+			}
+			return viper.BindPFlag("output", cmd.Flags().Lookup("output"))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -61,10 +66,10 @@ Will return the document with the id of jis74978.`,
 			formatter := viper.GetString("formatter")
 			language := viper.GetString("language")
 			style := viper.GetString("style")
+			output := viper.GetString("output")
 
 			if versions {
-				url := "/documents/" + documentID + "/versions"
-				rs, err := ezhttp.Get(url)
+				rs, err := ezhttp.Get("/documents/" + documentID + "/versions")
 				if err != nil {
 					return fmt.Errorf("failed to get document versions: %w", err)
 				}
@@ -77,58 +82,108 @@ Will return the document with the id of jis74978.`,
 
 				var documentVersions string
 				for _, documentVersion := range documentVersionsRs {
-					documentVersions += fmt.Sprintf("%d: %s\n", documentVersion.Version, humanize.Time(time.UnixMilli(documentVersion.Version, 0)))
+					documentVersions += fmt.Sprintf("%d: %s\n", documentVersion.Version, humanize.Time(time.UnixMilli(documentVersion.Version)))
 				}
 
 				cmd.Printf("Document versions(%d):\n%s", len(documentVersions), documentVersions)
 				return nil
 			}
 
-			url := "/documents/" + documentID
+			uri := "/documents/" + documentID
 			if version != "" {
-				url += "/versions/" + version
+				uri += "/versions/" + version
 			}
+			query := make(url.Values)
 			if formatter != "" {
-				url += "?formatter=" + formatter
-				if language != "" {
-					url += "&language=" + language
-				}
+				query.Add("formatter", formatter)
+			}
+			if style != "" {
+				query.Add("style", style)
+			}
+			if file != "" {
+				query.Add("file", file)
 				if style != "" {
-					url += "&style=" + style
+					query.Add("language", language)
 				}
+			}
+			if len(query) > 0 {
+				uri += "?" + query.Encode()
 			}
 
-			rs, err := ezhttp.Get(url)
+			rs, err := ezhttp.Get(uri)
 			if err != nil {
 				return fmt.Errorf("failed to get document: %w", err)
 			}
 			defer rs.Body.Close()
+
+			if file != "" {
+				var fileRs gobin.ResponseFile
+				if err = ezhttp.ProcessBody("get document file", rs, &fileRs); err != nil {
+					return err
+				}
+				content := fileRs.Content
+				if formatter != "" {
+					content = fileRs.Formatted
+				}
+
+				if output == "" {
+					cmd.Println(content)
+					return nil
+				}
+
+				filePath := filepath.Join(output, fileRs.Name)
+				documentFile, err := os.Create(filePath)
+				if err != nil {
+					return fmt.Errorf("failed to create file to write document: %w", err)
+				}
+				defer documentFile.Close()
+
+				_, err = documentFile.WriteString(content)
+				if err != nil {
+					return fmt.Errorf("failed to write document to file: %w", err)
+				}
+				cmd.Println("Document file saved to:", filePath)
+				return nil
+			}
 
 			var documentRs gobin.DocumentResponse
 			if err = ezhttp.ProcessBody("get document", rs, &documentRs); err != nil {
 				return err
 			}
 
-			data := documentRs.Data
-			if formatter != "" {
-				data = string(documentRs.Formatted)
+			for _, dFile := range documentRs.Files {
+				content := dFile.Content
+				if formatter != "" {
+					content = dFile.Formatted
+				}
+
+				if output == "" {
+					if len(documentRs.Files) > 0 {
+						cmd.Printf("File: %s", dFile.Name)
+					}
+					cmd.Println(content)
+					return nil
+				}
+
+				if err = func() error {
+					filePath := filepath.Join(output, dFile.Name)
+					documentFile, err := os.Create(filePath)
+					if err != nil {
+						return fmt.Errorf("failed to create file to write document: %w", err)
+					}
+					defer documentFile.Close()
+
+					_, err = documentFile.WriteString(content)
+					if err != nil {
+						return fmt.Errorf("failed to write document to file: %w", err)
+					}
+					cmd.Println("Document file saved to:", filePath)
+					return nil
+				}(); err != nil {
+					return err
+				}
 			}
 
-			if file == "" {
-				cmd.Println(data)
-				return nil
-			}
-			documentFile, err := os.Create(file)
-			if err != nil {
-				return fmt.Errorf("failed to create file to write document: %w", err)
-			}
-			defer documentFile.Close()
-
-			_, err = documentFile.WriteString(data)
-			if err != nil {
-				return fmt.Errorf("failed to write document to file: %w", err)
-			}
-			cmd.Println("Document saved to file:", file)
 			return nil
 		},
 	}
@@ -136,10 +191,11 @@ Will return the document with the id of jis74978.`,
 	parent.AddCommand(cmd)
 
 	cmd.Flags().StringP("server", "s", "", "Gobin server address")
-	cmd.Flags().StringP("file", "f", "", "The file to save the document to")
+	cmd.Flags().StringP("file", "f", "", "The document file to get")
 	cmd.Flags().StringP("version", "v", "", "The version of the document to get")
 	cmd.Flags().BoolP("versions", "", false, "Get all versions of the document")
 	cmd.Flags().StringP("formatter", "r", "", "Format the document with syntax highlighting (terminal8, terminal16, terminal256, terminal16m, html, html-standalone, svg, or none)")
-	cmd.Flags().StringP("language", "l", "", "The language to render the document with")
+	cmd.Flags().StringP("language", "l", "", "The language to render the document with (only works in combination with file)")
 	cmd.Flags().StringP("style", "", "", "The style to render the document with")
+	cmd.Flags().StringP("output", "o", ".", "The folder to save the document to")
 }

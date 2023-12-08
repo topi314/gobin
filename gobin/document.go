@@ -13,6 +13,7 @@ import (
 	"net/textproto"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/alecthomas/chroma/v2"
@@ -31,12 +32,13 @@ var (
 	ErrInvalidMultipartPartName   = errors.New("invalid multipart part name")
 	ErrInvalidDocumentFileName    = errors.New("invalid document file name")
 	ErrInvalidDocumentFileContent = errors.New("invalid document file content")
+	ErrDuplicateDocumentFileNames = errors.New("duplicate document file names")
 )
 
 type (
 	DocumentResponse struct {
 		Key          string         `json:"key"`
-		Version      string         `json:"version"`
+		Version      int64          `json:"version"`
 		VersionLabel string         `json:"version_label,omitempty"`
 		VersionTime  string         `json:"version_time,omitempty"`
 		Files        []ResponseFile `json:"files"`
@@ -61,6 +63,10 @@ type (
 		Status    int    `json:"status"`
 		Path      string `json:"path"`
 		RequestID string `json:"request_id"`
+	}
+
+	DeleteResponse struct {
+		Versions int `json:"versions"`
 	}
 
 	ShareRequest struct {
@@ -111,7 +117,7 @@ func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
 		}
 		response = append(response, DocumentResponse{
 			Key:     documentID,
-			Version: strconv.FormatInt(version, 10),
+			Version: version,
 			Files:   nil,
 		})
 	}
@@ -160,7 +166,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 			s.prettyError(w, r, err)
 			return
 		}
-		if file.Name == fileName {
+		if strings.EqualFold(file.Name, fileName) {
 			currentFile = i
 		}
 		templateFiles[i] = templates.File{
@@ -181,7 +187,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 			versionLabel += " (original)"
 		}
 		templateVersions[i] = templates.DocumentVersion{
-			Version: strconv.FormatInt(v, 10),
+			Version: v,
 			Label:   versionLabel,
 			Time:    versionTime.Format(VersionTimeFormat),
 		}
@@ -193,7 +199,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	}
 	if err = templates.Document(templates.DocumentVars{
 		ID:      document.ID,
-		Version: strconv.FormatInt(document.Version, 10),
+		Version: document.Version,
 		Edit:    document.ID == "",
 
 		Files:       templateFiles,
@@ -223,10 +229,39 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 
 	formatter, _ := getFormatter(r, false)
 	style := getStyle(r)
+	fileName := r.URL.Query().Get("file")
+
+	if fileName != "" {
+		for _, file := range document.Files {
+			if strings.EqualFold(file.Name, fileName) {
+				if language := r.URL.Query().Get("language"); language != "" {
+					lexer := lexers.Get(language)
+					if lexer != nil {
+						file.Language = lexer.Config().Name
+					}
+				}
+
+				formatted, err := s.formatFile(file, formatter, style)
+				if err != nil {
+					s.error(w, r, err)
+					return
+				}
+				s.ok(w, r, ResponseFile{
+					Name:      file.Name,
+					Content:   file.Content,
+					Formatted: formatted,
+					Language:  file.Language,
+				})
+				return
+			}
+		}
+		s.error(w, r, httperr.NotFound(ErrDocumentFileNotFound))
+		return
+	}
 
 	response := DocumentResponse{
 		Key:     document.ID,
-		Version: strconv.FormatInt(document.Version, 10),
+		Version: document.Version,
 		Files:   make([]ResponseFile, len(document.Files)),
 	}
 	for i, file := range document.Files {
@@ -440,6 +475,13 @@ func (s *Server) GetDocumentFile(w http.ResponseWriter, r *http.Request) {
 	formatter, _ := getFormatter(r, false)
 	style := getStyle(r)
 
+	if language := r.URL.Query().Get("language"); language != "" {
+		lexer := lexers.Get(language)
+		if lexer != nil {
+			file.Language = lexer.Config().Name
+		}
+	}
+
 	formatted, err := s.formatFile(*file, formatter, style)
 	if err != nil {
 		s.error(w, r, err)
@@ -553,7 +595,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 	versionTime := time.UnixMilli(*version)
 	s.json(w, r, DocumentResponse{
 		Key:          *documentID,
-		Version:      strconv.FormatInt(*version, 10),
+		Version:      *version,
 		VersionLabel: humanize.Time(versionTime) + " (original)",
 		VersionTime:  versionTime.Format(VersionTimeFormat),
 		Files:        rsFiles,
@@ -627,7 +669,7 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 	versionTime := time.UnixMilli(*version)
 	s.json(w, r, DocumentResponse{
 		Key:          documentID,
-		Version:      strconv.FormatInt(*version, 10),
+		Version:      *version,
 		VersionLabel: humanize.Time(versionTime) + " (current)",
 		VersionTime:  versionTime.Format(VersionTimeFormat),
 		Files:        rsFiles,
@@ -680,7 +722,18 @@ func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
 		Files:   webhooksFiles,
 	})
 
-	s.ok(w, r, nil)
+	if version == 0 {
+		s.ok(w, r, nil)
+	}
+
+	count, err := s.db.GetVersionCount(r.Context(), documentID)
+	if err != nil {
+		s.error(w, r, err)
+		return
+	}
+	s.ok(w, r, DeleteResponse{
+		Versions: count,
+	})
 }
 
 func (s *Server) PostDocumentShare(w http.ResponseWriter, r *http.Request) {
@@ -779,7 +832,6 @@ func parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 				Language: getLanguage(part.Header.Get("Language"), partContentType, part.FileName(), string(data)),
 			})
 		}
-
 	} else {
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -797,6 +849,13 @@ func parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 			Language: getLanguage(r.Header.Get("Language"), contentType, params["filename"], string(data)),
 		}}
 	}
+	for i, file := range files {
+		for ii, f := range files {
+			if strings.EqualFold(file.Name, f.Name) && i != ii {
+				return nil, httperr.BadRequest(ErrDuplicateDocumentFileNames)
+			}
+		}
+	}
 	return files, nil
 }
 
@@ -809,7 +868,7 @@ func getLanguage(language string, contentType string, fileName string, content s
 		return lexer.Config().Name
 	}
 
-	if contentType != "" {
+	if contentType != "" && contentType != "application/octet-stream" {
 		lexer = lexers.MatchMimeType(contentType)
 	}
 	if lexer != nil {
