@@ -12,10 +12,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/stampede"
-	"github.com/riandyrn/otelchi"
-	"github.com/samber/slog-chi"
 	"github.com/topi314/gobin/internal/httperr"
 	"github.com/topi314/gobin/templates"
+	"github.com/topi314/otelchi"
+	"github.com/topi314/slog-chi"
 	"github.com/topi314/tint"
 )
 

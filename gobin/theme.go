@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/alecthomas/chroma/v2"
-	"github.com/alecthomas/chroma/v2/styles"
+	"github.com/topi314/chroma/v2"
+	"github.com/topi314/chroma/v2/styles"
 )
 
 func getStyle(r *http.Request) *chroma.Style {

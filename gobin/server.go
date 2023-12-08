@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/alecthomas/chroma/v2/formatters/html"
-	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/go-jose/go-jose/v3"
+	"github.com/topi314/chroma/v2/formatters/html"
+	"github.com/topi314/chroma/v2/styles"
 	"github.com/topi314/gobin/gobin/database"
 	"github.com/topi314/gobin/internal/httperr"
 	"github.com/topi314/gobin/internal/httprate"

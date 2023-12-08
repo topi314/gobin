@@ -2,6 +2,7 @@ name: CLI
 
 on:
   push:
+    paths-ignore: [ "*.md" ]
 
 jobs:
   cli-build:

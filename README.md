@@ -17,29 +17,41 @@ at [xgob.in](https://xgob.in).
 
 - [Features](#features)
 - [Installation](#installation)
-    - [Docker](#docker)
-        - [Docker Compose](#docker-compose)
-    - [Manual](#manual)
-        - [Requirements](#requirements)
-        - [Build](#build)
-        - [Run](#run)
+    - [Server](#server)
+        - [Docker](#docker)
+        - [Manual](#manual)
+            - [Requirements](#requirements)
+            - [Build](#build)
+            - [Run](#run)
+    - [CLI](#cli)
+        - [Release](#release)
+        - [Manual](#manual-1)
+            - [Requirements](#requirements-1)
+            - [Build](#build-1)
+            - [Run](#run-1)
 - [Configuration](#configuration)
 - [Custom Themes](#custom-themes)
 - [Rate Limit](#rate-limits)
 - [API](#api)
+    - [Errors](#errors)
+    - [Formatter Enum](#formatter-enum)
+    - [Language Enum](#language-enum)
     - [Create a document](#create-a-document)
-    - [Get a document](#get-a-document)
+        - [Single file](#single-file)
+        - [Multiple files](#multiple-files)
+    - [Get a document (version)](#get-a-document-version)
+    - [Get a document (version) file](#get-a-document-version-file)
     - [Get a documents versions](#get-a-documents-versions)
-    - [Get a document version](#get-a-document-version)
     - [Update a document](#update-a-document)
-    - [Delete a document](#delete-a-document)
-    - [Delete a document version](#delete-a-document-version)
+        - [Single file](#single-file-1)
+        - [Multiple files](#multiple-files-1)
+    - [Delete a document (version)](#delete-a-document-version)
+    - [Share a document](#share-a-document)
     - [Document webhooks](#document-webhooks)
         - [Create a document webhook](#create-a-document-webhook)
         - [Update a document webhook](#update-a-document-webhook)
         - [Delete a document webhook](#delete-a-document-webhook)
     - [Other endpoints](#other-endpoints)
-    - [Errors](#errors)
 - [License](#license)
 - [Contributing](#contributing)
 - [Credits](#credits)
@@ -64,13 +76,13 @@ at [xgob.in](https://xgob.in).
 
 ## Installation
 
-### Docker
+### Server
+
+#### Docker
 
 The easiest way to deploy gobin is using docker with [Docker Compose](https://docs.docker.com/compose/). You can find
 the docker image
 on [Packages](https://github.com/topi314/gobin/pkgs/container/gobin).
-
-#### Docker Compose
 
 Create a new `docker-compose.yml` file with the following content:
 
@@ -113,19 +125,18 @@ docker-compose up -d
 
 ---
 
-### Manual
+#### Manual
 
-#### Requirements
+##### Requirements
 
-- Go 1.20 or higher
-- PostgreSQL 13 or higher
+- Go 1.21 or higher
 
-#### Build
+##### Build
 
 ```bash
 git clone https://github.com/topi314/gobin.git
 cd gobin
-go build -o gobin
+go build -o gobin github.com/topi314/gobin
 ```
 
 or
@@ -134,10 +145,45 @@ or
 go install github.com/topi314/gobin@latest
 ```
 
-#### Run
+##### Run
 
 ```bash
 gobin --config=gobin.json
+```
+
+---
+
+### CLI
+
+#### Release
+
+You can find the latest release on [Releases](https://github.com/topi314/gobin/releases).
+
+#### Manual
+
+##### Requirements
+
+- Go 1.21 or higher
+
+##### Build
+
+```bash
+git clone https://github.com/topi314/gobin.git
+cd gobin
+go build -o gobin github.com/topi314/cli
+```
+
+or
+
+```bash
+go install github.com/topi314/gobin/cli@latest
+mv $(go env GOPATH)/bin/cli $(go env GOPATH)/bin/gobin
+```
+
+##### Run
+
+```bash
+gobin help
 ```
 
 ---
@@ -344,13 +390,21 @@ Or you can use the [chroma](https://github.com/topi314/chroma/tree/master/styles
 
 ## Rate Limits
 
-Following endpoints are rate-limited:
+All `POST`, `PATCH` and `DELETE` endpoints are rate limited. The rate limit can be configured in the config file.
+The bucket is based on the IP address and the path of the request. So each of these unique combinations has its own bucket/rate limit.
 
-- `POST` `/documents`
-- `PATCH` `/documents/{key}`
-- `DELETE` `/documents/{key}`
+It's based on a sliding window algorithm, but instead of a fixed window the window will start at the first request and
+end after the duration. So if you set the duration to 1 minute and send 10 requests in the first 10 seconds you will be rate limited for 50 seconds. After that you can send 10 requests
+again.
 
-`PATCH` and `DELETE` share the same bucket while `POST` has its own bucket
+Gobin will return these headers to help clients keep track of the rate limit:
+
+| Header                | Description                                                                    |
+|-----------------------|--------------------------------------------------------------------------------|
+| X-RateLimit-Limit     | The maximum number of requests which can be done in the duration.              |
+| X-RateLimit-Remaining | The number of remaining requests which can be done in the duration.            |
+| X-RateLimit-Reset     | The time when the rate limit will be reset in unix timestamp.                  |
+| Retry-After           | The time when the rate limit will be reset in seconds. (only when hit a `429`) |
 
 ---
 
@@ -358,9 +412,28 @@ Following endpoints are rate-limited:
 
 Fields marked with `?` are optional and types marked with `?` are nullable.
 
+### Errors
+
+In case of an error gobin will return the following JSON body with the corresponding HTTP status code:
+
+```json5
+{
+  "message": "document not found",
+  // error message
+  "status": 404,
+  // HTTP status code
+  "path": "/documents/7df3vw",
+  // request path
+  "request_id": "fbe0a365387f/gVAMGuraLW-003490"
+  // request id
+}
+```
+
+---
+
 ### Formatter Enum
 
-Document formatting is done using [chroma](https://github.com/alecthomas/chroma). The following formatters are
+Document formatting is done using [chroma](https://github.com/topi314/chroma). The following formatters are
 available:
 
 | Value           | Description             |
@@ -812,6 +885,26 @@ the document.
 
 ---
 
+### Delete a document (version)
+
+To delete a document you have to send a `DELETE` request to `/documents/{key}` or `/documents/{key}/versions/{version}` with the `token` as `Authorization`
+header.
+
+| Header         | Type   | Description                                               |
+|----------------|--------|-----------------------------------------------------------|
+| Authorization? | string | The update token of the document. (prefix with `Bearer `) |
+
+A successful request will return a `204 No Content` response with an empty body or a `200 OK` with a JSON body
+containing the count of remaining document versions:
+
+```json5
+{
+  "versions": 1
+}
+```
+
+---
+
 ### Share a document
 
 To share a document you have to send a `POST` request to `/documents/{key}/share`.
@@ -837,39 +930,6 @@ token for editing/deleting/sharing the document.
 ```json5
 {
   "token": "kiczgez33j7qkvqdg9f7ksrd8jk88wba"
-}
-```
-
----
-
-### Delete a document
-
-To delete a document you have to send a `DELETE` request to `/documents/{key}` with the `token` as `Authorization`
-header.
-
-| Header         | Type   | Description                                               |
-|----------------|--------|-----------------------------------------------------------|
-| Authorization? | string | The update token of the document. (prefix with `Bearer `) |
-
-A successful request will return a `204 No Content` response with an empty body.
-
----
-
-### Delete a document version
-
-To delete a document version you have to send a `DELETE` request to `/documents/{key}/versions/{version}` with
-the `token` as `Authorization` header.
-
-| Header         | Type   | Description                                               |
-|----------------|--------|-----------------------------------------------------------|
-| Authorization? | string | The update token of the document. (prefix with `Bearer `) |
-
-A successful request will return a `204 No Content` response with an empty body or a `200 OK` with a JSON body
-containing the count of remaining document versions:
-
-```json5
-{
-  "versions": 1
 }
 ```
 
@@ -1066,25 +1126,6 @@ A successful request will return a `204 No Content` response with an empty body.
 - `GET` `/ping` - Get the status of the server.
 - `GET` `/debug` - Proof debug endpoint (only available in debug mode).
 - `GET` `/version` - Get the version of the server.
-
----
-
-### Errors
-
-In case of an error gobin will return the following JSON body with the corresponding HTTP status code:
-
-```json5
-{
-  "message": "document not found",
-  // error message
-  "status": 404,
-  // HTTP status code
-  "path": "/documents/7df3vw",
-  // request path
-  "request_id": "fbe0a365387f/gVAMGuraLW-003490"
-  // request id
-}
-```
 
 ---
 

@@ -1,4 +1,4 @@
---- v1.3.0 -> v1.4.0
+--- v1.4.0 -> v1.6.0
 CREATE TABLE IF NOT EXISTS webhooks
 (
     id          VARCHAR NOT NULL,

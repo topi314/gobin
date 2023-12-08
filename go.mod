@@ -2,16 +2,9 @@ module github.com/topi314/gobin
 
 go 1.21
 
-replace (
-	github.com/alecthomas/chroma/v2 => github.com/topi314/chroma/v2 v2.0.0-20231208003746-2b44384b5cd1
-	github.com/riandyrn/otelchi => github.com/topi314/otelchi v0.0.0-20231102200450-1f008a097ec7
-	github.com/samber/slog-chi => github.com/topi314/slog-chi v0.0.0-20231201185010-aa7188a9aab9
-)
-
 require (
 	github.com/XSAM/otelsql v0.26.0
 	github.com/a-h/templ v0.2.476
-	github.com/alecthomas/chroma/v2 v2.12.0
 	github.com/cespare/xxhash/v2 v2.2.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/go-chi/chi/v5 v5.0.10
@@ -22,10 +15,11 @@ require (
 	github.com/mattn/go-colorable v0.1.13
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/prometheus/client_golang v1.17.0
-	github.com/riandyrn/otelchi v0.5.1
-	github.com/samber/slog-chi v1.6.1
 	github.com/spf13/cobra v1.8.0
-	github.com/spf13/viper v1.18.0
+	github.com/spf13/viper v1.18.1
+	github.com/topi314/chroma/v2 v2.0.0-20231208213301-be9d6f965427
+	github.com/topi314/otelchi v0.0.0-20231208214946-fb2c72ca7c99
+	github.com/topi314/slog-chi v0.0.0-20231208214917-9b74bfd5ab00
 	github.com/topi314/tint v0.0.0-20231106205902-77268b701ca6
 	go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace v0.46.1
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.46.1
