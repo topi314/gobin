@@ -145,8 +145,8 @@ github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcU
 github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
 github.com/subosito/gotenv v1.6.0 h1:9NlTDc1FTs4qu0DDq7AEtTPNw6SVm7uBMsUCUjABIf8=
 github.com/subosito/gotenv v1.6.0/go.mod h1:Dk4QP5c2W3ibzajGcXpNraDfq2IrhjMIvMSWPKKo0FU=
-github.com/topi314/chroma/v2 v2.0.0-20231208213301-be9d6f965427 h1:OSf1W9kMbq/q1OyCdrHYp96JMBQdU0BG+edThURgCos=
-github.com/topi314/chroma/v2 v2.0.0-20231208213301-be9d6f965427/go.mod h1:thpTSzMhqYXkZhbcz3kfV0c9FGmIeUxvdbUsZO0L5cc=
+github.com/topi314/chroma/v2 v2.0.0-20231208224006-3acea2e028fa h1:8xN79LHrcXbDRXgm4NyjN4SFFuIyZ0UFYL++a4ORK9M=
+github.com/topi314/chroma/v2 v2.0.0-20231208224006-3acea2e028fa/go.mod h1:thpTSzMhqYXkZhbcz3kfV0c9FGmIeUxvdbUsZO0L5cc=
 github.com/topi314/otelchi v0.0.0-20231208214946-fb2c72ca7c99 h1:KjUROA9mexHcPkyhpRQiFzPVvoYvnU9h5yHPrEOTnxI=
 github.com/topi314/otelchi v0.0.0-20231208214946-fb2c72ca7c99/go.mod h1:LKrXtohOUGv5TzGup8MrRK/EhW5zvsO8pM66rK/x4mk=
 github.com/topi314/slog-chi v0.0.0-20231208214917-9b74bfd5ab00 h1:bRcM4VfJ/HK5KneAF8P0UX87wYa9YElGSoAGk55/4lI=
