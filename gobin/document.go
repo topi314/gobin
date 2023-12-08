@@ -150,13 +150,18 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 
 	formatter, _ := getFormatter(r, true)
 	style := getStyle(r)
+	fileName := r.URL.Query().Get("file")
 
+	var currentFile int
 	templateFiles := make([]templates.File, len(document.Files))
 	for i, file := range document.Files {
 		formatted, err := s.formatFile(file, formatter, style)
 		if err != nil {
 			s.prettyError(w, r, err)
 			return
+		}
+		if file.Name == fileName {
+			currentFile = i
 		}
 		templateFiles[i] = templates.File{
 			Name:      file.Name,
@@ -187,8 +192,9 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		Version: strconv.FormatInt(document.Version, 10),
 		Edit:    document.ID == "",
 
-		Files:    templateFiles,
-		Versions: templateVersions,
+		Files:       templateFiles,
+		CurrentFile: currentFile,
+		Versions:    templateVersions,
 
 		Lexers: lexers.Names(false),
 		Styles: s.styles,

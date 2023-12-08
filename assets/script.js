@@ -10,7 +10,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     updateButtons(state);
-
     setState(state);
 });
 
@@ -19,6 +18,7 @@ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (ev
 });
 
 window.addEventListener("popstate", (event) => {
+    updateFiles(event.state);
     updateCode(event.state);
     updateButtons(event.state);
 });
@@ -507,13 +507,23 @@ function getState() {
     return window.history.state;
 }
 
+function getURL(state) {
+    const url = new URL(window.location.href);
+    if (state.files.length > 1) {
+        url.searchParams.set("file", state.files[state.current_file].name);
+    } else {
+        url.searchParams.delete("file");
+    }
+    url.pathname = `/${state.key}${state.version !== "0" ? `/${state.version}` : ""}`;
+    return url.toString();
+}
+
 function setState(state) {
-    window.history.replaceState(state, "", window.location.url)
+    window.history.replaceState(state, "", getURL(state))
 }
 
 function addState(state) {
-    const url = `/${state.key}${state.version !== "0" ? `/${state.version}` : ""}${window.location.hash}`;
-    window.history.pushState(state, "", url)
+    window.history.pushState(state, "", getURL(state))
 }
 
 function getToken(key) {
