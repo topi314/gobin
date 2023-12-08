@@ -6,8 +6,10 @@ import (
 	"database/sql/driver"
 	_ "embed"
 	"errors"
+	"fmt"
 	"log/slog"
 	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/XSAM/otelsql"
@@ -20,13 +22,38 @@ import (
 	"github.com/topi314/tint"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/semconv/v1.18.0"
+	"go.opentelemetry.io/otel/semconv/v1.21.0"
 	"go.opentelemetry.io/otel/trace"
 	"modernc.org/sqlite"
 	_ "modernc.org/sqlite"
 )
 
 var chars = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
+
+type Document struct {
+	ID       string `db:"id"`
+	Version  int64  `db:"version"`
+	Content  string `db:"content"`
+	Language string `db:"language"`
+}
+
+type Webhook struct {
+	ID         string `db:"id"`
+	DocumentID string `db:"document_id"`
+	URL        string `db:"url"`
+	Secret     string `db:"secret"`
+	Events     string `db:"events"`
+}
+
+type WebhookUpdate struct {
+	ID         string `db:"id"`
+	DocumentID string `db:"document_id"`
+	Secret     string `db:"secret"`
+
+	NewURL    string `db:"new_url"`
+	NewSecret string `db:"new_secret"`
+	NewEvents string `db:"new_events"`
+}
 
 func NewDB(ctx context.Context, cfg DatabaseConfig, schema string) (*DB, error) {
 	var (
@@ -75,20 +102,20 @@ func NewDB(ctx context.Context, cfg DatabaseConfig, schema string) (*DB, error) 
 		}),
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
 	if err = otelsql.RegisterDBStatsMetrics(sqlDB, otelsql.WithAttributes(dbSystem)); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to register database stats metrics: %w", err)
 	}
 
 	dbx := sqlx.NewDb(sqlDB, driverName)
 	if err = dbx.PingContext(ctx); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 	// execute schema
 	if _, err = dbx.ExecContext(ctx, schema); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to execute schema: %w", err)
 	}
 
 	cleanupContext, cancel := context.WithCancel(context.Background())
@@ -101,13 +128,6 @@ func NewDB(ctx context.Context, cfg DatabaseConfig, schema string) (*DB, error) 
 	go db.cleanup(cleanupContext, cfg.CleanupInterval, cfg.ExpireAfter)
 
 	return db, nil
-}
-
-type Document struct {
-	ID       string `db:"id"`
-	Version  int64  `db:"version"`
-	Content  string `db:"content"`
-	Language string `db:"language"`
 }
 
 type DB struct {
@@ -145,21 +165,6 @@ func (d *DB) GetDocumentVersions(ctx context.Context, documentID string, withCon
 	}
 	err := d.dbx.SelectContext(ctx, &docs, sqlString, documentID)
 	return docs, err
-}
-
-func (d *DB) DeleteDocumentByVersion(ctx context.Context, documentID string, version int64) error {
-	res, err := d.dbx.ExecContext(ctx, "DELETE FROM documents WHERE id = $1 AND version = $2", documentID, version)
-	if err != nil {
-		return err
-	}
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rows == 0 {
-		return sql.ErrNoRows
-	}
-	return nil
 }
 
 func (d *DB) GetVersionCount(ctx context.Context, documentID string) (int, error) {
@@ -222,8 +227,104 @@ func (d *DB) UpdateDocument(ctx context.Context, documentID string, content stri
 	return doc, nil
 }
 
-func (d *DB) DeleteDocument(ctx context.Context, documentID string) error {
-	res, err := d.dbx.ExecContext(ctx, "DELETE FROM documents WHERE id = $1", documentID)
+func (d *DB) DeleteDocument(ctx context.Context, documentID string) (Document, error) {
+	var document Document
+	if err := d.dbx.GetContext(ctx, &document, "DELETE FROM documents WHERE id = $1 RETURNING *", documentID); err != nil {
+		return Document{}, err
+	}
+
+	return document, nil
+}
+
+func (d *DB) DeleteDocumentByVersion(ctx context.Context, documentID string, version int64) (Document, error) {
+	var document Document
+	if err := d.dbx.GetContext(ctx, "DELETE FROM documents WHERE id = $1 AND version = $2 returning *", documentID, version); err != nil {
+		return Document{}, err
+	}
+
+	return document, nil
+}
+
+func (d *DB) DeleteExpiredDocuments(ctx context.Context, expireAfter time.Duration) error {
+	_, err := d.dbx.ExecContext(ctx, "DELETE FROM documents WHERE version < $1", time.Now().Add(expireAfter).Unix())
+	return err
+}
+
+func (d *DB) GetWebhook(ctx context.Context, documentID string, webhookID string, secret string) (*Webhook, error) {
+	var webhook Webhook
+	err := d.dbx.GetContext(ctx, &webhook, "SELECT * FROM webhooks WHERE document_id = $1 AND id = $2 AND secret = $3", documentID, webhookID, secret)
+	if err != nil {
+		return nil, err
+	}
+
+	return &webhook, nil
+}
+
+func (d *DB) GetWebhooksByDocumentID(ctx context.Context, documentID string) ([]Webhook, error) {
+	var webhooks []Webhook
+	err := d.dbx.SelectContext(ctx, &webhooks, "SELECT * FROM webhooks WHERE document_id = $1", documentID)
+	if err != nil {
+		return nil, err
+	}
+
+	return webhooks, nil
+}
+
+func (d *DB) GetAndDeleteWebhooksByDocumentID(ctx context.Context, documentID string) ([]Webhook, error) {
+	var webhooks []Webhook
+	err := d.dbx.SelectContext(ctx, &webhooks, "DELETE FROM webhooks WHERE document_id = $1 RETURNING *", documentID)
+	if err != nil {
+		return nil, err
+	}
+
+	return webhooks, nil
+}
+
+func (d *DB) CreateWebhook(ctx context.Context, documentID string, url string, secret string, events []string) (*Webhook, error) {
+	webhook := Webhook{
+		ID:         d.randomString(8),
+		DocumentID: documentID,
+		URL:        url,
+		Secret:     secret,
+		Events:     strings.Join(events, ","),
+	}
+
+	if _, err := d.dbx.NamedExecContext(ctx, "INSERT INTO webhooks (id, document_id, url, secret, events) VALUES (:id, :document_id, :url, :secret, :events)", webhook); err != nil {
+		return nil, fmt.Errorf("failed to insert webhook: %w", err)
+	}
+
+	return &webhook, nil
+}
+
+func (d *DB) UpdateWebhook(ctx context.Context, documentID string, webhookID string, secret string, newURL string, newSecret string, newEvents []string) (*Webhook, error) {
+	webhookUpdate := WebhookUpdate{
+		ID:         webhookID,
+		DocumentID: documentID,
+		Secret:     secret,
+		NewURL:     newURL,
+		NewSecret:  newSecret,
+		NewEvents:  strings.Join(newEvents, ","),
+	}
+
+	query, args, err := sqlx.Named(`UPDATE webhooks SET 
+                    url = CASE WHEN :new_url = '' THEN url ELSE :new_url END,
+                    secret = CASE WHEN :new_secret = '' THEN secret ELSE :new_secret END,
+                    events = CASE WHEN :new_events = '' THEN events ELSE :new_events END
+                WHERE document_id = :document_id AND id = :id AND secret = :secret returning *`, webhookUpdate)
+	if err != nil {
+		return nil, err
+	}
+
+	var webhook Webhook
+	if err = d.dbx.GetContext(ctx, webhook, query, args...); err != nil {
+		return nil, err
+	}
+
+	return &webhook, nil
+}
+
+func (d *DB) DeleteWebhook(ctx context.Context, documentID string, webhookID string, secret string) error {
+	res, err := d.dbx.ExecContext(ctx, "DELETE FROM webhooks WHERE document_id = $1 AND id = $2 AND secret = $3", documentID, webhookID, secret)
 	if err != nil {
 		return err
 	}
@@ -238,11 +339,6 @@ func (d *DB) DeleteDocument(ctx context.Context, documentID string) error {
 	return nil
 }
 
-func (d *DB) DeleteExpiredDocuments(ctx context.Context, expireAfter time.Duration) error {
-	_, err := d.dbx.ExecContext(ctx, "DELETE FROM documents WHERE version < $1", time.Now().Add(expireAfter).Unix())
-	return err
-}
-
 func (d *DB) cleanup(ctx context.Context, cleanUpInterval time.Duration, expireAfter time.Duration) {
 	if expireAfter <= 0 {
 		return
@@ -252,8 +348,10 @@ func (d *DB) cleanup(ctx context.Context, cleanUpInterval time.Duration, expireA
 	}
 	slog.Info("Starting document cleanup...")
 	ticker := time.NewTicker(cleanUpInterval)
-	defer ticker.Stop()
-	defer slog.Info("document cleanup stopped")
+	defer func() {
+		ticker.Stop()
+		slog.Info("document cleanup stopped")
+	}()
 
 	for {
 		select {

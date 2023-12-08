@@ -10,10 +10,11 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func (s *Server) convertSVG2PNG(ctx context.Context, svg string) ([]byte, error) {
-	ctx, span := s.tracer.Start(ctx, "convertSVG2PNG")
+	ctx, span := s.tracer.Start(ctx, "convertSVG2PNG", trace.WithAttributes(attribute.String("inkscape", s.cfg.Preview.InkscapePath)))
 	defer span.End()
 
 	stdout := new(bytes.Buffer)
@@ -24,7 +25,6 @@ func (s *Server) convertSVG2PNG(ctx context.Context, svg string) ([]byte, error)
 		dpi = s.cfg.Preview.DPI
 	}
 	span.SetAttributes(attribute.Int("dpi", dpi))
-	span.SetAttributes(attribute.String("inkscape", s.cfg.Preview.InkscapePath))
 
 	cmd := exec.CommandContext(ctx, s.cfg.Preview.InkscapePath, "-p", "-d", strconv.Itoa(dpi), "--convert-dpi-method=scale-viewbox", "--export-filename=-", "--export-type=png")
 	cmd.Stdin = bytes.NewReader([]byte(svg))

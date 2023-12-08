@@ -3,6 +3,7 @@ package gobin
 import (
 	"bytes"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -22,6 +23,8 @@ import (
 	"github.com/go-chi/stampede"
 	"github.com/riandyrn/otelchi"
 	"github.com/samber/slog-chi"
+	"github.com/topi314/gobin/templates"
+	"github.com/topi314/tint"
 )
 
 const maxUnix = int(^int32(0))
@@ -108,6 +111,16 @@ func (s *Server) Routes() http.Handler {
 			r.Patch("/", s.PatchDocument)
 			r.Delete("/", s.DeleteDocument)
 			r.Post("/share", s.PostDocumentShare)
+
+			r.Route("/webhooks", func(r chi.Router) {
+				r.Post("/", s.PostDocumentWebhook)
+				r.Route("/{webhookID}", func(r chi.Router) {
+					r.Get("/", s.GetDocumentWebhook)
+					r.Patch("/", s.PatchDocumentWebhook)
+					r.Delete("/", s.DeleteDocumentWebhook)
+				})
+			})
+
 			previewHandler(r)
 			r.Route("/versions", func(r chi.Router) {
 				r.Get("/", s.DocumentVersions)
@@ -313,4 +326,90 @@ func (s *Server) documentNotFound(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) rateLimit(w http.ResponseWriter, r *http.Request) {
 	s.error(w, r, ErrRateLimit, http.StatusTooManyRequests)
+}
+
+func (s *Server) prettyError(w http.ResponseWriter, r *http.Request, err error, status int) {
+	w.WriteHeader(status)
+
+	vars := templates.ErrorVars{
+		Error:     err.Error(),
+		Status:    status,
+		RequestID: middleware.GetReqID(r.Context()),
+		Path:      r.URL.Path,
+	}
+	if tmplErr := templates.Error(vars).Render(r.Context(), w); tmplErr != nil && !errors.Is(tmplErr, http.ErrHandlerTimeout) {
+		slog.ErrorContext(r.Context(), "failed to execute error template", tint.Err(tmplErr))
+	}
+}
+
+func (s *Server) error(w http.ResponseWriter, r *http.Request, err error, status int) {
+	if errors.Is(err, http.ErrHandlerTimeout) {
+		return
+	}
+	if status == http.StatusInternalServerError {
+		slog.ErrorContext(r.Context(), "internal server error", tint.Err(err))
+	}
+	s.json(w, r, ErrorResponse{
+		Message:   err.Error(),
+		Status:    status,
+		Path:      r.URL.Path,
+		RequestID: middleware.GetReqID(r.Context()),
+	}, status)
+}
+
+func (s *Server) ok(w http.ResponseWriter, r *http.Request, v any) {
+	if v == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	s.json(w, r, v, http.StatusOK)
+}
+
+func (s *Server) json(w http.ResponseWriter, r *http.Request, v any, status int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if r.Method == http.MethodHead {
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(v); err != nil && !errors.Is(err, http.ErrHandlerTimeout) {
+		slog.ErrorContext(r.Context(), "failed to encode json", tint.Err(err))
+	}
+}
+
+func (s *Server) exceedsMaxDocumentSize(w http.ResponseWriter, r *http.Request, content string) bool {
+	if s.cfg.MaxDocumentSize > 0 && len([]rune(content)) > s.cfg.MaxDocumentSize {
+		s.error(w, r, ErrContentTooLarge(s.cfg.MaxDocumentSize), http.StatusBadRequest)
+		return true
+	}
+	return false
+}
+
+func (s *Server) file(path string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		file, err := s.assets.Open(path)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer file.Close()
+		_, _ = io.Copy(w, file)
+	}
+}
+
+func (s *Server) shortContent(content string) string {
+	if s.cfg.Preview != nil && s.cfg.Preview.MaxLines > 0 {
+		var newLines int
+		maxNewLineIndex := strings.IndexFunc(content, func(r rune) bool {
+			if r == '\n' {
+				newLines++
+			}
+			return newLines == s.cfg.Preview.MaxLines
+		})
+
+		if maxNewLineIndex > 0 {
+			content = content[:maxNewLineIndex]
+		}
+	}
+	return content
 }

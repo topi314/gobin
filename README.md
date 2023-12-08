@@ -32,6 +32,10 @@ gobin is a simple lightweight haste-server alternative written in Go, HTML, JS a
     - [Update a document](#update-a-document)
     - [Delete a document](#delete-a-document)
     - [Delete a document version](#delete-a-document-version)
+    - [Document webhooks](#document-webhooks)
+        - [Create a document webhook](#create-a-document-webhook)
+        - [Update a document webhook](#update-a-document-webhook)
+        - [Delete a document webhook](#delete-a-document-webhook)
     - [Other endpoints](#other-endpoints)
     - [Errors](#errors)
 - [License](#license)
@@ -46,6 +50,7 @@ gobin is a simple lightweight haste-server alternative written in Go, HTML, JS a
 - Easy to deploy and use
 - Built-in rate-limiting
 - Create, update and delete documents
+- Document update/delete webhooks
 - Syntax highlighting
 - Social Media PNG previews
 - Document expiration
@@ -65,7 +70,7 @@ The easiest way to deploy gobin is using docker with [Docker Compose](https://do
 
 Create a new `docker-compose.yml` file with the following content:
 
-> **Note**
+> [!Note]
 > You should change the password in the `docker-compose.yml` and `gobin.json` file.
 
 ```yaml
@@ -139,7 +144,7 @@ The database schema is automatically created when you start gobin and there is n
 
 Create a new `gobin.json` file with the following content:
 
-> **Note**
+> [!Note]
 > Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
 
 ```json5
@@ -223,6 +228,19 @@ Create a new `gobin.json` file with the following content:
       "listen_addr": ":9100"
     }
   },
+  // settings for webhooks, omit to disable
+  "webhook": {
+    // webhook reqauest timeout
+    "timeout": "10s",
+    // max number of tries to send a webhook
+    "max_tries": 3,
+    // how long to wait before retrying a webhook
+    "backoff": "1s",
+    // how much the backoff should be increased after each retry
+    "backoff_factor": 2,
+    // max backoff time
+    "max_backoff": "5m"
+  },
   // load custom chroma xml or base16 yaml themes from this directory, omit to disable
   "custom_styles": "custom_styles",
   "default_style": "snazzy"
@@ -268,6 +286,12 @@ GOBIN_PREVIEW_MAX_LINES=10
 GOBIN_PREVIEW_DPI=96
 GOBIN_PREVIEW_CACHE_SIZE=1024
 GOBIN_PREVIEW_CACHE_TTL=1h
+
+GOBIN_WEBHOOK_TIMEOUT=10s
+GOBIN_WEBHOOK_MAX_TRIES=3
+GOBIN_WEBHOOK_BACKOFF=1s
+GOBIN_WEBHOOK_BACKOFF_FACTOR=2
+GOBIN_WEBHOOK_MAX_BACKOFF=5m
 
 GOBIN_CUSTOM_STYLES=custom_styles
 GOBIN_DEFAULT_STYLE=snazzy
@@ -509,7 +533,7 @@ func main() {
 
 A successful request will return a `200 OK` response with a JSON body containing the document key and token to update the document.
 
-> **Note**
+> [!Note]
 > The update token will not change after updating the document. You can use the same token to update the document again.
 
 ```json5
@@ -561,6 +585,160 @@ A successful request will return a `204 No Content` response with an empty body.
 ### Delete a document version
 
 To delete a document version you have to send a `DELETE` request to `/documents/{key}/versions/{version}` with the `token` as `Authorization` header.
+
+A successful request will return a `204 No Content` response with an empty body.
+
+---
+
+### Document webhooks
+
+You can listen for document changes using webhooks. The webhook will send a `POST` request to the specified url with the following JSON body:
+
+```json5
+{
+  // the id of the webhook
+  "webhook_id": "hocwr6i6",
+  // the event which triggered the webhook (update or delete)
+  "event": "update",
+  // when the event was created
+  "created_at": "2021-08-01T12:00:00Z",
+  // the updated or deleted document
+  "document": {
+    // the key of the document
+    "key": "hocwr6i6",
+    // the version of the document
+    "version": 2,
+    // the language of the document
+    "language": "go",
+    // the content of the document
+    "data": "package main\n\nfunc main() {\n    println(\"Hello World Updated!\")\n}"
+  }
+}
+```
+
+Gobin will include the webhook secret in the `Authorization` header in the following format: `Secret {secret}`.
+
+When sending an event to a webhook fails gobin will retry it up to x times with an exponential backoff. The retry settings can be configured in the config file.
+When an event fails to be sent after x retries, the webhook will be dropped.
+
+> [!Important]
+> Authorizing for the following webhook endpoints is done using the `Authorization` header in the following format: `Secret {secret}`.
+
+#### Create a document webhook
+
+To create a webhook you have to send a `POST` request to `/documents/{key}/webhooks` with the following JSON body:
+
+```json5
+{
+  // the url to send a request to
+  "url": "https://example.com/webhook",
+  // the secret to include in the request
+  "secret": "secret",
+  // the events you want to receive
+  "events": [
+    // update event is sent when a document is updated. This includes content and language changes
+    "update",
+    // delete event is sent when a document is deleted
+    "delete"
+  ]
+}
+```
+
+A successful request will return a `200 OK` response with a JSON body containing the webhook.
+
+```json5
+{
+  // the id of the webhook
+  "id": 1,
+  // the url to send a request to
+  "url": "https://example.com/webhook",
+  // the secret to include in the request
+  "secret": "secret",
+  // the events you want to receive
+  "events": [
+    // update event is sent when a document is updated. This includes content and language changes
+    "update",
+    // delete event is sent when a document is deleted
+    "delete"
+  ]
+}
+```
+
+---
+
+#### Get a document webhook
+
+To get a webhook you have to send a `GET` request to `/documents/{key}/webhooks/{id}` with the `Authorization` header.
+
+A successful request will return a `200 OK` response with a JSON body containing the webhook.
+
+```json5
+{
+  // the id of the webhook
+  "id": 1,
+  // the url to send a request to
+  "url": "https://example.com/webhook",
+  // the secret to include in the request
+  "secret": "secret",
+  // the events you want to receive
+  "events": [
+    // update event is sent when a document is updated. This includes content and language changes
+    "update",
+    // delete event is sent when a document is deleted
+    "delete"
+  ]
+}
+```
+
+---
+
+#### Update a document webhook
+
+To update a webhook you have to send a `PATCH` request to `/documents/{key}/webhooks/{id}` with the `Authorization` header and the following JSON body:
+
+> [!Note]
+> All fields are optional, but at least one field is required.
+```json5
+{
+  // the url to send a request to
+  "url": "https://example.com/webhook",
+  // the secret to include in the request
+  "secret": "secret",
+  // the events you want to receive
+  "events": [
+    // update event is sent when a document is updated. This includes content and language changes
+    "update",
+    // delete event is sent when a document is deleted
+    "delete"
+  ]
+}
+```
+
+A successful request will return a `200 OK` response with a JSON body containing the webhook.
+
+```json5
+{
+  // the id of the webhook
+  "id": 1,
+  // the url to send a request to
+  "url": "https://example.com/webhook",
+  // the secret to include in the request
+  "secret": "secret",
+  // the events you want to receive
+  "events": [
+    // update event is sent when a document is updated. This includes content and language changes
+    "update",
+    // delete event is sent when a document is deleted
+    "delete"
+  ]
+}
+```
+
+---
+
+#### Delete a document webhook
+
+To delete a webhook you have to send a `DELETE` request to `/documents/{key}/webhooks/{id}` with the `Authorization` header.
 
 A successful request will return a `204 No Content` response with an empty body.
 

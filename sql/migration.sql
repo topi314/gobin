@@ -1,3 +1,13 @@
+--- v1.3.0 -> v1.4.0
+CREATE TABLE IF NOT EXISTS webhooks
+(
+    id          VARCHAR NOT NULL,
+    document_id VARCHAR NOT NULL,
+    url         VARCHAR NOT NULL,
+    secret      VARCHAR NOT NULL,
+    events      VARCHAR NOT NULL,
+    PRIMARY KEY (id)
+);
 --- v1.2.0 -> v1.3.0
 ALTER TABLE documents DROP COLUMN update_token;
 --- v1.1.0 -> v1.2.0

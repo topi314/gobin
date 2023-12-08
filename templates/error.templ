@@ -4,13 +4,6 @@ import (
 	"strconv"
 )
 
-type ErrorVars struct {
-	Error     string
-	Status    int
-	Path      string
-	RequestID string
-}
-
 templ Error(vars ErrorVars) {
 	<!DOCTYPE html>
 	<html lang="en" class="dark">

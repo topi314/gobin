@@ -123,7 +123,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	versions := make([]templates.Version, 0, len(documents))
+	versions := make([]templates.DocumentVersion, 0, len(documents))
 	for i, documentVersion := range documents {
 		versionTime := time.Unix(documentVersion.Version, 0)
 		versionLabel := humanize.Time(versionTime)
@@ -132,7 +132,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		} else if i == len(documents)-1 {
 			versionLabel += " (original)"
 		}
-		versions = append(versions, templates.Version{
+		versions = append(versions, templates.DocumentVersion{
 			Version: documentVersion.Version,
 			Label:   versionLabel,
 			Time:    versionTime.Format(VersionTimeFormat),
@@ -372,7 +372,7 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 	documentID, extension := parseDocumentID(r)
 	language := r.URL.Query().Get("language")
 
-	claims := s.GetClaims(r)
+	claims := GetClaims(r)
 	if claims.Subject != documentID || !slices.Contains(claims.Permissions, PermissionWrite) {
 		s.documentNotFound(w, r)
 		return
@@ -425,6 +425,13 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	s.ExecuteWebhooks(r.Context(), WebhookEventUpdate, WebhookDocument{
+		Key:      document.ID,
+		Version:  document.Version,
+		Language: finalLanguage,
+		Data:     document.Content,
+	})
+
 	versionTime := time.Unix(document.Version, 0)
 	s.ok(w, r, DocumentResponse{
 		Key:          document.ID,
@@ -445,17 +452,20 @@ func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims := s.GetClaims(r)
+	claims := GetClaims(r)
 	if claims.Subject != documentID || !slices.Contains(claims.Permissions, PermissionDelete) {
 		s.documentNotFound(w, r)
 		return
 	}
 
-	var err error
+	var (
+		document Document
+		err      error
+	)
 	if version == 0 {
-		err = s.db.DeleteDocument(r.Context(), documentID)
+		document, err = s.db.DeleteDocument(r.Context(), documentID)
 	} else {
-		err = s.db.DeleteDocumentByVersion(r.Context(), documentID, version)
+		document, err = s.db.DeleteDocumentByVersion(r.Context(), documentID, version)
 	}
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -474,6 +484,14 @@ func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
 		s.error(w, r, err, http.StatusInternalServerError)
 		return
 	}
+
+	s.ExecuteWebhooks(r.Context(), WebhookEventDelete, WebhookDocument{
+		Key:      document.ID,
+		Version:  document.Version,
+		Language: document.Language,
+		Data:     document.Content,
+	})
+
 	s.ok(w, r, DeleteResponse{
 		Versions: count,
 	})
@@ -500,7 +518,7 @@ func (s *Server) PostDocumentShare(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	claims := s.GetClaims(r)
+	claims := GetClaims(r)
 	if claims.Subject != documentID || !slices.Contains(claims.Permissions, PermissionShare) {
 		s.documentNotFound(w, r)
 		return
@@ -508,7 +526,7 @@ func (s *Server) PostDocumentShare(w http.ResponseWriter, r *http.Request) {
 
 	for _, permission := range shareRequest.Permissions {
 		if !slices.Contains(claims.Permissions, permission) {
-			s.error(w, r, ErrPermissionDenied(permission), http.StatusForbidden)
+			s.error(w, r, ErrPermissionDenied(permission), http.StatusBadRequest)
 			return
 		}
 	}

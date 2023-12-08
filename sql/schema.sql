@@ -6,3 +6,13 @@ CREATE TABLE IF NOT EXISTS documents
     language VARCHAR NOT NULL,
     PRIMARY KEY (id, version)
 );
+
+CREATE TABLE IF NOT EXISTS webhooks
+(
+    id          VARCHAR NOT NULL,
+    document_id VARCHAR NOT NULL,
+    url         VARCHAR NOT NULL,
+    secret      VARCHAR NOT NULL,
+    events      VARCHAR NOT NULL,
+    PRIMARY KEY (id)
+);
