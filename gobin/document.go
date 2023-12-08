@@ -187,6 +187,10 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	var previewAlt string
+	if s.cfg.Preview != nil {
+		previewAlt = s.shortContent(templateFiles[currentFile].Content)
+	}
 	if err = templates.Document(templates.DocumentVars{
 		ID:      document.ID,
 		Version: strconv.FormatInt(document.Version, 10),
@@ -201,9 +205,10 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		Style:  style.Name,
 		Theme:  style.Theme,
 
-		Max:     s.cfg.MaxDocumentSize,
-		Host:    r.Host,
-		Preview: s.cfg.Preview != nil,
+		Max:        s.cfg.MaxDocumentSize,
+		Host:       r.Host,
+		Preview:    s.cfg.Preview != nil,
+		PreviewAlt: previewAlt,
 	}).Render(r.Context(), w); err != nil {
 		slog.ErrorContext(r.Context(), "failed to execute template", tint.Err(err))
 	}
@@ -356,9 +361,18 @@ func (s *Server) GetDocumentPreview(w http.ResponseWriter, r *http.Request) {
 
 	formatter := formatters.Get("svg")
 	style := getStyle(r)
+	fileName := r.URL.Query().Get("file")
 
-	file := document.Files[0]
-	file.Content = s.shortContent(document.Files[0].Content)
+	var currentFile int
+	for i, file := range document.Files {
+		if file.Name == fileName {
+			currentFile = i
+			break
+		}
+	}
+
+	file := document.Files[currentFile]
+	file.Content = s.shortContent(file.Content)
 
 	formatted, err := s.formatFile(file, formatter, style)
 	if err != nil {

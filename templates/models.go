@@ -87,7 +87,11 @@ func (v DocumentVars) PreviewURL() string {
 	if v.Version > "0" {
 		url += "/" + v.Version
 	}
-	return url + "/preview"
+	var query string
+	if len(v.Files) > 0 {
+		query = "?file=" + v.Files[v.CurrentFile].Name
+	}
+	return url + "/preview" + query
 }
 
 func (v DocumentVars) URL() string {
