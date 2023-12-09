@@ -21,7 +21,8 @@ func NewShareCmd(parent *cobra.Command) {
 		Example: `gobin share -p write -p delete -p share jis74978
 
 Will create a new share the document jis74978 with the permissions write, delete and share`,
-		Args: cobra.ExactArgs(1),
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: documentCompletion,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if err := viper.BindPFlag("server", cmd.Flags().Lookup("server")); err != nil {
 				return err

@@ -24,15 +24,8 @@ func NewGetCmd(parent *cobra.Command) {
 		Example: `gobin get jis74978
 
 Will return the document with the id of jis74978.`,
-		Args: cobra.ExactArgs(1),
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			tokensMap := viper.GetStringMap("tokens.")
-			tokens := make([]string, 0, len(tokensMap))
-			for document := range tokensMap {
-				tokens = append(tokens, document)
-			}
-			return tokens, cobra.ShellCompDirectiveNoFileComp
-		},
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: documentCompletion,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if err := viper.BindPFlag("server", cmd.Flags().Lookup("server")); err != nil {
 				return err

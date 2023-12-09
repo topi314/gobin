@@ -67,14 +67,7 @@ Will import the token for the document jis74978 and server https://xgob.in`,
 	cmd.Flags().StringP("server", "s", "", "Gobin server address")
 	cmd.Flags().StringP("document", "d", "", "The document id to import the token for")
 
-	if err := cmd.RegisterFlagCompletionFunc("document", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		tokensMap := viper.GetStringMap("tokens.")
-		tokens := make([]string, 0, len(tokensMap))
-		for document := range tokensMap {
-			tokens = append(tokens, document)
-		}
-		return tokens, cobra.ShellCompDirectiveNoFileComp
-	}); err != nil {
+	if err := cmd.RegisterFlagCompletionFunc("document", documentCompletion); err != nil {
 		log.Printf("failed to register document flag completion func: %s", err)
 	}
 }
