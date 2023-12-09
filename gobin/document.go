@@ -35,6 +35,8 @@ var (
 	ErrDuplicateDocumentFileNames = errors.New("duplicate document file names")
 )
 
+var VersionTimeFormat = "2006-01-02 15:04:05"
+
 type (
 	DocumentResponse struct {
 		Key          string         `json:"key"`
@@ -432,6 +434,9 @@ func (s *Server) GetDocumentPreview(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getDocument(r *http.Request) (*database.Document, error) {
 	documentID := chi.URLParam(r, "documentID")
+	if i := strings.Index(documentID, "."); i > 0 {
+		documentID = documentID[:i]
+	}
 
 	var version int64
 	if versionStr := chi.URLParam(r, "version"); versionStr != "" {

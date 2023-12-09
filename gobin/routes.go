@@ -30,8 +30,6 @@ var (
 	}
 )
 
-var VersionTimeFormat = "2006-01-02 15:04:05"
-
 func (s *Server) Routes() http.Handler {
 	r := chi.NewRouter()
 	r.Use(otelchi.Middleware("gobin", otelchi.WithChiRoutes(r)))
