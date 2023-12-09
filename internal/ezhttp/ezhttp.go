@@ -38,17 +38,20 @@ var defaultClient = &http.Client{
 
 func Do(method string, path string, token string, body io.Reader) (*http.Response, error) {
 	server := viper.GetString("server")
-	request, err := http.NewRequest(method, server+path, body)
+	rq, err := http.NewRequest(method, server+path, body)
+	if err != nil {
+		return nil, err
+	}
 	if r, ok := body.(Reader); ok {
-		request.Header = r.Headers()
+		rq.Header = r.Headers()
 	}
 	if err != nil {
 		return nil, err
 	}
 	if token != "" {
-		request.Header.Set("Authorization", "Bearer "+token)
+		rq.Header.Set("Authorization", "Bearer "+token)
 	}
-	return defaultClient.Do(request)
+	return defaultClient.Do(rq)
 }
 
 func Get(path string) (*http.Response, error) {
@@ -72,7 +75,7 @@ func Delete(path string, token string) (*http.Response, error) {
 }
 
 func ProcessBody(method string, rs *http.Response, body any) error {
-	if rs.StatusCode >= 200 && rs.StatusCode <= 299 {
+	if rs.StatusCode >= 200 && rs.StatusCode < 300 {
 		if err := json.NewDecoder(rs.Body).Decode(body); err != nil {
 			return fmt.Errorf("failed to decode response: %w", err)
 		}

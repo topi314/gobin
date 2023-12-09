@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/topi314/chroma/v2/lexers"
 	"github.com/topi314/gobin/gobin"
 	"github.com/topi314/gobin/internal/ezhttp"
 )
@@ -194,8 +196,20 @@ Will return the document with the id of jis74978.`,
 	cmd.Flags().StringP("file", "f", "", "The document file to get")
 	cmd.Flags().StringP("version", "v", "", "The version of the document to get")
 	cmd.Flags().BoolP("versions", "", false, "Get all versions of the document")
-	cmd.Flags().StringP("formatter", "r", "", "Format the document with syntax highlighting (terminal8, terminal16, terminal256, terminal16m, html, html-standalone, svg, or none)")
+	cmd.Flags().StringP("formatter", "r", "terminal16m", "Format the document with syntax highlighting (terminal8, terminal16, terminal256, terminal16m, html, html-standalone, svg, or none)")
 	cmd.Flags().StringP("language", "l", "", "The language to render the document with (only works in combination with file)")
 	cmd.Flags().StringP("style", "", "", "The style to render the document with")
 	cmd.Flags().StringP("output", "o", ".", "The folder to save the document to")
+
+	if err := cmd.RegisterFlagCompletionFunc("formatter", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"terminal8", "terminal16", "terminal256", "terminal16m", "html", "html-standalone", "svg", "none"}, cobra.ShellCompDirectiveNoFileComp
+	}); err != nil {
+		log.Printf("failed to register formatter flag completion func: %s", err)
+	}
+
+	if err := cmd.RegisterFlagCompletionFunc("language", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return lexers.Names(true), cobra.ShellCompDirectiveNoFileComp
+	}); err != nil {
+		log.Printf("failed to register language flag completion func: %s", err)
+	}
 }

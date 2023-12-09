@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"log"
 	"slices"
 	"strings"
 
@@ -19,10 +20,22 @@ func NewEnvCmd(parent *cobra.Command) {
 
 Will print all 
 
-gobin env -w NAME=VALUE - w NAME2=VALUE2
+gobin env -w NAME=VALUE -w NAME2=VALUE2
 
 Will set NAME to VALUE in the gobin env (defaults to ~/.gobin).`,
 		Args: cobra.ArbitraryArgs,
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			entries, err := cfg.Get()
+			if err != nil {
+				return nil, cobra.ShellCompDirectiveError
+			}
+
+			var names []string
+			for name := range entries {
+				names = append(names, name)
+			}
+			return names, cobra.ShellCompDirectiveNoFileComp
+		},
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			return viper.BindPFlag("write", cmd.Flags().Lookup("write"))
 		},
@@ -64,5 +77,20 @@ Will set NAME to VALUE in the gobin env (defaults to ~/.gobin).`,
 
 	parent.AddCommand(cmd)
 	cmd.Flags().StringSliceP("write", "w", nil, "Write one or more gobin variables")
+
+	if err := cmd.RegisterFlagCompletionFunc("write", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		entries, err := cfg.Get()
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+
+		var names []string
+		for name := range entries {
+			names = append(names, name)
+		}
+		return names, cobra.ShellCompDirectiveNoFileComp
+	}); err != nil {
+		log.Printf("failed to register write flag completion func: %s", err)
+	}
 
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"slices"
 
 	"github.com/spf13/cobra"
@@ -17,7 +18,7 @@ func NewShareCmd(parent *cobra.Command) {
 		Use:     "share",
 		GroupID: "actions",
 		Short:   "Shares a document",
-		Example: `gobin share jis74978 -p write -p delete -p share
+		Example: `gobin share -p write -p delete -p share jis74978
 
 Will create a new share the document jis74978 with the permissions write, delete and share`,
 		Args: cobra.ExactArgs(1),
@@ -85,4 +86,10 @@ Will create a new share the document jis74978 with the permissions write, delete
 	cmd.Flags().StringP("server", "s", "", "Gobin server address")
 	cmd.Flags().StringP("token", "t", "", "The token for the document")
 	cmd.Flags().StringSliceP("permissions", "p", nil, "The permissions for the document")
+
+	if err := cmd.RegisterFlagCompletionFunc("permissions", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return gobin.AllStringPermissions, cobra.ShellCompDirectiveNoFileComp
+	}); err != nil {
+		log.Printf("failed to register permissions flag completion func: %s", err)
+	}
 }

@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -20,6 +21,20 @@ func NewRmCmd(parent *cobra.Command) {
 
 Will delete the jis74978 from the server.`,
 		Args: cobra.ExactArgs(1),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			entries, err := cfg.Get()
+			if err != nil {
+				return nil, cobra.ShellCompDirectiveError
+			}
+
+			var completions []string
+			for name := range entries {
+				if strings.HasPrefix(strings.ToUpper(name), "TOKENS_") {
+					completions = append(completions, strings.TrimPrefix(name, "TOKENS_"))
+				}
+			}
+			return completions, cobra.ShellCompDirectiveNoFileComp
+		},
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if err := viper.BindPFlag("server", cmd.Flags().Lookup("server")); err != nil {
 				return err

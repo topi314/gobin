@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/topi314/chroma/v2/lexers"
 	"github.com/topi314/gobin/gobin"
 	"github.com/topi314/gobin/internal/cfg"
 	"github.com/topi314/gobin/internal/ezhttp"
@@ -26,7 +28,8 @@ func NewPostCmd(parent *cobra.Command) {
 		Example: `gobin post "hello world!"
 		
 Will post "hello world!" to the server`,
-		Args: cobra.ArbitraryArgs,
+		Args:              cobra.ArbitraryArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if err := viper.BindPFlag("server", cmd.Flags().Lookup("server")); err != nil {
 				return err
@@ -40,13 +43,13 @@ Will post "hello world!" to the server`,
 			if err := viper.BindPFlag("token", cmd.Flags().Lookup("token")); err != nil {
 				return err
 			}
-			return viper.BindPFlag("language", cmd.Flags().Lookup("language"))
+			return viper.BindPFlag("languages", cmd.Flags().Lookup("languages"))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			files := viper.GetStringSlice("files")
 			documentID := viper.GetString("document")
 			token := viper.GetString("token")
-			language := viper.GetString("language")
+			languages := viper.GetStringSlice("languages")
 
 			var (
 				readers []io.Reader
@@ -92,22 +95,31 @@ Will post "hello world!" to the server`,
 
 			var r io.Reader
 			if len(readers) == 0 {
-				if file, ok := r.(*os.File); ok {
-					r = ezhttp.NewHeaderReader(file, http.Header{
-						"Content-Type": []string{
-							mime.FormatMediaType("application/octet-stream", map[string]string{
-								"filename": file.Name(),
-							}),
-						},
-					})
-				} else {
-					r = readers[0]
+				contentType := "application/octet-stream"
+				if len(languages) > 0 {
+					contentType = languages[0]
 				}
+				fileName := "untitiled"
+				if file, ok := r.(*os.File); ok {
+					fileName = file.Name()
+				}
+				r = ezhttp.NewHeaderReader(readers[0], http.Header{
+					"Content-Type": []string{
+						mime.FormatMediaType(contentType, map[string]string{
+							"filename": fileName,
+						}),
+					},
+				})
+
 			} else {
 				buff := new(bytes.Buffer)
 				mpw := multipart.NewWriter(buff)
 
 				for i, rr := range readers {
+					contentType := "application/octet-stream"
+					if len(languages) > i {
+						contentType = languages[i]
+					}
 					fileName := fmt.Sprintf("untitiled%d", i)
 					if file, ok := rr.(*os.File); ok {
 						fileName = file.Name()
@@ -119,6 +131,7 @@ Will post "hello world!" to the server`,
 								"filename": fileName,
 							}),
 						},
+						"Content-Type": []string{contentType},
 					})
 					if err != nil {
 						return fmt.Errorf("failed to create multipart part")
@@ -132,9 +145,7 @@ Will post "hello world!" to the server`,
 					return fmt.Errorf("failed to close multipart writer")
 				}
 				r = ezhttp.NewHeaderReader(buff, http.Header{
-					"Content-Type": []string{
-						mpw.FormDataContentType(),
-					},
+					"Content-Type": []string{mpw.FormDataContentType()},
 				})
 			}
 
@@ -143,11 +154,7 @@ Will post "hello world!" to the server`,
 				err error
 			)
 			if documentID == "" {
-				path := "/documents"
-				if language != "" {
-					path += "?language=" + language
-				}
-				rs, err = ezhttp.Post(path, r)
+				rs, err = ezhttp.Post("/documents", r)
 				if err != nil {
 					return fmt.Errorf("failed to create document: %w", err)
 				}
@@ -158,11 +165,7 @@ Will post "hello world!" to the server`,
 				if token == "" {
 					return fmt.Errorf("no token found or provided for document: %s", documentID)
 				}
-				path := "/documents/" + documentID
-				if language != "" {
-					path += "?language=" + language
-				}
-				rs, err = ezhttp.Patch(path, token, r)
+				rs, err = ezhttp.Patch("/documents/"+documentID, token, r)
 				if err != nil {
 					return fmt.Errorf("failed to update document: %w", err)
 				}
@@ -201,5 +204,28 @@ Will post "hello world!" to the server`,
 	cmd.Flags().StringSliceP("files", "f", nil, "The files to post")
 	cmd.Flags().StringP("document", "d", "", "The document to update")
 	cmd.Flags().StringP("token", "t", "", "The token for the document to update")
-	cmd.Flags().StringP("language", "l", "", "The language of the document")
+	cmd.Flags().StringP("languages", "l", "", "The language of the documents")
+
+	if err := cmd.RegisterFlagCompletionFunc("files", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return nil, cobra.ShellCompDirectiveDefault
+	}); err != nil {
+		log.Printf("failed to register files flag completion func: %s", err)
+	}
+
+	if err := cmd.RegisterFlagCompletionFunc("document", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		tokensMap := viper.GetStringMap("tokens.")
+		tokens := make([]string, 0, len(tokensMap))
+		for document := range tokensMap {
+			tokens = append(tokens, document)
+		}
+		return tokens, cobra.ShellCompDirectiveNoFileComp
+	}); err != nil {
+		log.Printf("failed to register document flag completion func: %s", err)
+	}
+
+	if err := cmd.RegisterFlagCompletionFunc("languages", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return lexers.Names(true), cobra.ShellCompDirectiveNoFileComp
+	}); err != nil {
+		log.Printf("failed to register languages flag completion func: %s", err)
+	}
 }
