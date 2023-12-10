@@ -1,4 +1,21 @@
---- v1.3.0 -> v1.4.0
+--- v1.6.0 -> v2.0.0
+CREATE TABLE IF NOT EXISTS files
+(
+    name             VARCHAR NOT NULL,
+    document_id      VARCHAR NOT NULL,
+    document_version BIGINT  NOT NULL,
+    content          TEXT    NOT NULL,
+    language         VARCHAR NOT NULL,
+    PRIMARY KEY (name, document_id, document_version)
+);
+
+INSERT INTO files (name, document_id, document_version, content, language)
+SELECT DISTINCT 'untitled' as name, id as document_id, version * 1000 as document_version, content, language
+FROM documents;
+
+DROP TABLE documents;
+
+--- v1.4.0 -> v1.6.0
 CREATE TABLE IF NOT EXISTS webhooks
 (
     id          VARCHAR NOT NULL,

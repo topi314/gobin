@@ -2,94 +2,52 @@ package gobin
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/go-jose/go-jose/v3/jwt"
+	"github.com/topi314/gobin/v2/internal/flags"
 )
 
-var (
-	ErrNoPermissions     = errors.New("no permissions provided")
-	ErrUnknownPermission = func(p Permission) error {
-		return fmt.Errorf("unknown permission: %s", p)
-	}
-	ErrPermissionDenied = func(p Permission) error {
-		return fmt.Errorf("permission denied: %s", p)
-	}
-)
-
-type Permission string
+type Permissions int
 
 const (
-	PermissionWrite   Permission = "write"
-	PermissionDelete  Permission = "delete"
-	PermissionShare   Permission = "share"
-	PermissionWebhook Permission = "webhook"
+	PermissionWrite Permissions = 1 << iota
+	PermissionDelete
+	PermissionShare
+	PermissionWebhook
 )
 
-var AllPermissions = []Permission{
-	PermissionWrite,
-	PermissionDelete,
-	PermissionShare,
-	PermissionWebhook,
-}
+var AllPermissions = PermissionWrite |
+	PermissionDelete |
+	PermissionShare |
+	PermissionWebhook
 
-func (p Permission) IsValid() bool {
-	return p == PermissionWrite || p == PermissionDelete || p == PermissionShare || p == PermissionWebhook
-}
+var AllStringPermissions = []string{"write", "delete", "share", "webhook"}
 
 type Claims struct {
 	jwt.Claims
-	Permissions []Permission `json:"permissions"`
+	Permissions Permissions `json:"pms"`
 }
 
 type claimsKey struct{}
 
 var claimsContextKey = claimsKey{}
 
-func (s *Server) JWTMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tokenString := r.Header.Get("Authorization")
-		if len(tokenString) > 7 && strings.ToUpper(tokenString[0:6]) == "BEARER" {
-			tokenString = tokenString[7:]
-		}
-
-		var claims Claims
-		if tokenString == "" {
-			documentID := chi.URLParam(r, "documentID")
-			claims = newClaims(documentID, nil)
-		} else {
-			token, err := jwt.ParseSigned(tokenString)
-			if err != nil {
-				s.error(w, r, err, http.StatusUnauthorized)
-				return
-			}
-
-			if err = token.Claims([]byte(s.cfg.JWTSecret), &claims); err != nil {
-				s.error(w, r, err, http.StatusUnauthorized)
-				return
-			}
-		}
-
-		ctx := context.WithValue(r.Context(), claimsContextKey, claims)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
 func GetClaims(r *http.Request) Claims {
 	return r.Context().Value(claimsContextKey).(Claims)
 }
 
-func (s *Server) NewToken(documentID string, permissions []Permission) (string, error) {
+func SetClaims(r *http.Request, claims Claims) *http.Request {
+	return r.WithContext(context.WithValue(r.Context(), claimsContextKey, claims))
+}
+
+func (s *Server) NewToken(documentID string, permissions Permissions) (string, error) {
 	claims := newClaims(documentID, permissions)
 	return jwt.Signed(s.signer).Claims(claims).CompactSerialize()
 }
 
-func newClaims(documentID string, permissions []Permission) Claims {
+func newClaims(documentID string, permissions Permissions) Claims {
 	return Claims{
 		Claims: jwt.Claims{
 			IssuedAt: jwt.NewNumericDate(time.Now()),
@@ -99,10 +57,35 @@ func newClaims(documentID string, permissions []Permission) Claims {
 	}
 }
 
-func GetWebhookSecret(r *http.Request) string {
-	secretStr := r.Header.Get("Authorization")
-	if len(secretStr) > 7 && strings.ToUpper(secretStr[0:6]) == "SECRET" {
-		return secretStr[7:]
+func EmptyClaims(documentID string) Claims {
+	return newClaims(documentID, 0)
+}
+
+func parsePermissions(perms Permissions, stringPerms []string) (Permissions, error) {
+	var permissions Permissions
+	for _, perm := range stringPerms {
+		switch perm {
+		case "write":
+			if flags.Misses(perms, PermissionWrite) {
+				return 0, ErrPermissionDenied(perm)
+			}
+			permissions = flags.Add(permissions, PermissionWrite)
+		case "delete":
+			if flags.Misses(perms, PermissionDelete) {
+				return 0, ErrPermissionDenied(perm)
+			}
+			permissions = flags.Add(permissions, PermissionDelete)
+		case "share":
+			if flags.Misses(perms, PermissionShare) {
+				return 0, ErrPermissionDenied(perm)
+			}
+			permissions = flags.Add(permissions, PermissionShare)
+		case "webhook":
+			if flags.Misses(perms, PermissionWebhook) {
+				return 0, ErrPermissionDenied(perm)
+			}
+			permissions = flags.Add(permissions, PermissionWebhook)
+		}
 	}
-	return ""
+	return permissions, nil
 }

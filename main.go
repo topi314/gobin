@@ -13,19 +13,19 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/alecthomas/chroma/v2/formatters"
-	"github.com/alecthomas/chroma/v2/formatters/html"
-	"github.com/alecthomas/chroma/v2/lexers"
-	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/go-jose/go-jose/v3"
 	"github.com/mattn/go-colorable"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
+	"github.com/topi314/chroma/v2/formatters"
+	"github.com/topi314/chroma/v2/formatters/html"
+	"github.com/topi314/chroma/v2/lexers"
+	"github.com/topi314/chroma/v2/styles"
+	"github.com/topi314/gobin/v2/gobin"
+	"github.com/topi314/gobin/v2/gobin/database"
 	"github.com/topi314/tint"
-	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/trace"
-
-	"github.com/topi314/gobin/gobin"
+	meternoop "go.opentelemetry.io/otel/metric/noop"
+	tracenoop "go.opentelemetry.io/otel/trace/noop"
 )
 
 //go:generate go run github.com/a-h/templ/cmd/templ@latest generate
@@ -33,7 +33,7 @@ import (
 // These variables are set via the -ldflags option in go build
 var (
 	Name      = "gobin"
-	Namespace = "github.com/topi314/gobin"
+	Namespace = "github.com/topi314/gobin/v2"
 
 	Version   = "unknown"
 	Commit    = "unknown"
@@ -104,8 +104,8 @@ func main() {
 	slog.Info("Config", slog.String("config", cfg.String()))
 
 	var (
-		tracer trace.Tracer
-		meter  metric.Meter
+		tracer = tracenoop.NewTracerProvider().Tracer(Name)
+		meter  = meternoop.NewMeterProvider().Meter(Name)
 		err    error
 	)
 	if cfg.Otel != nil {
@@ -123,7 +123,7 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	db, err := gobin.NewDB(ctx, cfg.Database, Schema)
+	db, err := database.New(ctx, cfg.Database, Schema)
 	if err != nil {
 		slog.Error("Error while connecting to database", tint.Err(err))
 		os.Exit(1)
@@ -162,15 +162,16 @@ func main() {
 		html.WithLinkableLineNumbers(true, "L"),
 		html.TabWidth(4),
 	)
-	formatters.Register("html", htmlFormatter)
-	formatters.Register("html-standalone", html.New(
+	standaloneHTMLFormatter := html.New(
 		html.Standalone(true),
 		html.WithLineNumbers(true),
 		html.WithLinkableLineNumbers(true, "L"),
 		html.TabWidth(4),
-	))
+	)
+	formatters.Register("html", htmlFormatter)
+	formatters.Register("html-standalone", standaloneHTMLFormatter)
 
-	s := gobin.NewServer(gobin.FormatBuildVersion(Version, Commit, buildTime), cfg.DevMode, cfg, db, signer, tracer, meter, assets, htmlFormatter)
+	s := gobin.NewServer(gobin.FormatBuildVersion(Version, Commit, buildTime), cfg.DevMode, cfg, db, signer, tracer, meter, assets, htmlFormatter, standaloneHTMLFormatter)
 	slog.Info("Gobin started...", slog.String("address", cfg.ListenAddr))
 	go s.Start()
 	defer s.Close()

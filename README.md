@@ -1,4 +1,4 @@
-[![Go Report](https://goreportcard.com/badge/github.com/topi314/gobin)](https://goreportcard.com/report/github.com/topi314/gobin)
+[![Go Report](https://goreportcard.com/badge/github.com/topi314/gobin/v2)](https://goreportcard.com/report/github.com/topi314/gobin/v2)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/topi314/gobin)](https://golang.org/doc/devel/release.html)
 [![KittyBot License](https://img.shields.io/github/license/topi314/gobin)](LICENSE)
 [![KittyBot Version](https://img.shields.io/github/v/tag/topi314/gobin?label=release)](https://github.com/topi314/gobin/releases/latest)
@@ -8,36 +8,50 @@
 
 # gobin
 
-gobin is a simple lightweight haste-server alternative written in Go, HTML, JS and CSS. It is aimed to be easy to use and deploy. You can find an instance running at [xgob.in](https://xgob.in).
+gobin is a simple lightweight haste-server alternative written in Go, HTML, JS and CSS. It is aimed to be easy to use
+and deploy. You can find an instance running
+at [xgob.in](https://xgob.in).
 
 <details>
 <summary>Table of Contents</summary>
 
 - [Features](#features)
 - [Installation](#installation)
-    - [Docker](#docker)
-        - [Docker Compose](#docker-compose)
-    - [Manual](#manual)
-        - [Requirements](#requirements)
-        - [Build](#build)
-        - [Run](#run)
+    - [Server](#server)
+        - [Docker](#docker)
+        - [Manual](#manual)
+            - [Requirements](#requirements)
+            - [Build](#build)
+            - [Run](#run)
+    - [CLI](#cli)
+        - [Release](#release)
+        - [Manual](#manual-1)
+            - [Requirements](#requirements-1)
+            - [Build](#build-1)
+            - [Run](#run-1)
 - [Configuration](#configuration)
 - [Custom Themes](#custom-themes)
 - [Rate Limit](#rate-limits)
 - [API](#api)
+    - [Errors](#errors)
+    - [Formatter Enum](#formatter-enum)
+    - [Language Enum](#language-enum)
     - [Create a document](#create-a-document)
-    - [Get a document](#get-a-document)
+        - [Single file](#single-file)
+        - [Multiple files](#multiple-files)
+    - [Get a document (version)](#get-a-document-version)
+    - [Get a document (version) file](#get-a-document-version-file)
     - [Get a documents versions](#get-a-documents-versions)
-    - [Get a document version](#get-a-document-version)
     - [Update a document](#update-a-document)
-    - [Delete a document](#delete-a-document)
-    - [Delete a document version](#delete-a-document-version)
+        - [Single file](#single-file-1)
+        - [Multiple files](#multiple-files-1)
+    - [Delete a document (version)](#delete-a-document-version)
+    - [Share a document](#share-a-document)
     - [Document webhooks](#document-webhooks)
         - [Create a document webhook](#create-a-document-webhook)
         - [Update a document webhook](#update-a-document-webhook)
         - [Delete a document webhook](#delete-a-document-webhook)
     - [Other endpoints](#other-endpoints)
-    - [Errors](#errors)
 - [License](#license)
 - [Contributing](#contributing)
 - [Credits](#credits)
@@ -62,11 +76,13 @@ gobin is a simple lightweight haste-server alternative written in Go, HTML, JS a
 
 ## Installation
 
-### Docker
+### Server
 
-The easiest way to deploy gobin is using docker with [Docker Compose](https://docs.docker.com/compose/). You can find the docker image on [Packages](https://github.com/topi314/gobin/pkgs/container/gobin).
+#### Docker
 
-#### Docker Compose
+The easiest way to deploy gobin is using docker with [Docker Compose](https://docs.docker.com/compose/). You can find
+the docker image
+on [Packages](https://github.com/topi314/gobin/pkgs/container/gobin).
 
 Create a new `docker-compose.yml` file with the following content:
 
@@ -109,31 +125,65 @@ docker-compose up -d
 
 ---
 
-### Manual
+#### Manual
 
-#### Requirements
+##### Requirements
 
-- Go 1.20 or higher
-- PostgreSQL 13 or higher
+- Go 1.21 or higher
 
-#### Build
+##### Build
 
 ```bash
 git clone https://github.com/topi314/gobin.git
 cd gobin
-go build -o gobin
+go build -o gobin github.com/topi314/gobin/v2
 ```
 
 or
 
 ```bash
-go install github.com/topi314/gobin@latest
+go install github.com/topi314/gobin/v2@latest
 ```
 
-#### Run
+##### Run
 
 ```bash
 gobin --config=gobin.json
+```
+
+---
+
+### CLI
+
+#### Release
+
+You can find the latest release on [Releases](https://github.com/topi314/gobin/releases).
+
+#### Manual
+
+##### Requirements
+
+- Go 1.21 or higher
+
+##### Build
+
+```bash
+git clone https://github.com/topi314/gobin.git
+cd gobin
+go build -o gobin github.com/topi314/gobin/v2/cli
+```
+
+or
+
+```bash
+go install github.com/topi314/gobin/v2/cli@latest
+mv $(go env GOPATH)/bin/cli $(go env GOPATH)/bin/gobin
+```
+
+##### Run
+
+```bash
+gobin help
 ```
 
 ---
@@ -172,11 +222,9 @@ Create a new `gobin.json` file with the following content:
     "debug": false,
     "expire_after": "168h",
     "cleanup_interval": "10m",
-
     // path to sqlite database
     // if you run gobin with docker make sure to set it to "/var/lib/gobin/gobin.db"
     "path": "gobin.db",
-
     // postgres connection settings
     "host": "localhost",
     "port": 5432,
@@ -194,9 +242,13 @@ Create a new `gobin.json` file with the following content:
     // the duration of the requests
     "duration": "1m",
     // a list of ip addresses which are exempt from rate limiting
-    "whitelist": ["127.0.0.1"],
+    "whitelist": [
+      "127.0.0.1"
+    ],
     // a list of ip addresses which are blocked from rate limited endpoints
-    "blacklist": ["123.456.789.0"]
+    "blacklist": [
+      "123.456.789.0"
+    ]
   },
   // settings for social media previews, omit to disable
   "preview": {
@@ -247,7 +299,9 @@ Create a new `gobin.json` file with the following content:
 }
 ```
 
-Alternatively you can use environment variables to configure gobin. The environment variables are prefixed with `GOBIN_` and are in uppercase. For example `GOBIN_DATABASE_TYPE` or `GOBIN_RATE_LIMIT_REQUESTS`.
+Alternatively you can use environment variables to configure gobin. The environment variables are prefixed with `GOBIN_`
+and are in uppercase. For example `GOBIN_DATABASE_TYPE`
+or `GOBIN_RATE_LIMIT_REQUESTS`.
 
 <details>
 <summary>Here is a list of all environment variables</summary>
@@ -303,7 +357,8 @@ GOBIN_DEFAULT_STYLE=snazzy
 
 ## Custom Themes
 
-You can add your own themes to gobin by adding the `custom_styles` directory to the config file and adding your themes to it.
+You can add your own themes to gobin by adding the `custom_styles` directory to the config file and adding your themes
+to it.
 
 The themes have to be in the following format:
 
@@ -335,13 +390,21 @@ Or you can use the [chroma](https://github.com/topi314/chroma/tree/master/styles
 
 ## Rate Limits
 
-Following endpoints are rate-limited:
+All `POST`, `PATCH` and `DELETE` endpoints are rate limited. The rate limit can be configured in the config file.
+The bucket is based on the IP address and the path of the request. So each of these unique combinations has its own bucket/rate limit.
 
-- `POST` `/documents`
-- `PATCH` `/documents/{key}`
-- `DELETE` `/documents/{key}`
+It's based on a sliding window algorithm, but instead of a fixed window the window will start at the first request and
+end after the duration. So if you set the duration to 1 minute and send 10 requests in the first 10 seconds you will be rate limited for 50 seconds. After that you can send 10 requests
+again.
 
-`PATCH` and `DELETE` share the same bucket while `POST` has its own bucket
+Gobin will return these headers to help clients keep track of the rate limit:
+
+| Header                | Description                                                                    |
+|-----------------------|--------------------------------------------------------------------------------|
+| X-RateLimit-Limit     | The maximum number of requests which can be done in the duration.              |
+| X-RateLimit-Remaining | The number of remaining requests which can be done in the duration.            |
+| X-RateLimit-Reset     | The time when the rate limit will be reset in unix timestamp.                  |
+| Retry-After           | The time when the rate limit will be reset in seconds. (only when hit a `429`) |
 
 ---
 
@@ -349,9 +412,29 @@ Following endpoints are rate-limited:
 
 Fields marked with `?` are optional and types marked with `?` are nullable.
 
+### Errors
+
+In case of an error gobin will return the following JSON body with the corresponding HTTP status code:
+
+```json5
+{
+  "message": "document not found",
+  // error message
+  "status": 404,
+  // HTTP status code
+  "path": "/documents/7df3vw",
+  // request path
+  "request_id": "fbe0a365387f/gVAMGuraLW-003490"
+  // request id
+}
+```
+
+---
+
 ### Formatter Enum
 
-Document formatting is done using [chroma](https://github.com/alecthomas/chroma). The following formatters are available:
+Document formatting is done using [chroma](https://github.com/topi314/chroma). The following formatters are
+available:
 
 | Value           | Description             |
 |-----------------|-------------------------|
@@ -406,12 +489,29 @@ The following languages are available:
 
 ### Create a document
 
-To create a paste you have to send a `POST` request to `/documents` with the `content` as `plain/text` body.
+You can create a document with a single file or multiple files. When creating a document with a single file you can
+simply `POST` the content to `/documents`.
+When creating a document with multiple files you have to `POST` the content to `/documents` as `multipart/form-data`.
+See below for more information.
+
+#### Single file
+
+To create a document with a single file you have to send a `POST` request to `/documents` with the `content` as body.
+
+| Header              | Type   | Description                           |
+|---------------------|--------|---------------------------------------|
+| Content-Disposition | string | The form & file name of the document. |
+| Content-Type?       | string | The content type of the document.     |
+| Language?           | string | The language of the document.         |
 
 | Query Parameter | Type                         | Description                                  |
 |-----------------|------------------------------|----------------------------------------------|
 | language?       | [language](#language-enum)   | The language of the document.                |
 | formatter?      | [formatter](#formatter-enum) | With which formatter to render the document. |
+| style?          | style name                   | Which style to use for the formatter         |
+
+<details>
+<summary>Example</summary>
 
 ```go
 package main
@@ -421,30 +521,90 @@ func main() {
 }
 ```
 
-A successful request will return a `200 OK` response with a JSON body containing the document key and token to update the document.
+</details>
+
+#### Multiple files
+
+To create a document with multiple files you have to send a `POST` request to `/documents` with the `content`
+as `multipart/form-data` body.
+Each file has to be in its own part with the name `file-{index}`. The first file has to be named `file-0`, the
+second `file-1` and so on.
+
+| Query Parameter | Type                         | Description                                  |
+|-----------------|------------------------------|----------------------------------------------|
+| formatter?      | [formatter](#formatter-enum) | With which formatter to render the document. |
+| style?          | style name                   | Which style to use for the formatter         |
+
+| Part Header         | Type   | Description                                |
+|---------------------|--------|--------------------------------------------|
+| Content-Disposition | string | The form & file name of the document.      |
+| Content-Type?       | string | The content type/language of the document. |
+| Language?           | string | The language of the document.              |
+
+<details>
+<summary>Example</summary>
+
+```multupart/form-data
+-----------------------------302370379826172687681786440755
+Content-Disposition: form-data; name="file-0"; filename="main.go"
+Content-Type: text/x-gosrc
+Language: Go
+
+package main
+
+func main() {
+	println("Hello World!")
+}
+-----------------------------302370379826172687681786440755
+Content-Disposition: form-data; name="file-1"; filename="untitled1"
+Content-Type: text/plain; charset=utf-8
+Language: auto
+
+Hello World!
+-----------------------------302370379826172687681786440755--
+```
+
+</details>
+
+A successful request will return a `201 Created` response with a JSON body containing the document key and token to
+update the document.
 
 ```json5
 {
   "key": "hocwr6i6",
   "version": 1,
-  "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
-  "formatted": "...", // only if formatter is set
-  "css": "...", // only if formatter=html
-  "language": "go",
+  "files": [
+    {
+      "name": "main.go",
+      "content": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
+      // only if formatter is set
+      "formatted": "...",
+      "language": "Go"
+    },
+    {
+      "name": "untitled1",
+      "content": "Hello World!",
+      // only if formatter is set
+      "formatted": "...",
+      "language": "plaintext"
+    }
+  ],
   "token": "kiczgez33j7qkvqdg9f7ksrd8jk88wba"
 }
 ```
 
 ---
 
-### Get a document
+### Get a document (version)
 
-To get a document you have to send a `GET` request to `/documents/{key}`.
+To get a document you have to send a `GET` request to `/documents/{key}` or `/documents/{key}/versions/{version}`.
 
-| Query Parameter | Type                         | Description                                        |
-|-----------------|------------------------------|----------------------------------------------------|
-| language?       | [language](#language-enum)   | In which language the document should be rendered. |
-| formatter?      | [formatter](#formatter-enum) | With which formatter to render the document        |
+| Query Parameter | Type                         | Description                                                                                        |
+|-----------------|------------------------------|----------------------------------------------------------------------------------------------------|
+| formatter?      | [formatter](#formatter-enum) | With which formatter to render the document                                                        |
+| style?          | style name                   | Which style to use for the formatter                                                               |
+| file?           | file name                    | Which file to return                                                                               |
+| language?       | [language](#language-enum)   | In which language the document should be rendered. Only works in combination with the `file` param |
 
 The response will be a `200 OK` with the document content as `application/json` body.
 
@@ -452,10 +612,49 @@ The response will be a `200 OK` with the document content as `application/json` 
 {
   "key": "hocwr6i6",
   "version": 1,
-  "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
-  "formatted": "...", // only if formatter is set
-  "css": "...", // only if formatter=html
-  "language": "go"
+  "files": [
+    {
+      "name": "main.go",
+      "content": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
+      // only if formatter is set
+      "formatted": "...",
+      "language": "Go"
+    },
+    {
+      "name": "untitled1",
+      "content": "Hello World!",
+      // only if formatter is set
+      "formatted": "...",
+      "language": "plaintext"
+    }
+  ]
+}
+```
+
+In case you provide a `file` query param the response will be like from [Get a document file](#get-a-document-version-file)
+
+---
+
+### Get a document (version) file
+
+To get a document (version) file you have to send a `GET` request to `/documents/{key}/files/{fileName}`or `/documents/{key}/versions/{version}/files/{fileName}`
+
+| Query Parameter | Type                         | Description                                  |
+|-----------------|------------------------------|----------------------------------------------|
+| formatter?      | [formatter](#formatter-enum) | With which formatter to render the document. |
+| style?          | style name                   | Which style to use for the formatter         |
+| language?       | language name                | Which language to use for the formatter      |
+
+The response will be a `200 OK` with the document content as `application/json` body.
+
+```json5
+{
+  "name": "main.go",
+  // only if withContent is set
+  "content": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
+  // only if formatter is set
+  "formatted": "...",
+  "language": "Go"
 }
 ```
 
@@ -467,57 +666,181 @@ To get a documents versions you have to send a `GET` request to `/documents/{key
 
 | Query Parameter | Type                         | Description                                        |
 |-----------------|------------------------------|----------------------------------------------------|
-| withData?       | bool                         | If the data should be included in the response.    |
+| formatter?      | [formatter](#formatter-enum) | With which formatter to render the document        |
+| style?          | style name                   | Which style to use for the formatter               |
+| withContent?    | bool                         | If the content should be included in the response. |
 
 The response will be a `200 OK` with the document content as `application/json` body.
 
 ```json5
 [
   {
-    "version": 1,
-    "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
-    "language": "go"
+    "key": "hocwr6i6",
+    "version": 2,
+    "files": [
+      {
+        "name": "main.go",
+        // only if withContent is set
+        "content": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
+        // only if formatter is set
+        "formatted": "...",
+        "language": "Go"
+      },
+      {
+        "name": "untitled1",
+        // only if withContent is set
+        "content": "Hello World!",
+        // only if formatter is set
+        "formatted": "...",
+        "language": "plaintext"
+      }
+    ]
   },
   {
-    "version": 2,
-    "data": "package main\n\nfunc main() {\n    println(\"Hello World2!\")\n}",
-    "language": "go"
+    "key": "hocwr6i6",
+    "version": 1,
+    "files": [
+      {
+        "name": "main.go",
+        "content": "package main\n\nfunc main() {\n    println(\"Hello!\")\n}",
+        // only if formatter is set
+        "formatted": "...",
+        "language": "Go"
+      },
+      {
+        "name": "untitled1",
+        "content": "Hello!",
+        // only if formatter is set
+        "formatted": "...",
+        "language": "plaintext"
+      }
+    ]
   }
 ]
-```
-
-### Get a document version
-
-To get a document version you have to send a `GET` request to `/documents/{key}/versions/{version}`.
-
-| Query Parameter | Type                         | Description                                        |
-|-----------------|------------------------------|----------------------------------------------------|
-| language?       | [language](#language-enum)   | In which language the document should be rendered. |
-| formatter?      | [formatter](#formatter-enum) | With which formatter to render the document.       |
-
-The response will be a `200 OK` with the document content as `application/json` body.
-
-```json5
-{
-  "key": "hocwr6i6",
-  "version": 1,
-  "data": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
-  "formatted": "...", // only if formatter is set
-  "css": "...", // only if formatter=html
-  "language": "go"
-}
 ```
 
 ---
 
 ### Update a document
 
-To update a paste you have to send a `PATCH` request to `/documents/{key}` with the `content` as `plain/text` body and the `token` as `Authorization` header.
+You can update a document with a single file or multiple files. When updating a document with a single file you can
+simply `PATCH` the content to `/documents/{key}`.
+When updating a document with multiple files you have to `PATCH` the content to `/documents/{key}`
+as `multipart/form-data`. See below for more information.
+
+#### Single file
+
+To create a document with a single file you have to send a `PATCH` request to `/documents/{key}` with the `content` as
+body.
+
+| Header              | Type   | Description                                               |
+|---------------------|--------|-----------------------------------------------------------|
+| Content-Disposition | string | The form & file name of the document.                     |
+| Content-Type?       | string | The content type of the document.                         |
+| Language?           | string | The language of the document.                             |
+| Authorization?      | string | The update token of the document. (prefix with `Bearer `) |
 
 | Query Parameter | Type                         | Description                                  |
 |-----------------|------------------------------|----------------------------------------------|
 | language?       | [language](#language-enum)   | The language of the document.                |
 | formatter?      | [formatter](#formatter-enum) | With which formatter to render the document. |
+| style?          | style name                   | Which style to use for the formatter         |
+
+<details>
+<summary>Example</summary>
+
+```go
+package main
+
+func main() {
+	println("Hello World Updated!")
+}
+```
+
+</details>
+
+#### Multiple files
+
+To update a document with multiple files you have to send a `PATCH` request to `/documents/{key}` with the `content`
+as `multipart/form-data` body.
+Each file has to be in its own part with the name `file-{index}`. The first file has to be named `file-0`, the
+second `file-1` and so on.
+
+| Header         | Type   | Description                                               |
+|----------------|--------|-----------------------------------------------------------|
+| Authorization? | string | The update token of the document. (prefix with `Bearer `) |
+
+| Query Parameter | Type                         | Description                                  |
+|-----------------|------------------------------|----------------------------------------------|
+| formatter?      | [formatter](#formatter-enum) | With which formatter to render the document. |
+| style?          | style name                   | Which style to use for the formatter         |
+
+| Part Header         | Type   | Description                           |
+|---------------------|--------|---------------------------------------|
+| Content-Disposition | string | The form & file name of the document. |
+| Content-Type?       | string | The content type of the document.     |
+| Language?           | string | The language of the document.         |
+
+<details>
+<summary>Example</summary>
+
+```multupart/form-data
+-----------------------------302370379826172687681786440755
+Content-Disposition: form-data; name="file-0"; filename="main.go"
+Content-Type: Go
+
+package main
+
+func main() {
+	println("Hello World Updated!")
+}
+-----------------------------302370379826172687681786440755
+Content-Disposition: form-data; name="file-1"; filename="untitled1"
+Content-Type: auto
+
+Hello World Updated!
+-----------------------------302370379826172687681786440755--
+```
+
+</details>
+
+A successful request will return a `201 Created` response with a JSON body containing the document key and token to
+update the document.
+
+```json5
+{
+  "key": "hocwr6i6",
+  "version": 1,
+  "files": [
+    {
+      "name": "main.go",
+      "content": "package main\n\nfunc main() {\n    println(\"Hello World Updated!\")\n}",
+      // only if formatter is set
+      "formatted": "...",
+      "language": "Go"
+    },
+    {
+      "name": "untitled1",
+      "content": "Hello World Updated!",
+      // only if formatter is set
+      "formatted": "...",
+      "language": "plaintext"
+    }
+  ],
+  "token": "kiczgez33j7qkvqdg9f7ksrd8jk88wba"
+}
+```
+
+---
+
+To update a document you have to send a `PATCH` request to `/documents/{key}` with the `content` as `plain/text` body and
+the `token` as `Authorization` header.
+
+| Query Parameter | Type                         | Description                                  |
+|-----------------|------------------------------|----------------------------------------------|
+| language?       | [language](#language-enum)   | The language of the document.                |
+| formatter?      | [formatter](#formatter-enum) | With which formatter to render the document. |
+| style?          | style name                   | Which style to use for the formatter         |
 
 ```
 Authorization: kiczgez33j7qkvqdg9f7ksrd8jk88wba
@@ -527,11 +850,12 @@ Authorization: kiczgez33j7qkvqdg9f7ksrd8jk88wba
 package main
 
 func main() {
-    println("Hello World Updated!")
+	println("Hello World Updated!")
 }
 ```
 
-A successful request will return a `200 OK` response with a JSON body containing the document key and token to update the document.
+A successful request will return a `200 OK` response with a JSON body containing the document key and token to update
+the document.
 
 > [!Note]
 > The update token will not change after updating the document. You can use the same token to update the document again.
@@ -540,10 +864,42 @@ A successful request will return a `200 OK` response with a JSON body containing
 {
   "key": "hocwr6i6",
   "version": 2,
-  "data": "package main\n\nfunc main() {\n    println(\"Hello World Updated!\")\n}", // only if formatter is set
-  "formatted": "...", // only if formatter is set
-  "css": "...", // only if formatter=html
-  "language": "go"
+  "files": [
+    {
+      "name": "main.go",
+      "content": "package main\n\nfunc main() {\n    println(\"Hello World Updated!\")\n}",
+      // only if formatter is set
+      "formatted": "...",
+      "language": "Go"
+    },
+    {
+      "name": "untitled1",
+      "content": "Hello World Updated!",
+      // only if formatter is set
+      "formatted": "...",
+      "language": "plaintext"
+    }
+  ]
+}
+```
+
+---
+
+### Delete a document (version)
+
+To delete a document you have to send a `DELETE` request to `/documents/{key}` or `/documents/{key}/versions/{version}` with the `token` as `Authorization`
+header.
+
+| Header         | Type   | Description                                               |
+|----------------|--------|-----------------------------------------------------------|
+| Authorization? | string | The update token of the document. (prefix with `Bearer `) |
+
+A successful request will return a `204 No Content` response with an empty body or a `200 OK` with a JSON body
+containing the count of remaining document versions:
+
+```json5
+{
+  "versions": 1
 }
 ```
 
@@ -551,7 +907,11 @@ A successful request will return a `200 OK` response with a JSON body containing
 
 ### Share a document
 
-To share a document you have to send a `POST` request to `/documents/{key}/share` with the `token` as `Authorization` header and the following JSON body:
+To share a document you have to send a `POST` request to `/documents/{key}/share`.
+
+| Header         | Type   | Description                                               |
+|----------------|--------|-----------------------------------------------------------|
+| Authorization? | string | The update token of the document. (prefix with `Bearer `) |
 
 ```json5
 {
@@ -564,7 +924,8 @@ To share a document you have to send a `POST` request to `/documents/{key}/share
 ```
 
 A successful request will return a `200 OK` response with a JSON body containing the share token.
-You can append the token to URLs like this: `https://xgob.in/{key}?token={token}` to make the frontend auto import the token for editing/deleting/sharing the document.
+You can append the token to URLs like this: `https://xgob.in/{key}?token={token}` to make the frontend auto import the
+token for editing/deleting/sharing the document.
 
 ```json5
 {
@@ -574,25 +935,10 @@ You can append the token to URLs like this: `https://xgob.in/{key}?token={token}
 
 ---
 
-### Delete a document
-
-To delete a document you have to send a `DELETE` request to `/documents/{key}` with the `token` as `Authorization` header.
-
-A successful request will return a `204 No Content` response with an empty body.
-
----
-
-### Delete a document version
-
-To delete a document version you have to send a `DELETE` request to `/documents/{key}/versions/{version}` with the `token` as `Authorization` header.
-
-A successful request will return a `204 No Content` response with an empty body.
-
----
-
 ### Document webhooks
 
-You can listen for document changes using webhooks. The webhook will send a `POST` request to the specified url with the following JSON body:
+You can listen for document changes using webhooks. The webhook will send a `POST` request to the specified url with the
+following JSON body:
 
 ```json5
 {
@@ -608,21 +954,27 @@ You can listen for document changes using webhooks. The webhook will send a `POS
     "key": "hocwr6i6",
     // the version of the document
     "version": 2,
-    // the language of the document
-    "language": "go",
-    // the content of the document
-    "data": "package main\n\nfunc main() {\n    println(\"Hello World Updated!\")\n}"
+    // the files of the document
+    "files": [
+      {
+        "name": "main.go",
+        "content": "package main\n\nfunc main() {\n    println(\"Hello World Updated!\")\n}",
+        "language": "Go",
+      }
+    ]
   }
 }
 ```
 
 Gobin will include the webhook secret in the `Authorization` header in the following format: `Secret {secret}`.
 
-When sending an event to a webhook fails gobin will retry it up to x times with an exponential backoff. The retry settings can be configured in the config file.
+When sending an event to a webhook fails gobin will retry it up to x times with an exponential backoff. The retry
+settings can be configured in the config file.
 When an event fails to be sent after x retries, the webhook will be dropped.
 
 > [!Important]
-> Authorizing for the following webhook endpoints is done using the `Authorization` header in the following format: `Secret {secret}`.
+> Authorizing for the following webhook endpoints is done using the `Authorization` header in the following
+> format: `Secret {secret}`.
 
 #### Create a document webhook
 
@@ -694,10 +1046,12 @@ A successful request will return a `200 OK` response with a JSON body containing
 
 #### Update a document webhook
 
-To update a webhook you have to send a `PATCH` request to `/documents/{key}/webhooks/{id}` with the `Authorization` header and the following JSON body:
+To update a webhook you have to send a `PATCH` request to `/documents/{key}/webhooks/{id}` with the `Authorization`
+header and the following JSON body:
 
 > [!Note]
 > All fields are optional, but at least one field is required.
+
 ```json5
 {
   // the url to send a request to
@@ -738,7 +1092,8 @@ A successful request will return a `200 OK` response with a JSON body containing
 
 #### Delete a document webhook
 
-To delete a webhook you have to send a `DELETE` request to `/documents/{key}/webhooks/{id}` with the `Authorization` header.
+To delete a webhook you have to send a `DELETE` request to `/documents/{key}/webhooks/{id}` with the `Authorization`
+header.
 
 A successful request will return a `204 No Content` response with an empty body.
 
@@ -746,30 +1101,31 @@ A successful request will return a `204 No Content` response with an empty body.
 
 ### Other endpoints
 
-- `GET`/`HEAD` `/{key}/preview` - Get the preview of a document, query parameters are the same as for `GET /documents/{key}`
-- `GET`/`HEAD` `/{key}/{version}/preview` - Get the preview of a document version, query parameters are the same as for `GET /documents/{key}/versions/{version}`
-- `GET`/`HEAD` `/documents/{key}/preview` - Get the preview of a document, query parameters are the same as for `GET /documents/{key}`
-- `GET`/`HEAD` `/documents/{key}/versions/{version}/preview` - Get the preview of a document version, query parameters are the same as for `GET /documents/{key}/versions/{version}`
-- `GET`/`HEAD` `/raw/{key}` - Get the raw content of a document, query parameters are the same as for `GET /documents/{key}`
-- `GET`/`HEAD` `/raw/{key}/{version}` - Get the raw content of a document version, query parameters are the same as for `GET /documents/{key}/versions/{version}`
-- `GET` `/ping` - Get the status of the server
-- `GET` `/debug` - Proof debug endpoint (only available in debug mode)
-- `GET` `/version` - Get the version of the server
-
----
-
-### Errors
-
-In case of an error gobin will return the following JSON body with the corresponding HTTP status code:
-
-```json5
-{
-  "message": "document not found", // error message
-  "status": 404, // HTTP status code
-  "path": "/documents/7df3vw", // request path
-  "request_id": "fbe0a365387f/gVAMGuraLW-003490" // request id
-}
-```
+- `GET`/`HEAD` `/{key}/files/{filename}` - Get the content of a file in a document, query parameters are the same as
+  for `GET /documents/{key}`.
+- `GET`/`HEAD` `/{key}/versions/{version}/files/{filename}` - Get the content of a file in a document with a specific
+  version, query parameters are the same as for `GET /documents/{key}`.
+- `GET`/`HEAD` `/assets/theme.css?style={style}` - Get the css of a style, this is used for the syntax highlighting in
+  the frontend.
+- `GET`/`HEAD` `/{key}/preview` - Get the preview of a document, query parameters are the same as
+  for `GET /documents/{key}`.
+- `GET`/`HEAD` `/{key}/{version}/preview` - Get the preview of a document version, query parameters are the same as
+  for `GET /documents/{key}/versions/{version}`.
+- `GET`/`HEAD` `/documents/{key}/preview` - Get the preview of a document, query parameters are the same as
+  for `GET /documents/{key}`.
+- `GET`/`HEAD` `/documents/{key}/versions/{version}/preview` - Get the preview of a document version, query parameters
+  are the same as for `GET /documents/{key}/versions/{version}`.
+- `GET`/`HEAD` `/raw/{key}` - Get the raw content of a document, query parameters are the same as
+  for `GET /documents/{key}`.
+- `GET`/`HEAD` `/raw/{key}/files/{filename}` - Get the raw content of a document file, query parameters are the same as
+  for `GET /documents/{key}`.
+- `GET`/`HEAD` `/raw/{key}/versions/{version}` - Get the raw content of a document version, query parameters are the
+  same as for `GET /documents/{key}/versions/{version}`.
+- `GET`/`HEAD` `/raw/{key}/versions/{version}/files/{filename}` - Get the raw content of a document version file, query
+  parameters are the same as for `GET /documents/{key}/versions/{version}`.
+- `GET` `/ping` - Get the status of the server.
+- `GET` `/debug` - Proof debug endpoint (only available in debug mode).
+- `GET` `/version` - Get the version of the server.
 
 ---
 

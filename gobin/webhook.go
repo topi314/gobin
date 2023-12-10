@@ -14,6 +14,9 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/topi314/gobin/v2/gobin/database"
+	"github.com/topi314/gobin/v2/internal/flags"
+	"github.com/topi314/gobin/v2/internal/httperr"
 	"github.com/topi314/tint"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -57,10 +60,15 @@ type (
 	}
 
 	WebhookDocument struct {
-		Key      string `json:"key"`
-		Version  int64  `json:"version"`
+		Key     string                `json:"key"`
+		Version int64                 `json:"version"`
+		Files   []WebhookDocumentFile `json:"files"`
+	}
+
+	WebhookDocumentFile struct {
+		Name     string `json:"name"`
+		Content  string `json:"content"`
 		Language string `json:"language"`
-		Data     string `json:"data"`
 	}
 )
 
@@ -70,6 +78,9 @@ const (
 )
 
 func (s *Server) ExecuteWebhooks(ctx context.Context, event string, document WebhookDocument) {
+	if s.cfg.Webhook == nil {
+		return
+	}
 	s.webhookWaitGroup.Add(1)
 	ctx, span := s.tracer.Start(context.WithoutCancel(ctx), "executeWebhooks", trace.WithAttributes(
 		attribute.String("event", event),
@@ -88,7 +99,7 @@ func (s *Server) executeWebhooks(ctx context.Context, event string, document Web
 	defer cancel()
 
 	var (
-		webhooks []Webhook
+		webhooks []database.Webhook
 		err      error
 	)
 	if event == "delete" {
@@ -113,7 +124,7 @@ func (s *Server) executeWebhooks(ctx context.Context, event string, document Web
 		}
 
 		wg.Add(1)
-		go func(webhook Webhook) {
+		go func(webhook database.Webhook) {
 			defer wg.Done()
 			s.executeWebhook(ctx, webhook.URL, webhook.Secret, WebhookEventRequest{
 				WebhookID: webhook.ID,
@@ -194,34 +205,34 @@ func (s *Server) PostDocumentWebhook(w http.ResponseWriter, r *http.Request) {
 
 	var webhookCreate WebhookCreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&webhookCreate); err != nil {
-		s.error(w, r, err, http.StatusBadRequest)
+		s.error(w, r, httperr.BadRequest(err))
 		return
 	}
 
 	if webhookCreate.URL == "" {
-		s.error(w, r, ErrMissingWebhookURL, http.StatusBadRequest)
+		s.error(w, r, httperr.BadRequest(ErrMissingWebhookURL))
 		return
 	}
 
 	if webhookCreate.Secret == "" {
-		s.error(w, r, ErrMissingWebhookSecret, http.StatusBadRequest)
+		s.error(w, r, httperr.BadRequest(ErrMissingWebhookSecret))
 		return
 	}
 
 	if len(webhookCreate.Events) == 0 {
-		s.error(w, r, ErrMissingWebhookEvents, http.StatusBadRequest)
+		s.error(w, r, httperr.BadRequest(ErrMissingWebhookEvents))
 		return
 	}
 
 	claims := GetClaims(r)
-	if !slices.Contains(claims.Permissions, PermissionWebhook) {
-		s.error(w, r, ErrPermissionDenied(PermissionWebhook), http.StatusForbidden)
+	if flags.Misses(claims.Permissions, PermissionWebhook) {
+		s.error(w, r, httperr.Forbidden(ErrPermissionDenied("webhook")))
 		return
 	}
 
 	webhook, err := s.db.CreateWebhook(r.Context(), documentID, webhookCreate.URL, webhookCreate.Secret, webhookCreate.Events)
 	if err != nil {
-		s.error(w, r, err, http.StatusInternalServerError)
+		s.error(w, r, err)
 		return
 	}
 
@@ -239,17 +250,17 @@ func (s *Server) GetDocumentWebhook(w http.ResponseWriter, r *http.Request) {
 	webhookID := chi.URLParam(r, "webhookID")
 	secret := GetWebhookSecret(r)
 	if secret == "" {
-		s.error(w, r, ErrMissingWebhookSecret, http.StatusBadRequest)
+		s.error(w, r, httperr.BadRequest(ErrMissingWebhookSecret))
 		return
 	}
 
 	webhook, err := s.db.GetWebhook(r.Context(), documentID, webhookID, secret)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			s.webhookNotFound(w, r)
+			s.error(w, r, httperr.NotFound(ErrWebhookNotFound))
 			return
 		}
-		s.error(w, r, err, http.StatusInternalServerError)
+		s.error(w, r, err)
 		return
 	}
 
@@ -267,28 +278,28 @@ func (s *Server) PatchDocumentWebhook(w http.ResponseWriter, r *http.Request) {
 	webhookID := chi.URLParam(r, "webhookID")
 	secret := GetWebhookSecret(r)
 	if secret == "" {
-		s.error(w, r, ErrMissingWebhookSecret, http.StatusBadRequest)
+		s.error(w, r, httperr.BadRequest(ErrMissingWebhookSecret))
 		return
 	}
 
 	var webhookUpdate WebhookUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&webhookUpdate); err != nil {
-		s.error(w, r, err, http.StatusBadRequest)
+		s.error(w, r, httperr.BadRequest(err))
 		return
 	}
 
 	if webhookUpdate.URL == "" && webhookUpdate.Secret == "" && len(webhookUpdate.Events) == 0 {
-		s.error(w, r, ErrMissingURLOrSecretOrEvents, http.StatusBadRequest)
+		s.error(w, r, httperr.BadRequest(ErrMissingURLOrSecretOrEvents))
 		return
 	}
 
 	webhook, err := s.db.UpdateWebhook(r.Context(), documentID, webhookID, secret, webhookUpdate.URL, webhookUpdate.Secret, webhookUpdate.Events)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			s.webhookNotFound(w, r)
+			s.error(w, r, httperr.NotFound(ErrWebhookNotFound))
 			return
 		}
-		s.error(w, r, err, http.StatusInternalServerError)
+		s.error(w, r, err)
 		return
 	}
 
@@ -306,22 +317,26 @@ func (s *Server) DeleteDocumentWebhook(w http.ResponseWriter, r *http.Request) {
 	webhookID := chi.URLParam(r, "webhookID")
 	secret := GetWebhookSecret(r)
 	if secret == "" {
-		s.error(w, r, ErrMissingWebhookSecret, http.StatusBadRequest)
+		s.error(w, r, httperr.BadRequest(ErrMissingWebhookSecret))
 		return
 	}
 
 	if err := s.db.DeleteWebhook(r.Context(), documentID, webhookID, secret); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			s.webhookNotFound(w, r)
+			s.error(w, r, httperr.NotFound(ErrWebhookNotFound))
 			return
 		}
-		s.error(w, r, err, http.StatusInternalServerError)
+		s.error(w, r, err)
 		return
 	}
 
 	s.ok(w, r, nil)
 }
 
-func (s *Server) webhookNotFound(w http.ResponseWriter, r *http.Request) {
-	s.error(w, r, ErrWebhookNotFound, http.StatusNotFound)
+func GetWebhookSecret(r *http.Request) string {
+	secretStr := r.Header.Get("Authorization")
+	if len(secretStr) > 7 && strings.ToUpper(secretStr[0:6]) == "SECRET" {
+		return secretStr[7:]
+	}
+	return ""
 }

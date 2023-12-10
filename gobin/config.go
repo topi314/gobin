@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"strings"
 	"time"
+
+	"github.com/topi314/gobin/v2/gobin/database"
 )
 
 type Config struct {
@@ -13,7 +15,7 @@ type Config struct {
 	DevMode          bool             `cfg:"dev_mode"`
 	ListenAddr       string           `cfg:"listen_addr"`
 	HTTPTimeout      time.Duration    `cfg:"http_timeout"`
-	Database         DatabaseConfig   `cfg:"database"`
+	Database         database.Config  `cfg:"database"`
 	MaxDocumentSize  int              `cfg:"max_document_size"`
 	MaxHighlightSize int              `cfg:"max_highlight_size"`
 	RateLimit        *RateLimitConfig `cfg:"rate_limit"`
@@ -57,60 +59,6 @@ func (c LogConfig) String() string {
 		c.Format,
 		c.AddSource,
 		c.NoColor,
-	)
-}
-
-type DatabaseConfig struct {
-	Type            string        `cfg:"type"`
-	Debug           bool          `cfg:"debug"`
-	ExpireAfter     time.Duration `cfg:"expire_after"`
-	CleanupInterval time.Duration `cfg:"cleanup_interval"`
-
-	// SQLite
-	Path string `cfg:"path"`
-
-	// PostgreSQL
-	Host     string `cfg:"host"`
-	Port     int    `cfg:"port"`
-	Username string `cfg:"username"`
-	Password string `cfg:"password"`
-	Database string `cfg:"database"`
-	SSLMode  string `cfg:"ssl_mode"`
-}
-
-func (c DatabaseConfig) String() string {
-	str := fmt.Sprintf("\n  Type: %s\n  Debug: %t\n  ExpireAfter: %s\n  CleanupInterval: %s\n  ",
-		c.Type,
-		c.Debug,
-		c.ExpireAfter,
-		c.CleanupInterval,
-	)
-	switch c.Type {
-	case "postgres":
-		str += fmt.Sprintf("Host: %s\n  Port: %d\n  Username: %s\n  Password: %s\n  Database: %s\n  SSLMode: %s",
-			c.Host,
-			c.Port,
-			c.Username,
-			strings.Repeat("*", len(c.Password)),
-			c.Database,
-			c.SSLMode,
-		)
-	case "sqlite":
-		str += fmt.Sprintf("Path: %s", c.Path)
-	default:
-		str += "Invalid database type!"
-	}
-	return str
-}
-
-func (c DatabaseConfig) PostgresDataSourceName() string {
-	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-		c.Host,
-		c.Port,
-		c.Username,
-		c.Password,
-		c.Database,
-		c.SSLMode,
 	)
 }
 

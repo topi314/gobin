@@ -2,12 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/topi314/gobin/internal/cfg"
+	"github.com/topi314/gobin/v2/internal/cfg"
 )
 
 func NewImportCmd(parent *cobra.Command) {
@@ -65,4 +66,8 @@ Will import the token for the document jis74978 and server https://xgob.in`,
 
 	cmd.Flags().StringP("server", "s", "", "Gobin server address")
 	cmd.Flags().StringP("document", "d", "", "The document id to import the token for")
+
+	if err := cmd.RegisterFlagCompletionFunc("document", documentCompletion); err != nil {
+		log.Printf("failed to register document flag completion func: %s", err)
+	}
 }

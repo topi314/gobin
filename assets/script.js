@@ -2,29 +2,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     const matches = window.matchMedia("(prefers-color-scheme: dark)").matches;
     updateFaviconStyle(matches);
 
-    const path = window.location.pathname === "/" ? [] : window.location.pathname.slice(1).split("/")
-    let key = path.length > 0 ? path[0] : ""
-    if (key.lastIndexOf(".") > 0) {
-        key = key.substring(0, key.lastIndexOf("."));
-    }
-    const version = path.length > 1 ? path[1] : ""
+    const state = JSON.parse(document.getElementById("state").textContent);
+
     const params = new URLSearchParams(window.location.search);
     if (params.has("token")) {
-        setToken(key, params.get("token"));
+        setToken(state.key, params.get("token"));
     }
 
-    document.querySelector("#nav-btn").checked = false;
-    updateCodeEditCount(document.querySelector("#code-edit").value.length);
-
-    let content = "", language = "";
-    if (key) {
-        content = document.querySelector("#code-edit").value;
-        language = document.querySelector("#language").value;
-    }
-    const {newState, url} = createState(key, version, key ? "view" : "edit", content, language);
-    updateCode(newState);
-    updatePage(newState);
-    window.history.replaceState(newState, "", url);
+    updateButtons(state);
+    setState(state);
 });
 
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (event) => {
@@ -32,44 +18,213 @@ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (ev
 });
 
 window.addEventListener("popstate", (event) => {
+    updateFiles(event.state);
     updateCode(event.state);
-    updatePage(event.state);
+    updateButtons(event.state);
 });
 
-document.querySelector("#code-edit").addEventListener("keydown", (event) => {
-    if (event.key !== "Tab" || event.shiftKey) {
-        return;
-    }
-    event.preventDefault();
 
-    const start = event.target.selectionStart;
-    const end = event.target.selectionEnd;
-    event.target.value = event.target.value.substring(0, start) + "\t" + event.target.value.substring(end);
-    event.target.selectionStart = event.target.selectionEnd = start + 1;
-});
+/* File Events */
 
-document.querySelector("#code-edit").addEventListener("input", (event) => {
-    updateCodeEditCount(event.target.value.length);
+document.getElementById("files").addEventListener("change", (e) => {
+    const state = getState();
+    state.current_file = parseInt(e.target.value);
+
+    updateCode(state);
+    setState(state);
 })
 
-function updateCodeEditCount(count) {
-    const countElement = document.querySelector("#code-edit-count");
+document.getElementById("files").addEventListener("dblclick", (e) => {
+    if (e.target.tagName.toLowerCase() !== "span") {
+        return;
+    }
+    const state = getState();
+    if (state.mode !== "edit") {
+        return;
+    }
+    e.target.contentEditable = true;
+    e.target.focus();
+});
+
+document.getElementById("files").addEventListener("focusout", (e) => {
+    if (e.target.tagName.toLowerCase() !== "span") {
+        return;
+    }
+    const state = getState();
+    if (state.mode !== "edit") {
+        return;
+    }
+    e.target.contentEditable = false;
+});
+
+document.getElementById("files").addEventListener("keypress", (e) => {
+    const state = getState();
+    if (state.mode !== "edit") {
+        return;
+    }
+    if (e.key === "Enter") {
+        e.preventDefault();
+        if (e.target.contentEditable) {
+            e.target.blur();
+        }
+    }
+});
+
+document.getElementById("files").addEventListener("input", (e) => {
+    if (e.target.name === "files") {
+        return;
+    }
+    const state = getState();
+    state.files[state.current_file].name = e.target.innerText;
+    setState(state);
+})
+
+document.getElementById("files").addEventListener("click", (e) => {
+    if (e.target.tagName.toLowerCase() !== "button") {
+        return;
+    }
+    const state = getState();
+    const index = parseInt(document.getElementById(e.target.parentElement.htmlFor).value);
+    state.files.splice(index, 1);
+
+    if (index === state.current_file) {
+        state.current_file = 0;
+    }
+
+    if (state.files.length === 0) {
+        state.files.push({
+            name: "untitled",
+            content: "",
+            formatted: "",
+            language: "auto"
+        })
+    }
+
+    updateFiles(state);
+    updateCode(state);
+    setState(state);
+})
+
+document.getElementById("file-add").addEventListener("click", (e) => {
+    const state = getState();
+    const index = state.files.length;
+
+    state.files[index] = {
+        name: `untitled${index}`,
+        content: "",
+        formatted: "",
+        language: "auto"
+    }
+
+    updateFiles(state)
+    setState(state);
+    document.querySelector(`label[for="file-${index}"]`).click();
+});
+
+
+/* Code Edit Events */
+
+document.getElementById("code-edit").addEventListener("keydown", (e) => {
+    if (e.key !== "Tab" || e.shiftKey) {
+        return;
+    }
+    e.preventDefault();
+
+    const start = e.target.selectionStart;
+    const end = e.target.selectionEnd;
+    e.target.value = e.target.value.substring(0, start) + "\t" + e.target.value.substring(end);
+    e.target.selectionStart = e.target.selectionEnd = start + 1;
+});
+
+document.getElementById("code-edit").addEventListener("input", (e) => {
+    const state = getState();
+    state.files[state.current_file].content = e.target.value;
+
+    const count = e.target.value.length;
+    const countElement = document.getElementById("code-edit-count");
     countElement.innerHTML = count
-    const maxElement = document.querySelector("#code-edit-max");
+    const maxElement = document.getElementById("code-edit-max");
     if (!maxElement) return;
     if (count > maxElement.innerHTML) {
         countElement.classList.add("error");
     } else {
         countElement.classList.remove("error");
     }
-}
+});
 
-document.querySelector("#code-edit").addEventListener("paste", (event) => {
-    const {key, version, mode, language} = getState();
-    const {newState, url} = createState(key, version, mode, event.target.value, language);
-    updatePage(newState);
-    window.history.replaceState(newState, "", url);
+document.getElementById("code-edit").addEventListener("paste", (event) => {
+    const state = getState();
+    state.files[state.current_file].content = event.target.value;
+    updateButtons(state);
+    setState(state);
 })
+
+document.getElementById("code-edit").addEventListener("cut", (event) => {
+    const state = getState();
+    state.files[state.current_file].content = event.target.value;
+    updateButtons(state);
+    setState(state);
+})
+
+document.getElementById("code-edit").addEventListener("keyup", (event) => {
+    const state = getState();
+    state.files[state.current_file].content = event.target.value;
+    updateButtons(state);
+    setState(state);
+})
+
+/* Footer Events */
+
+document.getElementById("version").addEventListener("change", async (e) => {
+    const state = getState();
+
+    let newVersion = e.target.value;
+    if (newVersion === state.version) {
+        return;
+    }
+    if (e.target.options.item(0).value === newVersion) {
+        newVersion = 0;
+    }
+
+    const document = await fetchDocument(state.key, newVersion);
+    if (!document) {
+        return;
+    }
+
+    state.version = document.version;
+    state.files = document.files;
+    if (state.current_file >= state.files.length) {
+        state.current_file = state.files.length - 1;
+    }
+
+    updateVersionSelect(e.target.selectedIndex);
+
+    updateFiles(state)
+    updateCode(state)
+
+    addState(state)
+});
+
+document.getElementById("style").addEventListener("change", (e) => {
+    const style = e.target.value;
+    const theme = e.target.options.item(e.target.selectedIndex).dataset.theme;
+    setCookie("style", style);
+    document.documentElement.setAttribute("data-theme", theme);
+    document.documentElement.classList.replace(theme === "dark" ? "light" : "dark", theme);
+    const themeCssElement = document.getElementById("theme-css");
+
+    const href = new URL(themeCssElement.href);
+    href.searchParams.set("style", style);
+    themeCssElement.href = href.toString();
+});
+
+document.getElementById("language").addEventListener("change", (e) => {
+    const state = getState();
+    state.files[state.current_file].language = e.target.value;
+    addState(state);
+});
+
+/* Keyboard Shortcut Events */
 
 document.addEventListener("keydown", (event) => {
     const shortcuts = {s: "save", n: "new", e: "edit", d: "duplicate"};
@@ -77,180 +232,167 @@ document.addEventListener("keydown", (event) => {
     doKeyboardAction(event, shortcuts[event.key]);
 })
 
-const doKeyboardAction = (event, elementName) => {
+const doKeyboardAction = (event, elementId) => {
     event.preventDefault();
-    if (document.querySelector(`#${elementName}`).disabled) return;
-    document.querySelector(`#${elementName}`).click();
+    if (document.getElementById(elementId).disabled) return;
+    document.getElementById(elementId).click();
 }
 
-document.querySelector("#code-edit").addEventListener("keyup", (event) => {
-    const {key, version, language} = getState();
-    const {newState, url} = createState(key, version, "edit", event.target.value, language);
-    updatePage(newState);
-    window.history.replaceState(newState, "", url);
-})
+/* Navigation Action Button Events */
 
-document.querySelector("#edit").addEventListener("click", async () => {
-    if (document.querySelector("#edit").disabled) return;
+document.getElementById("edit").addEventListener("click", async () => {
+    if (document.getElementById("edit").disabled) return;
 
-    const {key, content, language} = getState();
-    const {newState, url} = createState(hasPermission(getToken(key), "write") ? key : "", "", "edit", content, language);
-    updateCode(newState);
-    updatePage(newState);
-    window.history.pushState(newState, "", url);
-})
-
-document.querySelector("#save").addEventListener("click", async () => {
-    if (document.querySelector("#save").disabled) return;
-    const {key, mode, content, language} = getState()
-    if (mode !== "edit") return;
-    const token = getToken(key);
-    const saveButton = document.querySelector("#save");
-    saveButton.classList.add("loading");
-
-    let response;
-    if (key && token) {
-        response = await fetch(`/documents/${key}?formatter=html${language ? `&language=${language || "auto"}` : ""}`, {
-            method: "PATCH",
-            body: content,
-            headers: {
-                Authorization: `Bearer ${token}`,
-            }
-        });
-    } else {
-        response = await fetch(`/documents?formatter=html${language ? `&language=${language || "auto"}` : ""}`, {
-            method: "POST",
-            body: content,
-        });
+    const state = getState();
+    if (!hasPermission(getToken(state.key), PermissionWrite)) {
+        state.key = "";
     }
-    saveButton.classList.remove("loading");
+    state.mode = "edit";
+    state.version = 0;
 
-    let body = await response.text();
-    try {
-        body = JSON.parse(body);
-    } catch (e) {
-        body = {message: body};
-    }
-    if (!response.ok) {
-        showErrorPopup(body.message || response.statusText);
-        console.error("error saving document:", response);
-        return;
-    }
-
-    const {newState, url} = createState(body.key, "", "view", content, body.language);
-    if (body.token) {
-        setToken(body.key, body.token);
-    }
-    document.querySelector("#code-view").innerHTML = body.formatted;
-    document.querySelector("#code-style").innerHTML = body.css;
-    document.querySelector("#code-edit").value = body.data;
-    document.querySelector("#language").value = body.language;
-
-    const optionElement = document.createElement("option")
-    optionElement.title = `${body.version_time}`;
-    optionElement.value = body.version;
-    optionElement.innerText = `${body.version_label}`;
-
-    updateVersionSelect(-1);
-    const versionElement = document.querySelector("#version")
-    versionElement.insertBefore(optionElement, versionElement.firstChild);
-    versionElement.value = body.version;
-
-    updateCode(newState);
-    updatePage(newState);
-    window.history.pushState(newState, "", url);
+    updateCode(state);
+    updateButtons(state);
+    addState(state)
 });
 
-document.querySelector("#delete").addEventListener("click", async () => {
-    if (document.querySelector("#delete").disabled) return;
-
-    const {key} = getState();
-    const token = getToken(key);
-    if (!token) return;
-
-    const deleteConfirm = window.confirm("Are you sure you want to delete this document? This action cannot be undone.")
-    if (!deleteConfirm) return;
-
-    const deleteButton = document.querySelector("#delete");
-    deleteButton.classList.add("loading");
-    let response = await fetch(`/documents/${key}`, {
-        method: "DELETE",
-        headers: {
-            Authorization: `Bearer ${token}`
-        }
-    });
-    deleteButton.classList.remove("loading");
-
-    if (!response.ok) {
-        let body = await response.text();
-        try {
-            body = JSON.parse(body);
-        } catch (e) {
-            body = {message: body};
-        }
-        showErrorPopup(body.message || response.statusText)
-        console.error("error deleting document:", response);
+document.getElementById("save").addEventListener("click", async () => {
+    if (document.getElementById("save").disabled) {
         return;
     }
-    deleteToken();
-    const {newState, url} = createState("", "", "edit", "", "");
-    updateCode(newState);
-    updatePage(newState);
-    window.history.pushState(newState, "", url);
+    const state = getState();
+    if (state.mode !== "edit") {
+        return;
+    }
+
+    const saveButton = document.getElementById("save");
+    saveButton.classList.add("loading");
+    const doc = await saveDocument(state.key, state.files);
+    saveButton.classList.remove("loading");
+
+    if (!doc) {
+        return;
+    }
+    state.key = doc.key;
+    state.version = 0;
+    state.files = doc.files;
+    state.mode = "view";
+
+    if (doc.token) {
+        setToken(doc.key, doc.token);
+    }
+
+    const optionElement = document.createElement("option");
+    optionElement.title = `${doc.version_time}`;
+    optionElement.value = doc.version;
+    optionElement.innerText = `${doc.version_label}`;
+
+    updateVersionSelect(-1);
+    const versionElement = document.getElementById("version");
+    versionElement.insertBefore(optionElement, versionElement.firstChild);
+    versionElement.value = doc.version;
+
+    updateCode(state);
+    updateButtons(state);
+    addState(state);
+});
+
+document.getElementById("delete").addEventListener("click", async () => {
+    if (document.getElementById("delete").disabled) {
+        return;
+    }
+
+    const state = getState();
+    const token = getToken(state.key);
+    if (!token) {
+        return;
+    }
+
+    const deleteConfirm = window.confirm("Are you sure you want to delete this document? This action cannot be undone.")
+    if (!deleteConfirm) {
+        return;
+    }
+
+    const deleteButton = document.getElementById("delete");
+    deleteButton.classList.add("loading");
+    await deleteDocument(state.key, token)
+    deleteButton.classList.remove("loading");
+
+    deleteToken(state.key);
+
+    state.key = "";
+    state.vesion = 0;
+    state.mode = "edit"
+    state.files = [{
+        name: "untitled",
+        content: "",
+        formatted: "",
+        language: "auto"
+    }];
+    state.file_selected = 0;
+
+    updateCode(state);
+    updateButtons(state);
+    addState(state);
 })
 
-document.querySelector("#copy").addEventListener("click", async () => {
-    if (document.querySelector("#copy").disabled) return;
+document.getElementById("copy").addEventListener("click", async () => {
+    if (document.getElementById("copy").disabled) {
+        return;
+    }
 
-    const {content} = getState();
-    if (!content) return;
-    await navigator.clipboard.writeText(content);
+    const state = getState();
+    await navigator.clipboard.writeText(state.files[state.current_file].content);
 })
 
-document.querySelector("#raw").addEventListener("click", () => {
-    if (document.querySelector("#raw").disabled) return;
+document.getElementById("raw").addEventListener("click", () => {
+    if (document.getElementById("raw").disabled) {
+        return;
+    }
 
     const {key, version} = getState();
     if (!key) return;
-    window.open(`/raw/${key}${version ? `/versions/${version}` : ""}`, "_blank").focus();
+    window.open(`/raw/${key}${version !== 0 ? `/versions/${version}` : ""}`, "_blank").focus();
 })
 
-document.querySelector("#share").addEventListener("click", async () => {
-    if (document.querySelector("#share").disabled) return;
+document.getElementById("share").addEventListener("click", async () => {
+    if (document.getElementById("share").disabled) return;
 
     const {key} = getState();
     const token = getToken(key);
-    if (!hasPermission(token, "share")) {
+    if (!hasPermission(token, PermissionShare)) {
         await navigator.clipboard.writeText(window.location.href);
         return;
     }
 
-    document.querySelector("#share-permissions-write").checked = false;
-    document.querySelector("#share-permissions-delete").checked = false;
-    document.querySelector("#share-permissions-share").checked = false;
+    document.getElementById("share-permissions-write").checked = false;
+    document.getElementById("share-permissions-delete").checked = false;
+    document.getElementById("share-permissions-share").checked = false;
 
-    document.querySelector("#share-dialog").showModal();
+    document.getElementById("share-dialog").showModal();
 });
 
-document.querySelector("#share-dialog-close").addEventListener("click", () => {
-    document.querySelector("#share-dialog").close();
+document.getElementById("share-dialog-close").addEventListener("click", () => {
+    document.getElementById("share-dialog").close();
 });
 
-document.querySelector("#share-copy").addEventListener("click", async () => {
+document.getElementById("share-copy").addEventListener("click", async () => {
     const permissions = [];
-    if (document.querySelector("#share-permissions-write").checked) {
+    if (document.getElementById("share-permissions-write").checked) {
         permissions.push("write");
     }
-    if (document.querySelector("#share-permissions-delete").checked) {
+    if (document.getElementById("share-permissions-delete").checked) {
         permissions.push("delete");
     }
-    if (document.querySelector("#share-permissions-share").checked) {
+    if (document.getElementById("share-permissions-share").checked) {
         permissions.push("share");
+    }
+    if (document.getElementById("share-permissions-webhook").checked) {
+        permissions.push("webhook");
     }
 
     if (permissions.length === 0) {
         await navigator.clipboard.writeText(window.location.href);
-        document.querySelector("#share-dialog").close();
+        document.getElementById("share-dialog").close();
         return;
     }
 
@@ -276,78 +418,48 @@ document.querySelector("#share-copy").addEventListener("click", async () => {
     const body = await response.json()
     const shareUrl = window.location.href + "?token=" + body.token;
     await navigator.clipboard.writeText(shareUrl);
-    document.querySelector("#share-dialog").close();
+    document.getElementById("share-dialog").close();
 });
 
-
-document.querySelector("#language").addEventListener("change", async (event) => {
-    const {key, version, mode, content} = getState();
-    const {newState, url} = createState(key, version, mode, content, event.target.value);
-    window.history.replaceState(newState, "", url);
-    if (!key) return;
-    await fetchDocument(key, version, event.target.value);
-});
-
-document.querySelector("#style").addEventListener("change", async (event) => {
-    const {key, version, mode, language} = getState();
-    const style = event.target.value;
-    const theme = event.target.options.item(event.target.selectedIndex).dataset.theme;
-    setCookie("style", style);
-    document.documentElement.setAttribute("data-theme", theme);
-    document.documentElement.classList.replace(theme === "dark" ? "light" : "dark", theme);
-    if (!key || mode === "edit") {
-        await fetchCSS(style);
-        return;
+async function saveDocument(key, files) {
+    const data = new FormData();
+    for (const [i, file] of files.entries()) {
+        const blob = new Blob([file.content], {
+            type: file.language,
+        })
+        data.append(`file-${i}`, blob, file.name);
     }
-    await fetchDocument(key, version, language);
-});
 
-document.querySelector("#version").addEventListener("change", async (event) => {
-    const {key, version} = getState();
-    let newVersion = event.target.value;
-    if (event.target.options.item(0).value === newVersion) {
-        newVersion = "";
+    const headers = {};
+    const token = getToken(key);
+    if (token) {
+        headers["Authorization"] = `Bearer ${token}`
     }
-    if (newVersion === version) return;
 
-    const {newState, url} = await fetchDocument(key, newVersion);
-
-    updateVersionSelect(event.target.selectedIndex);
-
-    updateCode(newState);
-    window.history.pushState(newState, "", url);
-})
-
-function updateVersionSelect(currentIndex) {
-    const versionElement = document.querySelector("#version")
-    for (let i = 0; i < versionElement.options.length; i++) {
-        const element = versionElement.options.item(i);
-        if (element.innerText.endsWith(" (current)")) {
-            element.innerText = element.innerText.substring(0, element.innerText.length - 10);
-        }
-    }
-    if (currentIndex !== versionElement.options.length - 1 && currentIndex !== -1) {
-        versionElement.options.item(currentIndex).innerText += " (current)";
-    }
-}
-
-async function fetchCSS(style) {
-    const response = await fetch(`/assets/theme.css?style=${style}`, {
-        method: "GET"
+    const response = await fetch(`/documents/${key}?formatter=html`, {
+        body: data,
+        method: key !== "" ? "PATCH" : "POST",
+        headers: headers
     });
 
     let body = await response.text();
+    try {
+        body = JSON.parse(body);
+    } catch (e) {
+        body = {message: body};
+    }
+
     if (!response.ok) {
         showErrorPopup(body.message || response.statusText);
-        console.error("error fetching css:", response);
+        console.error("error saving document:", response);
         return;
     }
 
-    document.querySelector("#theme-style").innerHTML = body;
+    return body
 }
 
-async function fetchDocument(key, version, language) {
-    const response = await fetch(`/documents/${key}${version ? `/versions/${version}` : ""}?formatter=html${language ? `&language=${language}` : ""}`, {
+async function fetchDocument(key, version) {
+    const response = await fetch(`/documents/${key}${version !== 0 ? `/versions/${version}` : ""}?formatter=html`, {
         method: "GET"
     });
 
@@ -363,13 +475,31 @@ async function fetchDocument(key, version, language) {
         return;
     }
 
-    document.querySelector("#code-view").innerHTML = body.formatted;
-    document.querySelector("#code-style").innerHTML = body.css;
-    document.querySelector("#theme-style").innerHTML = body.theme_css;
-    document.querySelector("#code-edit").value = body.data;
-    document.querySelector("#language").value = body.language;
+    return body
+}
 
-    return createState(key, `${body.version === 0 ? "" : body.version}`, "view", body.data, body.language);
+async function deleteDocument(key, token) {
+    const response = await fetch(`/documents/${key}`, {
+        method: "DELETE",
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
+    });
+
+    if (response.status === 204) {
+        return;
+    }
+
+    let body = await response.text();
+    try {
+        body = JSON.parse(body);
+    } catch (e) {
+        body = {message: body};
+    }
+    if (!response.ok) {
+        showErrorPopup(body.message || response.statusText);
+        console.error("error fetching document version:", response);
+    }
 }
 
 function showErrorPopup(message) {
@@ -383,8 +513,23 @@ function getState() {
     return window.history.state;
 }
 
-function createState(key, version, mode, content, language) {
-    return {newState: {key, version, mode, content: content.trim(), language}, url: `/${key}${version ? `/${version}` : ""}${window.location.hash}`};
+function getURL(state) {
+    const url = new URL(window.location.href);
+    if (state.files.length > 1) {
+        url.searchParams.set("file", state.files[state.current_file].name);
+    } else {
+        url.searchParams.delete("file");
+    }
+    url.pathname = `/${state.key}${state.version !== 0 ? `/${state.version}` : ""}`;
+    return url.toString();
+}
+
+function setState(state) {
+    window.history.replaceState(state, "", getURL(state))
+}
+
+function addState(state) {
+    window.history.pushState(state, "", getURL(state))
 }
 
 function getToken(key) {
@@ -406,8 +551,7 @@ function setToken(key, token) {
     localStorage.setItem("documents", JSON.stringify(parsedDocuments))
 }
 
-function deleteToken() {
-    const {key} = getState();
+function deleteToken(key) {
     const documents = localStorage.getItem("documents");
     if (!documents) return;
     const parsedDocuments = JSON.parse(documents);
@@ -415,62 +559,110 @@ function deleteToken() {
     localStorage.setItem("documents", JSON.stringify(parsedDocuments));
 }
 
+const PermissionWrite = 1
+const PermissionDelete = 2
+const PermissionShare = 4
+const PermissionWebhook = 8
+
 function hasPermission(token, permission) {
     if (!token) return false;
     const tokenSplit = token.split(".")
     if (tokenSplit.length !== 3) return false;
-    return JSON.parse(atob(tokenSplit[1])).permissions.includes(permission);
+    return (JSON.parse(atob(tokenSplit[1])).pms & permission) === permission;
+}
+
+function updateVersionSelect(currentIndex) {
+    const versionElement = document.getElementById("version")
+    for (let i = 0; i < versionElement.options.length; i++) {
+        const element = versionElement.options.item(i);
+        if (element.innerText.endsWith(" (current)")) {
+            element.innerText = element.innerText.substring(0, element.innerText.length - 10);
+        }
+    }
+    if (currentIndex !== versionElement.options.length - 1 && currentIndex !== -1) {
+        versionElement.options.item(currentIndex).innerText += " (current)";
+    }
+}
+
+function updateFiles(state) {
+    const nodes = [];
+    for (const [i, file] of state.files.entries()) {
+        const input = document.createElement("input");
+        input.id = `file-${i}`;
+        input.type = "radio";
+        input.name = "files";
+        input.value = `${i}`;
+        if (i === state.current_file) {
+            input.checked = true;
+        }
+
+        const label = document.createElement("label");
+        label.htmlFor = `file-${i}`;
+        label.innerHTML += `<span>${file.name}</span><button class="file-remove" ${state.mode === "view" ? "disabled" : ""}></button>`;
+
+        nodes.push(input);
+        nodes.push(label);
+    }
+
+    const files = document.getElementById("files");
+    nodes.push(files.lastElementChild);
+
+    files.replaceChildren(...nodes);
 }
 
 function updateCode(state) {
     if (!state) return;
-    const {mode} = state;
 
-    const codeElement = document.querySelector("#code");
-    const codeEditElement = document.querySelector("#code-edit");
+    const codeElement = document.getElementById("code");
+    const codeEditElement = document.getElementById("code-edit");
 
-    if (mode === "view") {
+    if (state.mode === "view") {
         codeEditElement.style.display = "none";
         codeElement.style.display = "block";
-        return;
+    } else {
+        codeEditElement.style.display = "block";
+        codeElement.style.display = "none";
     }
-    codeEditElement.style.display = "block";
-    codeElement.style.display = "none";
+
+    const file = state.files[state.current_file];
+    document.getElementById("code-edit").value = file.content;
+    document.getElementById("code-view").innerHTML = file.formatted;
+    document.getElementById("code-edit-count").innerText = `${file.content.length}`;
+    document.getElementById("language").value = file.language;
 }
 
-function updatePage(state) {
-    if (!state) return;
-    const {key, mode, content} = state;
-    const token = getToken(key);
+function updateButtons(state) {
+    const token = getToken(state.key);
     // update page title
-    if (key) {
-        document.title = `gobin - ${key}`;
+    if (state.key) {
+        document.title = `gobin - ${state.key}`;
     } else {
         document.title = "gobin";
     }
 
-    const saveButton = document.querySelector("#save");
-    const editButton = document.querySelector("#edit");
-    const deleteButton = document.querySelector("#delete");
-    const copyButton = document.querySelector("#copy");
-    const rawButton = document.querySelector("#raw");
-    const shareButton = document.querySelector("#share");
-    const versionSelect = document.querySelector("#version");
+    document.querySelectorAll(".file-remove").forEach((element) => element.disabled = state.mode === "view");
+
+    const fileAddButton = document.getElementById("file-add");
+    const saveButton = document.getElementById("save");
+    const editButton = document.getElementById("edit");
+    const deleteButton = document.getElementById("delete");
+    const copyButton = document.getElementById("copy");
+    const rawButton = document.getElementById("raw");
+    const shareButton = document.getElementById("share");
+    const versionSelect = document.getElementById("version");
     versionSelect.disabled = versionSelect.options.length <= 1;
-    if (mode === "view") {
-        saveButton.disabled = true;
+    if (state.mode === "view") {
+        fileAddButton.style.display = "none";
         saveButton.style.display = "none";
-        editButton.disabled = false;
         editButton.style.display = "block";
-        deleteButton.disabled = !hasPermission(token, "delete");
+        deleteButton.disabled = !hasPermission(token, PermissionDelete);
         copyButton.disabled = false;
         rawButton.disabled = false;
         shareButton.disabled = false;
-        return
+        return;
     }
-    saveButton.disabled = content === "";
-    saveButton.style.display = "block";
-    editButton.disabled = true;
+    fileAddButton.style.display = "block";
+    saveButton.style.display = state.files.findIndex(file => file.content.length > 0) === -1 ? "none" : "block";
     editButton.style.display = "none";
     deleteButton.disabled = true;
     copyButton.disabled = true;

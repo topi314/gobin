@@ -12,11 +12,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/alecthomas/chroma/v2/formatters/html"
-	"github.com/alecthomas/chroma/v2/styles"
-	"github.com/go-chi/httprate"
 	"github.com/go-jose/go-jose/v3"
-	"github.com/topi314/gobin/templates"
+	"github.com/topi314/chroma/v2/formatters/html"
+	"github.com/topi314/chroma/v2/styles"
+	"github.com/topi314/gobin/v2/gobin/database"
+	"github.com/topi314/gobin/v2/internal/httperr"
+	"github.com/topi314/gobin/v2/internal/httprate"
+	"github.com/topi314/gobin/v2/templates"
 	"github.com/topi314/tint"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -24,7 +26,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func NewServer(version string, debug bool, cfg Config, db *DB, signer jose.Signer, tracer trace.Tracer, meter metric.Meter, assets http.FileSystem, htmlFormatter *html.Formatter) *Server {
+func NewServer(version string, debug bool, cfg Config, db *database.DB, signer jose.Signer, tracer trace.Tracer, meter metric.Meter, assets http.FileSystem, htmlFormatter *html.Formatter, standaloneHTMLFormatter *html.Formatter) *Server {
 	var allStyles []templates.Style
 	for _, name := range styles.Names() {
 		allStyles = append(allStyles, templates.Style{
@@ -33,12 +35,9 @@ func NewServer(version string, debug bool, cfg Config, db *DB, signer jose.Signe
 		})
 	}
 
-	s := &Server{
-		version: version,
-		debug:   debug,
-		cfg:     cfg,
-		db:      db,
-		client: &http.Client{
+	var client *http.Client
+	if cfg.Webhook != nil {
+		client = &http.Client{
 			Transport: otelhttp.NewTransport(
 				http.DefaultTransport,
 				otelhttp.WithClientTrace(func(ctx context.Context) *httptrace.ClientTrace {
@@ -46,13 +45,22 @@ func NewServer(version string, debug bool, cfg Config, db *DB, signer jose.Signe
 				}),
 			),
 			Timeout: cfg.Webhook.Timeout,
-		},
-		signer:        signer,
-		tracer:        tracer,
-		meter:         meter,
-		assets:        assets,
-		styles:        allStyles,
-		htmlFormatter: htmlFormatter,
+		}
+	}
+
+	s := &Server{
+		version:                 version,
+		debug:                   debug,
+		cfg:                     cfg,
+		db:                      db,
+		client:                  client,
+		signer:                  signer,
+		tracer:                  tracer,
+		meter:                   meter,
+		assets:                  assets,
+		styles:                  allStyles,
+		htmlFormatter:           htmlFormatter,
+		standaloneHTMLFormatter: standaloneHTMLFormatter,
 	}
 
 	s.server = &http.Server{
@@ -64,11 +72,9 @@ func NewServer(version string, debug bool, cfg Config, db *DB, signer jose.Signe
 		s.rateLimitHandler = httprate.NewRateLimiter(
 			cfg.RateLimit.Requests,
 			cfg.RateLimit.Duration,
-			httprate.WithLimitHandler(s.rateLimit),
-			httprate.WithKeyFuncs(
-				httprate.KeyByIP,
-				httprate.KeyByEndpoint,
-			),
+			func(w http.ResponseWriter, r *http.Request) {
+				s.error(w, r, httperr.TooManyRequests(ErrRateLimit))
+			},
 		).Handler
 	}
 
@@ -76,20 +82,21 @@ func NewServer(version string, debug bool, cfg Config, db *DB, signer jose.Signe
 }
 
 type Server struct {
-	version          string
-	debug            bool
-	cfg              Config
-	db               *DB
-	server           *http.Server
-	client           *http.Client
-	signer           jose.Signer
-	tracer           trace.Tracer
-	meter            metric.Meter
-	assets           http.FileSystem
-	htmlFormatter    *html.Formatter
-	styles           []templates.Style
-	rateLimitHandler func(http.Handler) http.Handler
-	webhookWaitGroup sync.WaitGroup
+	version                 string
+	debug                   bool
+	cfg                     Config
+	db                      *database.DB
+	server                  *http.Server
+	client                  *http.Client
+	signer                  jose.Signer
+	tracer                  trace.Tracer
+	meter                   metric.Meter
+	assets                  http.FileSystem
+	htmlFormatter           *html.Formatter
+	standaloneHTMLFormatter *html.Formatter
+	styles                  []templates.Style
+	rateLimitHandler        func(http.Handler) http.Handler
+	webhookWaitGroup        sync.WaitGroup
 }
 
 func (s *Server) Start() {

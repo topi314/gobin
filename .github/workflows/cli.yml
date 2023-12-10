@@ -2,6 +2,7 @@ name: CLI
 
 on:
   push:
+    paths-ignore: [ "*.md" ]
 
 jobs:
   cli-build:
@@ -41,13 +42,14 @@ jobs:
           echo "VERSION=$(git describe --tags)" >> $GITHUB_ENV
           echo "COMMIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
           echo "BUILD_TIME=$(date --rfc-3339=seconds)" >> $GITHUB_ENV
+          echo $GITHUB_ENV
 
       - name: Build
         run: |
           CGO_ENABLED=0
           GOOS=${{ matrix.goos }}
           GOARCH=${{ matrix.goarch }}
-          go build -ldflags="-X 'main.Version=${{ env.VERSION }}' -X 'main.Commit=${{ env.COMMIT }}' -X 'main.BuildTime=${{ env.BUILD_TIME }}'" -o dist/gobin-${{ matrix.goos }}-${{ matrix.goarch }}${{ env.file_name }} github.com/topi314/gobin/cli
+          go build -ldflags="-X 'main.Version=${{ env.VERSION }}' -X 'main.Commit=${{ env.COMMIT }}' -X 'main.BuildTime=${{ env.BUILD_TIME }}'" -o dist/gobin-${{ matrix.goos }}-${{ matrix.goarch }}${{ env.file_name }} github.com/topi314/gobin/v2/cli
 
       - name: Upload
         uses: actions/upload-artifact@v3
