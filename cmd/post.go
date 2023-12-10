@@ -15,9 +15,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/topi314/chroma/v2/lexers"
-	"github.com/topi314/gobin/gobin"
-	"github.com/topi314/gobin/internal/cfg"
-	"github.com/topi314/gobin/internal/ezhttp"
+	"github.com/topi314/gobin/v2/gobin"
+	"github.com/topi314/gobin/v2/internal/cfg"
+	"github.com/topi314/gobin/v2/internal/ezhttp"
 )
 
 func NewPostCmd(parent *cobra.Command) {

@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/topi314/gobin/gobin/database"
-	"github.com/topi314/gobin/internal/flags"
-	"github.com/topi314/gobin/internal/httperr"
+	"github.com/topi314/gobin/v2/gobin/database"
+	"github.com/topi314/gobin/v2/internal/flags"
+	"github.com/topi314/gobin/v2/internal/httperr"
 	"github.com/topi314/tint"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"

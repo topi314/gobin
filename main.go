@@ -21,8 +21,8 @@ import (
 	"github.com/topi314/chroma/v2/formatters/html"
 	"github.com/topi314/chroma/v2/lexers"
 	"github.com/topi314/chroma/v2/styles"
-	"github.com/topi314/gobin/gobin"
-	"github.com/topi314/gobin/gobin/database"
+	"github.com/topi314/gobin/v2/gobin"
+	"github.com/topi314/gobin/v2/gobin/database"
 	"github.com/topi314/tint"
 	meternoop "go.opentelemetry.io/otel/metric/noop"
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
@@ -33,7 +33,7 @@ import (
 // These variables are set via the -ldflags option in go build
 var (
 	Name      = "gobin"
-	Namespace = "github.com/topi314/gobin"
+	Namespace = "github.com/topi314/gobin/v2"
 
 	Version   = "unknown"
 	Commit    = "unknown"

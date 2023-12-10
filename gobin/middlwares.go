@@ -12,7 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/stampede"
 	"github.com/go-jose/go-jose/v3/jwt"
-	"github.com/topi314/gobin/internal/httperr"
+	"github.com/topi314/gobin/v2/internal/httperr"
 )
 
 const maxUnix = int(^int32(0))

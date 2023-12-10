@@ -8,7 +8,7 @@ import (
 	"github.com/topi314/chroma/v2"
 	"github.com/topi314/chroma/v2/formatters"
 	"github.com/topi314/chroma/v2/lexers"
-	"github.com/topi314/gobin/gobin/database"
+	"github.com/topi314/gobin/v2/gobin/database"
 )
 
 func getFormatter(r *http.Request, fallback bool) (chroma.Formatter, string) {

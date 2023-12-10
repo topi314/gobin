@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/topi314/gobin/gobin/database"
+	"github.com/topi314/gobin/v2/gobin/database"
 )
 
 type Config struct {

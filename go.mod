@@ -1,4 +1,4 @@
-module github.com/topi314/gobin
+module github.com/topi314/gobin/v2
 
 go 1.21
 
@@ -10,7 +10,7 @@ require (
 	github.com/go-chi/chi/v5 v5.0.10
 	github.com/go-chi/stampede v0.5.1
 	github.com/go-jose/go-jose/v3 v3.0.1
-	github.com/jackc/pgx/v5 v5.5.0
+	github.com/jackc/pgx/v5 v5.5.1
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/mattn/go-colorable v0.1.13
 	github.com/mitchellh/mapstructure v1.5.0

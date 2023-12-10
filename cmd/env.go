@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/topi314/gobin/internal/cfg"
+	"github.com/topi314/gobin/v2/internal/cfg"
 )
 
 func NewEnvCmd(parent *cobra.Command) {

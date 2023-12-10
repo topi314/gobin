@@ -3,8 +3,8 @@ package main
 import (
 	"time"
 
-	"github.com/topi314/gobin/cmd"
-	"github.com/topi314/gobin/gobin"
+	"github.com/topi314/gobin/v2/cmd"
+	"github.com/topi314/gobin/v2/gobin"
 )
 
 // These variables are set via the -ldflags option in go build

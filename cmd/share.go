@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/topi314/gobin/gobin"
-	"github.com/topi314/gobin/internal/ezhttp"
+	"github.com/topi314/gobin/v2/gobin"
+	"github.com/topi314/gobin/v2/internal/ezhttp"
 )
 
 func NewShareCmd(parent *cobra.Command) {

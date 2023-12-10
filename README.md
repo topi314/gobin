@@ -1,4 +1,4 @@
-[![Go Report](https://goreportcard.com/badge/github.com/topi314/gobin)](https://goreportcard.com/report/github.com/topi314/gobin)
+[![Go Report](https://goreportcard.com/badge/github.com/topi314/gobin/v2)](https://goreportcard.com/report/github.com/topi314/gobin/v2)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/topi314/gobin)](https://golang.org/doc/devel/release.html)
 [![KittyBot License](https://img.shields.io/github/license/topi314/gobin)](LICENSE)
 [![KittyBot Version](https://img.shields.io/github/v/tag/topi314/gobin?label=release)](https://github.com/topi314/gobin/releases/latest)
@@ -136,13 +136,13 @@ docker-compose up -d
 ```bash
 git clone https://github.com/topi314/gobin.git
 cd gobin
-go build -o gobin github.com/topi314/gobin
+go build -o gobin github.com/topi314/gobin/v2
 ```
 
 or
 
 ```bash
-go install github.com/topi314/gobin@latest
+go install github.com/topi314/gobin/v2@latest
 ```
 
 ##### Run
@@ -170,13 +170,13 @@ You can find the latest release on [Releases](https://github.com/topi314/gobin/r
 ```bash
 git clone https://github.com/topi314/gobin.git
 cd gobin
-go build -o gobin github.com/topi314/cli
+go build -o gobin github.com/topi314/gobin/v2/cli
 ```
 
 or
 
 ```bash
-go install github.com/topi314/gobin/cli@latest
+go install github.com/topi314/gobin/v2/cli@latest
 mv $(go env GOPATH)/bin/cli $(go env GOPATH)/bin/gobin
 ```
 

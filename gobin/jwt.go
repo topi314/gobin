@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/go-jose/go-jose/v3/jwt"
-	"github.com/topi314/gobin/internal/flags"
+	"github.com/topi314/gobin/v2/internal/flags"
 )
 
 type Permissions int
