@@ -394,6 +394,7 @@ func (s *Server) GetDocumentPreview(w http.ResponseWriter, r *http.Request) {
 	document, err := s.getDocument(r)
 	if err != nil {
 		s.error(w, r, err)
+		return
 	}
 
 	formatter := formatters.Get("svg")
