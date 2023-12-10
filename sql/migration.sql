@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS files
 );
 
 INSERT INTO files (name, document_id, document_version, content, language)
-SELECT DISTINCT 'untitled' as name, id as document_id, version * 1000 as document_version, content, language
+SELECT 'untitled' as name, id as document_id, version * 1000 as document_version, content, language
 FROM documents;
 
 DROP TABLE documents;
