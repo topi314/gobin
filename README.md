@@ -177,7 +177,12 @@ or
 
 ```bash
 go install github.com/topi314/gobin/v2/cli@latest
+# rename binary to gobin
 mv $(go env GOPATH)/bin/cli $(go env GOPATH)/bin/gobin
+# or move binary into /usr/local/bin
+mv $(go env GOPATH)/bin/cli /usr/local/bin/gobin
+# change file ownership to root 
+chown 0:0 /usr/local/bin/gobin
 ```
 
 ##### Run
