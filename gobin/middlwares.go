@@ -15,7 +15,7 @@ import (
 	"github.com/topi314/gobin/v2/internal/httperr"
 )
 
-const maxUnix = int(^int32(0))
+const maxUnix = int(^int32(0)) * 1000
 
 var (
 	ErrNoPermissions     = errors.New("no permissions provided")
@@ -58,11 +58,10 @@ func (s *Server) RateLimit(next http.Handler) http.Handler {
 		}
 		// Filter blacklisted IPs
 		if slices.Contains(s.cfg.RateLimit.Blacklist, remoteAddr) {
-			retryAfter := maxUnix - int(time.Now().Unix())
-			w.Header().Set("X-RateLimit-Limit", "0")
+			w.Header().Set("X-RateLimit-Limit", strconv.Itoa(s.cfg.RateLimit.Requests))
 			w.Header().Set("X-RateLimit-Remaining", "0")
 			w.Header().Set("X-RateLimit-Reset", strconv.Itoa(maxUnix))
-			w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
+			w.Header().Set("Retry-After", strconv.Itoa(maxUnix-int(time.Now().UnixMilli())))
 			w.WriteHeader(http.StatusTooManyRequests)
 			s.error(w, r, httperr.TooManyRequests(ErrRateLimit))
 			return
