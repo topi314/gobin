@@ -8,11 +8,12 @@ import (
 )
 
 type File struct {
-	DocumentID      string `db:"document_id"`
-	DocumentVersion int64  `db:"document_version"`
-	Name            string `db:"name"`
-	Content         string `db:"content"`
-	Language        string `db:"language"`
+	DocumentID      string     `db:"document_id"`
+	DocumentVersion int64      `db:"document_version"`
+	Name            string     `db:"name"`
+	Content         string     `db:"content"`
+	Language        string     `db:"language"`
+	ExpiresAt       *time.Time `db:"expires_at"`
 }
 
 type Document struct {
@@ -23,7 +24,7 @@ type Document struct {
 
 func (d *DB) GetDocument(ctx context.Context, documentID string) ([]File, error) {
 	var files []File
-	if err := d.dbx.SelectContext(ctx, &files, "SELECT name, document_id, document_version, content, language from (SELECT *, rank() OVER (PARTITION BY document_id ORDER BY document_version DESC) AS rank FROM files) AS f WHERE document_id = $1 AND rank = 1;", documentID); err != nil {
+	if err := d.dbx.SelectContext(ctx, &files, "SELECT name, document_id, document_version, content, language, expires_at from (SELECT *, rank() OVER (PARTITION BY document_id ORDER BY document_version DESC) AS rank FROM files) AS f WHERE document_id = $1 AND rank = 1;", documentID); err != nil {
 		return nil, fmt.Errorf("failed to get document: %w", err)
 	}
 
@@ -35,7 +36,7 @@ func (d *DB) GetDocument(ctx context.Context, documentID string) ([]File, error)
 
 func (d *DB) GetDocumentVersion(ctx context.Context, documentID string, documentVersion int64) ([]File, error) {
 	var files []File
-	if err := d.dbx.SelectContext(ctx, &files, "SELECT name, document_id, document_version, content, language from files WHERE document_id = $1 AND document_version = $2;", documentID, documentVersion); err != nil {
+	if err := d.dbx.SelectContext(ctx, &files, "SELECT name, document_id, document_version, content, language, expires_at from files WHERE document_id = $1 AND document_version = $2;", documentID, documentVersion); err != nil {
 		return nil, fmt.Errorf("failed to get document version: %w", err)
 	}
 
@@ -63,9 +64,9 @@ func (d *DB) GetDocumentVersions(ctx context.Context, documentID string) ([]int6
 func (d *DB) GetDocumentVersionsWithFiles(ctx context.Context, documentID string, withContent bool) (map[int64][]File, error) {
 	var query string
 	if withContent {
-		query = "SELECT name, document_id, document_version, content, language WHERE document_id = $1 ORDER BY document_version DESC;"
+		query = "SELECT name, document_id, document_version, content, language, expires_at WHERE document_id = $1 ORDER BY document_version DESC;"
 	} else {
-		query = "SELECT name, document_id, document_version, language WHERE document_id = $1 ORDER BY document_version DESC;"
+		query = "SELECT name, document_id, document_version, language, expires_at WHERE document_id = $1 ORDER BY document_version DESC;"
 	}
 
 	var files []File
@@ -93,7 +94,7 @@ func (d *DB) CreateDocument(ctx context.Context, files []File) (*string, *int64,
 		files[i].DocumentVersion = version
 	}
 
-	if _, err := d.dbx.NamedExecContext(ctx, "INSERT INTO files (name, document_id, document_version, content, language) VALUES (:name, :document_id, :document_version, :content, :language);", files); err != nil {
+	if _, err := d.dbx.NamedExecContext(ctx, "INSERT INTO files (name, document_id, document_version, content, language, expires_at) VALUES (:name, :document_id, :document_version, :content, :language, :expires_at);", files); err != nil {
 		return nil, nil, fmt.Errorf("failed to create document: %w", err)
 	}
 	return &documentID, &version, nil
@@ -105,7 +106,7 @@ func (d *DB) UpdateDocument(ctx context.Context, documentID string, files []File
 		files[i].DocumentID = documentID
 		files[i].DocumentVersion = version
 	}
-	if _, err := d.dbx.NamedExecContext(ctx, "INSERT INTO files (name, document_id, document_version, content, language) VALUES (:name, :document_id, :document_version, :content, :language);", files); err != nil {
+	if _, err := d.dbx.NamedExecContext(ctx, "INSERT INTO files (name, document_id, document_version, content, language, expires_at) VALUES (:name, :document_id, :document_version, :content, :language, :expires_at);", files); err != nil {
 		return nil, fmt.Errorf("failed to update document: %w", err)
 	}
 	return &version, nil
@@ -146,6 +147,14 @@ func (d *DB) DeleteDocumentVersion(ctx context.Context, documentID string, docum
 		return nil, sql.ErrNoRows
 	}
 
+	var lastDeletedFiles []File
+	for i := len(files) - 1; i >= 0; i-- {
+		if files[i].DocumentVersion != files[len(files)-1].DocumentVersion {
+			break
+		}
+		lastDeletedFiles = append(lastDeletedFiles, files[i])
+	}
+
 	return &Document{
 		ID:      documentID,
 		Version: documentVersion,
@@ -160,9 +169,33 @@ func (d *DB) DeleteDocumentVersions(ctx context.Context, documentID string) erro
 	return nil
 }
 
-func (d *DB) DeleteExpiredDocuments(ctx context.Context, expireAfter time.Duration) error {
-	if _, err := d.dbx.ExecContext(ctx, "DELETE FROM files WHERE document_version < $1;", time.Now().Add(expireAfter).UnixMilli()); err != nil {
-		return fmt.Errorf("failed to delete expired documents: %w", err)
+func (d *DB) DeleteExpiredDocuments(ctx context.Context, expireAfter time.Duration) ([]Document, error) {
+	now := time.Now()
+	query := "DELETE FROM files WHERE expires_at < $1"
+	if expireAfter > 0 {
+		query += " OR document_version < $2"
 	}
-	return nil
+	query += " RETURNING * ORDER BY document_id, document_version DESC"
+	var files []File
+	if err := d.dbx.SelectContext(ctx, &files, query, now, now.Add(expireAfter).UnixMilli()); err != nil {
+		return nil, fmt.Errorf("failed to delete expired documents: %w", err)
+	}
+
+	var documents []Document
+	var document Document
+	for _, file := range files {
+		if file.DocumentID != document.ID && document.ID != "" {
+			documents = append(documents, document)
+			document = Document{
+				ID:      file.DocumentID,
+				Version: file.DocumentVersion,
+			}
+		}
+		if file.DocumentVersion > document.Version {
+			continue
+		}
+		document.Files = append(document.Files, file)
+	}
+
+	return documents, nil
 }

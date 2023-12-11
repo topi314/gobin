@@ -81,12 +81,12 @@ func head(vars DocumentVars) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if vars.Preview && vars.ID != "" {
+		if vars.PreviewURL != "" && vars.ID != "" {
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<meta property=\"og:image\" content=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(vars.PreviewURL()))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(vars.PreviewURL))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -120,12 +120,12 @@ func head(vars DocumentVars) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if vars.Preview && vars.ID != "" {
+		if vars.PreviewURL != "" && vars.ID != "" {
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<meta name=\"twitter:image\" content=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString("https://" + vars.Host))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(vars.PreviewURL))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

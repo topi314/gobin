@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS files
     document_version BIGINT  NOT NULL,
     content          TEXT    NOT NULL,
     language         VARCHAR NOT NULL,
+    expires_at       TIMESTAMP,
     PRIMARY KEY (name, document_id, document_version)
 );
 

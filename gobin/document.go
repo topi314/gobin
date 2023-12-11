@@ -11,6 +11,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -48,16 +49,18 @@ type (
 	}
 
 	ResponseFile struct {
-		Name      string `json:"name"`
-		Content   string `json:"content,omitempty"`
-		Formatted string `json:"formatted,omitempty"`
-		Language  string `json:"language"`
+		Name      string     `json:"name"`
+		Content   string     `json:"content,omitempty"`
+		Formatted string     `json:"formatted,omitempty"`
+		Language  string     `json:"language"`
+		ExpiresAt *time.Time `json:"expires_at"`
 	}
 
 	RequestFile struct {
-		Name     string
-		Content  string
-		Language string
+		Name      string
+		Content   string
+		Language  string
+		ExpiresAt *time.Time
 	}
 
 	ErrorResponse struct {
@@ -115,6 +118,7 @@ func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
 				Content:   file.Content,
 				Formatted: formatted,
 				Language:  file.Language,
+				ExpiresAt: file.ExpiresAt,
 			}
 		}
 		response = append(response, DocumentResponse{
@@ -128,7 +132,12 @@ func (s *Server) DocumentVersions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
-	document, err := s.getDocument(r)
+	document, err := s.getDocument(r, func(documentID string) string {
+		uri := new(url.URL)
+		*uri = *r.URL
+		uri.Path = fmt.Sprintf("/%s", documentID)
+		return uri.String()
+	})
 	if err != nil {
 		if !errors.Is(err, ErrDocumentNotFound) {
 			s.prettyError(w, r, err)
@@ -195,8 +204,20 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var previewAlt string
+	var (
+		previewURL string
+		previewAlt string
+	)
 	if s.cfg.Preview != nil {
+		previewURL = "https://" + r.Host + "/" + document.ID
+		if version := chi.URLParam(r, "version"); version != "" {
+			previewURL += "/" + version
+		}
+		previewURL += "/preview"
+		if r.URL.RawQuery != "" {
+			previewURL += "?" + r.URL.RawQuery
+		}
+
 		previewAlt = s.shortContent(templateFiles[currentFile].Content)
 	}
 	if err = templates.Document(templates.DocumentVars{
@@ -215,7 +236,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 
 		Max:        s.cfg.MaxDocumentSize,
 		Host:       r.Host,
-		Preview:    s.cfg.Preview != nil,
+		PreviewURL: previewURL,
 		PreviewAlt: previewAlt,
 	}).Render(r.Context(), w); err != nil {
 		slog.ErrorContext(r.Context(), "failed to execute template", tint.Err(err))
@@ -223,7 +244,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
-	document, err := s.getDocument(r)
+	document, err := s.getDocument(r, nil)
 	if err != nil {
 		s.error(w, r, err)
 		return
@@ -284,7 +305,7 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
-	document, err := s.getDocument(r)
+	document, err := s.getDocument(r, nil)
 	if err != nil {
 		s.error(w, r, err)
 		return
@@ -391,7 +412,12 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) GetDocumentPreview(w http.ResponseWriter, r *http.Request) {
-	document, err := s.getDocument(r)
+	document, err := s.getDocument(r, func(documentID string) string {
+		uri := new(url.URL)
+		*uri = *r.URL
+		uri.Path = fmt.Sprintf("/%s/preview", documentID)
+		return uri.String()
+	})
 	if err != nil {
 		s.error(w, r, err)
 		return
@@ -433,10 +459,13 @@ func (s *Server) GetDocumentPreview(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(png)
 }
 
-func (s *Server) getDocument(r *http.Request) (*database.Document, error) {
+func (s *Server) getDocument(r *http.Request, fallbackURL func(documentID string) string) (*database.Document, error) {
 	documentID := chi.URLParam(r, "documentID")
 	if i := strings.Index(documentID, "."); i > 0 {
 		documentID = documentID[:i]
+	}
+	if documentID == "" {
+		return nil, httperr.NotFound(ErrDocumentNotFound)
 	}
 
 	var version int64
@@ -459,6 +488,9 @@ func (s *Server) getDocument(r *http.Request) (*database.Document, error) {
 	}
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
+			if fallbackURL != nil && version > 0 {
+				return nil, httperr.Found(fallbackURL(documentID))
+			}
 			return nil, httperr.NotFound(ErrDocumentNotFound)
 		}
 		return nil, fmt.Errorf("failed to get document: %w", err)
@@ -517,6 +549,12 @@ func (s *Server) GetRawDocumentFile(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getDocumentFile(r *http.Request) (*database.File, error) {
 	documentID := chi.URLParam(r, "documentID")
+	if i := strings.Index(documentID, "."); i > 0 {
+		documentID = documentID[:i]
+	}
+	if documentID == "" {
+		return nil, httperr.NotFound(ErrDocumentFileNotFound)
+	}
 
 	versionStr := chi.URLParam(r, "version")
 	var version int64
@@ -562,9 +600,10 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 	var dbFiles []database.File
 	for _, file := range files {
 		dbFiles = append(dbFiles, database.File{
-			Name:     file.Name,
-			Content:  file.Content,
-			Language: file.Language,
+			Name:      file.Name,
+			Content:   file.Content,
+			Language:  file.Language,
+			ExpiresAt: file.ExpiresAt,
 		})
 	}
 
@@ -589,6 +628,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 			Content:   file.Content,
 			Formatted: formatted,
 			Language:  file.Language,
+			ExpiresAt: file.ExpiresAt,
 		})
 	}
 
@@ -619,7 +659,7 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 
 	claims := GetClaims(r)
 	if flags.Misses(claims.Permissions, PermissionWrite) {
-		s.error(w, r, httperr.Forbidden(ErrPermissionDenied("webhook")))
+		s.error(w, r, httperr.Forbidden(ErrPermissionDenied("write")))
 		return
 	}
 
@@ -628,9 +668,10 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 	var dbFiles []database.File
 	for _, file := range files {
 		dbFiles = append(dbFiles, database.File{
-			Name:     file.Name,
-			Content:  file.Content,
-			Language: file.Language,
+			Name:      file.Name,
+			Content:   file.Content,
+			Language:  file.Language,
+			ExpiresAt: file.ExpiresAt,
 		})
 	}
 
@@ -655,15 +696,17 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 			Content:   file.Content,
 			Formatted: formatted,
 			Language:  file.Language,
+			ExpiresAt: file.ExpiresAt,
 		})
 	}
 
 	webhooksFiles := make([]WebhookDocumentFile, len(files))
 	for i, file := range files {
 		webhooksFiles[i] = WebhookDocumentFile{
-			Name:     file.Name,
-			Content:  file.Content,
-			Language: file.Language,
+			Name:      file.Name,
+			Content:   file.Content,
+			Language:  file.Language,
+			ExpiresAt: file.ExpiresAt,
 		}
 	}
 	s.ExecuteWebhooks(r.Context(), WebhookEventUpdate, WebhookDocument{
@@ -717,9 +760,10 @@ func (s *Server) DeleteDocument(w http.ResponseWriter, r *http.Request) {
 	webhooksFiles := make([]WebhookDocumentFile, len(document.Files))
 	for i, file := range document.Files {
 		webhooksFiles[i] = WebhookDocumentFile{
-			Name:     file.Name,
-			Content:  file.Content,
-			Language: file.Language,
+			Name:      file.Name,
+			Content:   file.Content,
+			Language:  file.Language,
+			ExpiresAt: file.ExpiresAt,
 		}
 	}
 	s.ExecuteWebhooks(r.Context(), WebhookEventDelete, WebhookDocument{
@@ -832,10 +876,19 @@ func parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 				partContentType, _, _ = mime.ParseMediaType(partContentType)
 			}
 
+			var expiresAt *time.Time
+			if expiresAtHeader := part.Header.Get("Expires-At"); expiresAtHeader != "" {
+				expiresAt, err = getExpiresAt(expiresAtHeader)
+				if err != nil {
+					return nil, err
+				}
+			}
+
 			files = append(files, RequestFile{
-				Name:     part.FileName(),
-				Content:  string(data),
-				Language: getLanguage(part.Header.Get("Language"), partContentType, part.FileName(), string(data)),
+				Name:      part.FileName(),
+				Content:   string(data),
+				Language:  getLanguage(part.Header.Get("Language"), partContentType, part.FileName(), string(data)),
+				ExpiresAt: expiresAt,
 			})
 		}
 	} else {
@@ -849,10 +902,23 @@ func parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 			name = "untitled"
 		}
 
+		var expiresAt *time.Time
+		expiresAtStr := r.Header.Get("Expires-At")
+		if expiresAtStr == "" {
+			expiresAtStr = r.URL.Query().Get("expires_at")
+		}
+		if expiresAtStr != "" {
+			expiresAt, err = getExpiresAt(expiresAtStr)
+			if err != nil {
+				return nil, err
+			}
+		}
+
 		files = []RequestFile{{
-			Name:     name,
-			Content:  string(data),
-			Language: getLanguage(r.Header.Get("Language"), contentType, params["filename"], string(data)),
+			Name:      name,
+			Content:   string(data),
+			Language:  getLanguage(r.Header.Get("Language"), contentType, params["filename"], string(data)),
+			ExpiresAt: expiresAt,
 		}}
 	}
 	for i, file := range files {
@@ -903,4 +969,12 @@ func getLanguage(language string, contentType string, fileName string, content s
 	}
 
 	return "plaintext"
+}
+
+func getExpiresAt(expiresAtStr string) (*time.Time, error) {
+	expiresAt, err := time.Parse(time.RFC3339, expiresAtStr)
+	if err != nil {
+		return nil, httperr.BadRequest(fmt.Errorf("failed to parse expires_at query param: %w", err))
+	}
+	return &expiresAt, nil
 }

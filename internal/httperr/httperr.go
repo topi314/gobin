@@ -6,8 +6,9 @@ import (
 )
 
 type Error struct {
-	Err    error
-	Status int
+	Err      error
+	Status   int
+	Location string
 }
 
 func (e *Error) Error() string {
@@ -35,6 +36,13 @@ func New(err error, status int) error {
 	return &Error{
 		Err:    err,
 		Status: status,
+	}
+}
+
+func Found(location string) error {
+	return &Error{
+		Status:   http.StatusFound,
+		Location: location,
 	}
 }
 

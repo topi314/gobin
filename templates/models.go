@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strconv"
 
 	"github.com/a-h/templ"
 )
@@ -26,7 +25,7 @@ type DocumentVars struct {
 	CurrentFile int
 	Versions    []DocumentVersion
 
-	Preview    bool
+	PreviewURL string
 	PreviewAlt string
 
 	Lexers []string
@@ -81,18 +80,6 @@ func (v DocumentVars) FileTabClasses(i int) string {
 		classes += " initial"
 	}
 	return classes
-}
-
-func (v DocumentVars) PreviewURL() string {
-	url := "https://" + v.Host + "/" + v.ID
-	if v.Version > 0 {
-		url += "/" + strconv.FormatInt(v.Version, 10)
-	}
-	var query string
-	if len(v.Files) > 0 {
-		query = "?file=" + v.Files[v.CurrentFile].Name
-	}
-	return url + "/preview" + query
 }
 
 func (v DocumentVars) URL() string {

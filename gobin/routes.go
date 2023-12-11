@@ -103,13 +103,11 @@ func (s *Server) Routes() http.Handler {
 			r.Delete("/", s.DeleteDocument)
 			r.Post("/share", s.PostDocumentShare)
 
-			previewHandler(r)
 			r.Route("/versions", func(r chi.Router) {
 				r.Get("/", s.DocumentVersions)
 				r.Route("/{version}", func(r chi.Router) {
 					r.Get("/", s.GetDocument)
 					r.Delete("/", s.DeleteDocument)
-					previewHandler(r)
 				})
 			})
 
@@ -173,6 +171,11 @@ func (s *Server) prettyError(w http.ResponseWriter, r *http.Request, err error) 
 		status = httpErr.Status
 	}
 
+	if httpErr.Location != "" {
+		http.Redirect(w, r, httpErr.Location, status)
+		return
+	}
+
 	w.WriteHeader(status)
 	if tmplErr := templates.Error(templates.ErrorVars{
 		Error:     err.Error(),
@@ -193,6 +196,11 @@ func (s *Server) error(w http.ResponseWriter, r *http.Request, err error) {
 	var httpErr *httperr.Error
 	if errors.As(err, &httpErr) {
 		status = httpErr.Status
+	}
+
+	if httpErr.Location != "" {
+		http.Redirect(w, r, httpErr.Location, status)
+		return
 	}
 
 	if status == http.StatusInternalServerError {

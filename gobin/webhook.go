@@ -66,9 +66,10 @@ type (
 	}
 
 	WebhookDocumentFile struct {
-		Name     string `json:"name"`
-		Content  string `json:"content"`
-		Language string `json:"language"`
+		Name      string     `json:"name"`
+		Content   string     `json:"content"`
+		Language  string     `json:"language"`
+		ExpiresAt *time.Time `json:"expires_at"`
 	}
 )
 
@@ -102,7 +103,7 @@ func (s *Server) executeWebhooks(ctx context.Context, event string, document Web
 		webhooks []database.Webhook
 		err      error
 	)
-	if event == "delete" {
+	if event == WebhookEventDelete {
 		webhooks, err = s.db.GetAndDeleteWebhooksByDocumentID(dbCtx, document.Key)
 	} else {
 		webhooks, err = s.db.GetWebhooksByDocumentID(dbCtx, document.Key)

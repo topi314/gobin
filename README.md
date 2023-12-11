@@ -503,17 +503,19 @@ See below for more information.
 
 To create a document with a single file you have to send a `POST` request to `/documents` with the `content` as body.
 
-| Header              | Type   | Description                           |
-|---------------------|--------|---------------------------------------|
-| Content-Disposition | string | The form & file name of the document. |
-| Content-Type?       | string | The content type of the document.     |
-| Language?           | string | The language of the document.         |
+| Header              | Type      | Description                                             |
+|---------------------|-----------|---------------------------------------------------------|
+| Content-Disposition | string    | The form & file name of the document.                   |
+| Content-Type?       | string    | The content type of the document.                       |
+| Language?           | string    | The language of the document.                           |
+| Expires-At?         | Timestamp | When the document file should expire in RFC 3339 format |
 
-| Query Parameter | Type                         | Description                                  |
-|-----------------|------------------------------|----------------------------------------------|
-| language?       | [language](#language-enum)   | The language of the document.                |
-| formatter?      | [formatter](#formatter-enum) | With which formatter to render the document. |
-| style?          | style name                   | Which style to use for the formatter         |
+| Query Parameter | Type                         | Description                                             |
+|-----------------|------------------------------|---------------------------------------------------------|
+| language?       | [language](#language-enum)   | The language of the document.                           |
+| formatter?      | [formatter](#formatter-enum) | With which formatter to render the document.            |
+| style?          | style name                   | Which style to use for the formatter                    |
+| expires_at?     | Timestamp                    | When the document file should expire in RFC 3339 format |
 
 <details>
 <summary>Example</summary>
@@ -540,11 +542,12 @@ second `file-1` and so on.
 | formatter?      | [formatter](#formatter-enum) | With which formatter to render the document. |
 | style?          | style name                   | Which style to use for the formatter         |
 
-| Part Header         | Type   | Description                                |
-|---------------------|--------|--------------------------------------------|
-| Content-Disposition | string | The form & file name of the document.      |
-| Content-Type?       | string | The content type/language of the document. |
-| Language?           | string | The language of the document.              |
+| Part Header         | Type      | Description                                             |
+|---------------------|-----------|---------------------------------------------------------|
+| Content-Disposition | string    | The form & file name of the document.                   |
+| Content-Type?       | string    | The content type/language of the document.              |
+| Language?           | string    | The language of the document.                           |
+| Expires-At?         | Timestamp | When the document file should expire in RFC 3339 format |
 
 <details>
 <summary>Example</summary>
@@ -584,14 +587,16 @@ update the document.
       "content": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
       // only if formatter is set
       "formatted": "...",
-      "language": "Go"
+      "language": "Go",
+      "expires_at": null
     },
     {
       "name": "untitled1",
       "content": "Hello World!",
       // only if formatter is set
       "formatted": "...",
-      "language": "plaintext"
+      "language": "plaintext",
+      "expires_at": null
     }
   ],
   "token": "kiczgez33j7qkvqdg9f7ksrd8jk88wba"
@@ -623,14 +628,16 @@ The response will be a `200 OK` with the document content as `application/json` 
       "content": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
       // only if formatter is set
       "formatted": "...",
-      "language": "Go"
+      "language": "Go",
+      "expires_at": null
     },
     {
       "name": "untitled1",
       "content": "Hello World!",
       // only if formatter is set
       "formatted": "...",
-      "language": "plaintext"
+      "language": "plaintext",
+      "expires_at": null
     }
   ]
 }
@@ -659,7 +666,8 @@ The response will be a `200 OK` with the document content as `application/json` 
   "content": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
   // only if formatter is set
   "formatted": "...",
-  "language": "Go"
+  "language": "Go",
+  "expires_at": null
 }
 ```
 
@@ -689,7 +697,8 @@ The response will be a `200 OK` with the document content as `application/json` 
         "content": "package main\n\nfunc main() {\n    println(\"Hello World!\")\n}",
         // only if formatter is set
         "formatted": "...",
-        "language": "Go"
+        "language": "Go",
+        "expires_at": null
       },
       {
         "name": "untitled1",
@@ -697,7 +706,8 @@ The response will be a `200 OK` with the document content as `application/json` 
         "content": "Hello World!",
         // only if formatter is set
         "formatted": "...",
-        "language": "plaintext"
+        "language": "plaintext",
+        "expires_at": null
       }
     ]
   },
@@ -710,14 +720,16 @@ The response will be a `200 OK` with the document content as `application/json` 
         "content": "package main\n\nfunc main() {\n    println(\"Hello!\")\n}",
         // only if formatter is set
         "formatted": "...",
-        "language": "Go"
+        "language": "Go",
+        "expires_at": null
       },
       {
         "name": "untitled1",
         "content": "Hello!",
         // only if formatter is set
         "formatted": "...",
-        "language": "plaintext"
+        "language": "plaintext",
+        "expires_at": null
       }
     ]
   }
@@ -738,18 +750,20 @@ as `multipart/form-data`. See below for more information.
 To create a document with a single file you have to send a `PATCH` request to `/documents/{key}` with the `content` as
 body.
 
-| Header              | Type   | Description                                               |
-|---------------------|--------|-----------------------------------------------------------|
-| Content-Disposition | string | The form & file name of the document.                     |
-| Content-Type?       | string | The content type of the document.                         |
-| Language?           | string | The language of the document.                             |
-| Authorization?      | string | The update token of the document. (prefix with `Bearer `) |
+| Header              | Type      | Description                                               |
+|---------------------|-----------|-----------------------------------------------------------|
+| Content-Disposition | string    | The form & file name of the document.                     |
+| Content-Type?       | string    | The content type of the document.                         |
+| Language?           | string    | The language of the document.                             |
+| Authorization?      | string    | The update token of the document. (prefix with `Bearer `) |
+| Expires-At?         | Timestamp | When the document file should expire in RFC 3339 format   |
 
-| Query Parameter | Type                         | Description                                  |
-|-----------------|------------------------------|----------------------------------------------|
-| language?       | [language](#language-enum)   | The language of the document.                |
-| formatter?      | [formatter](#formatter-enum) | With which formatter to render the document. |
-| style?          | style name                   | Which style to use for the formatter         |
+| Query Parameter | Type                         | Description                                             |
+|-----------------|------------------------------|---------------------------------------------------------|
+| language?       | [language](#language-enum)   | The language of the document.                           |
+| formatter?      | [formatter](#formatter-enum) | With which formatter to render the document.            |
+| style?          | style name                   | Which style to use for the formatter                    |
+| expires_at?     | Timestamp                    | When the document file should expire in RFC 3339 format |
 
 <details>
 <summary>Example</summary>
@@ -780,11 +794,12 @@ second `file-1` and so on.
 | formatter?      | [formatter](#formatter-enum) | With which formatter to render the document. |
 | style?          | style name                   | Which style to use for the formatter         |
 
-| Part Header         | Type   | Description                           |
-|---------------------|--------|---------------------------------------|
-| Content-Disposition | string | The form & file name of the document. |
-| Content-Type?       | string | The content type of the document.     |
-| Language?           | string | The language of the document.         |
+| Part Header         | Type      | Description                                             |
+|---------------------|-----------|---------------------------------------------------------|
+| Content-Disposition | string    | The form & file name of the document.                   |
+| Content-Type?       | string    | The content type of the document.                       |
+| Language?           | string    | The language of the document.                           |
+| Expires-At?         | Timestamp | When the document file should expire in RFC 3339 format |
 
 <details>
 <summary>Example</summary>
@@ -822,14 +837,16 @@ update the document.
       "content": "package main\n\nfunc main() {\n    println(\"Hello World Updated!\")\n}",
       // only if formatter is set
       "formatted": "...",
-      "language": "Go"
+      "language": "Go",
+      "expires_at": null
     },
     {
       "name": "untitled1",
       "content": "Hello World Updated!",
       // only if formatter is set
       "formatted": "...",
-      "language": "plaintext"
+      "language": "plaintext",
+      "expires_at": null
     }
   ],
   "token": "kiczgez33j7qkvqdg9f7ksrd8jk88wba"
@@ -875,14 +892,16 @@ the document.
       "content": "package main\n\nfunc main() {\n    println(\"Hello World Updated!\")\n}",
       // only if formatter is set
       "formatted": "...",
-      "language": "Go"
+      "language": "Go",
+      "expires_at": null
     },
     {
       "name": "untitled1",
       "content": "Hello World Updated!",
       // only if formatter is set
       "formatted": "...",
-      "language": "plaintext"
+      "language": "plaintext",
+      "expires_at": null
     }
   ]
 }
@@ -965,6 +984,7 @@ following JSON body:
         "name": "main.go",
         "content": "package main\n\nfunc main() {\n    println(\"Hello World Updated!\")\n}",
         "language": "Go",
+        "expires_at": null
       }
     ]
   }
@@ -1116,10 +1136,6 @@ A successful request will return a `204 No Content` response with an empty body.
   for `GET /documents/{key}`.
 - `GET`/`HEAD` `/{key}/{version}/preview` - Get the preview of a document version, query parameters are the same as
   for `GET /documents/{key}/versions/{version}`.
-- `GET`/`HEAD` `/documents/{key}/preview` - Get the preview of a document, query parameters are the same as
-  for `GET /documents/{key}`.
-- `GET`/`HEAD` `/documents/{key}/versions/{version}/preview` - Get the preview of a document version, query parameters
-  are the same as for `GET /documents/{key}/versions/{version}`.
 - `GET`/`HEAD` `/raw/{key}` - Get the raw content of a document, query parameters are the same as
   for `GET /documents/{key}`.
 - `GET`/`HEAD` `/raw/{key}/files/{filename}` - Get the raw content of a document file, query parameters are the same as

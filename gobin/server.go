@@ -22,6 +22,8 @@ import (
 	"github.com/topi314/tint"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -97,9 +99,14 @@ type Server struct {
 	styles                  []templates.Style
 	rateLimitHandler        func(http.Handler) http.Handler
 	webhookWaitGroup        sync.WaitGroup
+	cleanupCancel           context.CancelFunc
 }
 
 func (s *Server) Start() {
+	cleanupContext, cancel := context.WithCancel(context.Background())
+	s.cleanupCancel = cancel
+
+	go s.cleanup(cleanupContext, s.cfg.Database.CleanupInterval, s.cfg.Database.ExpireAfter)
 	if err := s.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		slog.Error("Error while listening", tint.Err(err))
 		os.Exit(1)
@@ -107,6 +114,8 @@ func (s *Server) Start() {
 }
 
 func (s *Server) Close() {
+	s.cleanupCancel()
+
 	if err := s.server.Close(); err != nil {
 		slog.Error("Error while closing server", tint.Err(err))
 	}
@@ -116,6 +125,70 @@ func (s *Server) Close() {
 	if err := s.db.Close(); err != nil {
 		slog.Error("Error while closing database", tint.Err(err))
 	}
+}
+
+func (s *Server) cleanup(ctx context.Context, cleanUpInterval time.Duration, expireAfter time.Duration) {
+	if cleanUpInterval <= 0 {
+		cleanUpInterval = 10 * time.Minute
+	}
+
+	ctx, span := s.tracer.Start(ctx, "cleanup", trace.WithAttributes(
+		attribute.String("cleanUpInterval", cleanUpInterval.String()),
+		attribute.String("expireAfter", expireAfter.String()),
+	))
+	defer span.End()
+
+	slog.Info("Starting document cleanup...")
+	ticker := time.NewTicker(cleanUpInterval)
+	defer func() {
+		ticker.Stop()
+		slog.Info("document cleanup stopped")
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.doCleanup(ctx, expireAfter)
+		}
+	}
+}
+
+func (s *Server) doCleanup(ctx context.Context, expireAfter time.Duration) {
+	ctx, span := s.tracer.Start(ctx, "doCleanup")
+	defer span.End()
+
+	dbCtx, dbCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer dbCancel()
+	documents, err := s.db.DeleteExpiredDocuments(dbCtx, expireAfter)
+	if err != nil && !errors.Is(err, context.Canceled) {
+		span.SetStatus(codes.Error, "failed to delete expired documents")
+		span.RecordError(err)
+		slog.ErrorContext(ctx, "failed to delete expired documents", tint.Err(err))
+	}
+
+	var wg sync.WaitGroup
+	for i := range documents {
+		wg.Add(1)
+		go func(ctx context.Context, document database.Document) {
+			webhooksFiles := make([]WebhookDocumentFile, len(document.Files))
+			for i, file := range document.Files {
+				webhooksFiles[i] = WebhookDocumentFile{
+					Name:      file.Name,
+					Content:   file.Content,
+					Language:  file.Language,
+					ExpiresAt: file.ExpiresAt,
+				}
+			}
+			s.ExecuteWebhooks(ctx, WebhookEventUpdate, WebhookDocument{
+				Key:     document.ID,
+				Version: document.Version,
+				Files:   webhooksFiles,
+			})
+		}(ctx, documents[i])
+	}
+	wg.Wait()
 }
 
 func FormatBuildVersion(version string, commit string, buildTime time.Time) string {
