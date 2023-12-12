@@ -503,12 +503,12 @@ See below for more information.
 
 To create a document with a single file you have to send a `POST` request to `/documents` with the `content` as body.
 
-| Header              | Type      | Description                                             |
-|---------------------|-----------|---------------------------------------------------------|
-| Content-Disposition | string    | The form & file name of the document.                   |
-| Content-Type?       | string    | The content type of the document.                       |
-| Language?           | string    | The language of the document.                           |
-| Expires-At?         | Timestamp | When the document file should expire in RFC 3339 format |
+| Header               | Type      | Description                                             |
+|----------------------|-----------|---------------------------------------------------------|
+| Content-Disposition? | string    | The file name of the document.                          |
+| Content-Type?        | string    | The content type of the document.                       |
+| Language?            | string    | The language of the document.                           |
+| Expires-At?          | Timestamp | When the document file should expire in RFC 3339 format |
 
 | Query Parameter | Type                         | Description                                             |
 |-----------------|------------------------------|---------------------------------------------------------|

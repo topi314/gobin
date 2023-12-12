@@ -831,14 +831,14 @@ func (s *Server) PostDocumentShare(w http.ResponseWriter, r *http.Request) {
 func parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 	var files []RequestFile
 	contentType := r.Header.Get("Content-Type")
-	params := make(map[string]string)
 	if contentType != "" {
 		var err error
-		contentType, params, err = mime.ParseMediaType(contentType)
+		contentType, _, err = mime.ParseMediaType(contentType)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse content type: %w", err)
 		}
 	}
+	query := r.URL.Query()
 
 	if contentType == "multipart/form-data" {
 		mr, err := r.MultipartReader()
@@ -897,15 +897,23 @@ func parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 			return nil, fmt.Errorf("failed to read request body: %w", err)
 		}
 
+		params := make(map[string]string)
+		if contentDisposition := r.Header.Get("Content-Disposition"); contentDisposition != "" {
+			_, params, err = mime.ParseMediaType(contentDisposition)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse content disposition: %w", err)
+			}
+		}
+
 		name := params["filename"]
 		if name == "" {
 			name = "untitled"
 		}
 
 		var expiresAt *time.Time
-		expiresAtStr := r.Header.Get("Expires-At")
+		expiresAtStr := query.Get("expires_at")
 		if expiresAtStr == "" {
-			expiresAtStr = r.URL.Query().Get("expires_at")
+			expiresAtStr = r.Header.Get("Expires-At")
 		}
 		if expiresAtStr != "" {
 			expiresAt, err = getExpiresAt(expiresAtStr)
@@ -914,10 +922,15 @@ func parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 			}
 		}
 
+		language := query.Get("language")
+		if language == "" {
+			language = r.Header.Get("Language")
+		}
+
 		files = []RequestFile{{
 			Name:      name,
 			Content:   string(data),
-			Language:  getLanguage(r.Header.Get("Language"), contentType, params["filename"], string(data)),
+			Language:  getLanguage(language, contentType, params["filename"], string(data)),
 			ExpiresAt: expiresAt,
 		}}
 	}

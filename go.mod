@@ -17,7 +17,7 @@ require (
 	github.com/prometheus/client_golang v1.17.0
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.18.1
-	github.com/topi314/chroma/v2 v2.0.0-20231208224006-3acea2e028fa
+	github.com/topi314/chroma/v2 v2.0.0-20231212124947-9a467328d99f
 	github.com/topi314/otelchi v0.0.0-20231208214946-fb2c72ca7c99
 	github.com/topi314/slog-chi v0.0.0-20231208214917-9b74bfd5ab00
 	github.com/topi314/tint v0.0.0-20231106205902-77268b701ca6
