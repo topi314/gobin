@@ -662,7 +662,8 @@ function updateButtons(state) {
         return;
     }
     fileAddButton.style.display = "block";
-    saveButton.style.display = state.files.findIndex(file => file.content.length > 0) === -1 ? "none" : "block";
+    saveButton.style.display = "block";
+    saveButton.disabled = state.files.findIndex(file => file.content.length > 0) === -1;
     editButton.style.display = "none";
     deleteButton.disabled = true;
     copyButton.disabled = true;
