@@ -3,7 +3,6 @@ package gobin
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -25,9 +24,6 @@ var (
 	ErrInvalidDocumentVersion = errors.New("document version is invalid")
 	ErrPreviewsDisabled       = errors.New("document previews disabled")
 	ErrRateLimit              = errors.New("rate limit exceeded")
-	ErrContentTooLarge        = func(maxLength int) error {
-		return fmt.Errorf("content too large, must be less than %d chars", maxLength)
-	}
 )
 
 func (s *Server) Routes() http.Handler {
@@ -169,11 +165,11 @@ func (s *Server) prettyError(w http.ResponseWriter, r *http.Request, err error) 
 	var httpErr *httperr.Error
 	if errors.As(err, &httpErr) {
 		status = httpErr.Status
-	}
 
-	if httpErr.Location != "" {
-		http.Redirect(w, r, httpErr.Location, status)
-		return
+		if httpErr.Location != "" {
+			http.Redirect(w, r, httpErr.Location, status)
+			return
+		}
 	}
 
 	w.WriteHeader(status)
@@ -232,14 +228,6 @@ func (s *Server) json(w http.ResponseWriter, r *http.Request, v any, status int)
 	if err := json.NewEncoder(w).Encode(v); err != nil && !errors.Is(err, http.ErrHandlerTimeout) {
 		slog.ErrorContext(r.Context(), "failed to encode json", tint.Err(err))
 	}
-}
-
-func (s *Server) exceedsMaxDocumentSize(w http.ResponseWriter, r *http.Request, content string) bool {
-	if s.cfg.MaxDocumentSize > 0 && len([]rune(content)) > s.cfg.MaxDocumentSize {
-		s.error(w, r, httperr.BadRequest(ErrContentTooLarge(s.cfg.MaxDocumentSize)))
-		return true
-	}
-	return false
 }
 
 func (s *Server) file(path string) http.HandlerFunc {

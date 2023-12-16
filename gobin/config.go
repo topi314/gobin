@@ -16,7 +16,7 @@ type Config struct {
 	ListenAddr       string           `cfg:"listen_addr"`
 	HTTPTimeout      time.Duration    `cfg:"http_timeout"`
 	Database         database.Config  `cfg:"database"`
-	MaxDocumentSize  int              `cfg:"max_document_size"`
+	MaxDocumentSize  int64            `cfg:"max_document_size"`
 	MaxHighlightSize int              `cfg:"max_highlight_size"`
 	RateLimit        *RateLimitConfig `cfg:"rate_limit"`
 	JWTSecret        string           `cfg:"jwt_secret"`

@@ -333,11 +333,11 @@ func Document(vars DocumentVars) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</select><div class=\"spacer\"></div><label title=\"Characters\" for=\"code-edit\"><span id=\"code-edit-count\">")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</select><div class=\"spacer\"></div><label for=\"code-edit\"><span id=\"code-edit-count\" title=\"Document Size\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var15 string = strconv.Itoa(len([]rune(vars.Files[vars.CurrentFile].Content)))
+		var templ_7745c5c3_Var15 string = strconv.Itoa(vars.TotalLength)
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -347,7 +347,7 @@ func Document(vars DocumentVars) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if vars.Max > 0 {
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<span id=\"code-edit-max\">")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<span id=\"code-edit-max\" title=\"Max Size\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -356,7 +356,7 @@ func Document(vars DocumentVars) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var17 string = strconv.Itoa(vars.Max)
+			var templ_7745c5c3_Var17 string = strconv.FormatInt(vars.Max, 10)
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err

@@ -140,16 +140,11 @@ document.getElementById("code-edit").addEventListener("input", (e) => {
     const state = getState();
     state.files[state.current_file].content = e.target.value;
 
-    const count = e.target.value.length;
-    const countElement = document.getElementById("code-edit-count");
-    countElement.innerHTML = count
+    const count = state.files.reduce((total, file) => total + file.content.length, 0);
+    document.getElementById("code-edit-count").innerHTML = `${count}`
     const maxElement = document.getElementById("code-edit-max");
     if (!maxElement) return;
-    if (count > maxElement.innerHTML) {
-        countElement.classList.add("error");
-    } else {
-        countElement.classList.remove("error");
-    }
+    document.querySelector(`label[for="code-edit"]`).classList.toggle("error", count > maxElement.innerHTML.substring(1));
 });
 
 document.getElementById("code-edit").addEventListener("paste", (event) => {
@@ -627,7 +622,6 @@ function updateCode(state) {
     const file = state.files[state.current_file];
     document.getElementById("code-edit").value = file.content;
     document.getElementById("code-view").innerHTML = file.formatted;
-    document.getElementById("code-edit-count").innerText = `${file.content.length}`;
     document.getElementById("language").value = file.language;
 }
 
@@ -678,13 +672,6 @@ function updateFaviconStyle(matches) {
         return
     }
     faviconElement.href = "/assets/favicon-light.png";
-}
-
-function getCookie(name) {
-    let matches = document.cookie.match(new RegExp(
-        "(?:^|; )" + name.replace(/([.$?*|{}()\[\]\\\/+^])/g, '\\$1') + "=([^;]*)"
-    ));
-    return matches ? decodeURIComponent(matches[1]) : undefined;
 }
 
 function setCookie(name, value, options = {}) {

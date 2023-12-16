@@ -76,12 +76,12 @@ templ Document(vars DocumentVars) {
                 }
             </select>
             <div class="spacer"></div>
-            <label title="Characters" for="code-edit">
-                <span id="code-edit-count">{ strconv.Itoa(len([]rune(vars.Files[vars.CurrentFile].Content))) }</span>
-                if vars.Max > 0 {
-                    <span id="code-edit-max">/{ strconv.Itoa(vars.Max) }</span>
-                }
-            </label>
+			<label for="code-edit">
+			    <span id="code-edit-count" title="Document Size">{ strconv.Itoa(vars.TotalLength) }</span>
+			    if vars.Max > 0 {
+			        <span id="code-edit-max" title="Max Size">/{ strconv.FormatInt(vars.Max, 10) }</span>
+			    }
+			</label>
             <select title="Language" id="language" autocomplete="off">
                 <option value="auto" selected?={ vars.Files[vars.CurrentFile].Language == "" }>auto</option>
                 for _, lexer := range vars.Lexers {

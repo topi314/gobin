@@ -175,27 +175,32 @@ func (d *DB) DeleteExpiredDocuments(ctx context.Context, expireAfter time.Durati
 	if expireAfter > 0 {
 		query += " OR document_version < $2"
 	}
-	query += " RETURNING * ORDER BY document_id, document_version DESC"
+	query += " RETURNING *;"
 	var files []File
 	if err := d.dbx.SelectContext(ctx, &files, query, now, now.Add(expireAfter).UnixMilli()); err != nil {
 		return nil, fmt.Errorf("failed to delete expired documents: %w", err)
 	}
 
-	var documents []Document
-	var document Document
+	documents := make(map[string]Document)
 	for _, file := range files {
-		if file.DocumentID != document.ID && document.ID != "" {
-			documents = append(documents, document)
+		document, ok := documents[file.DocumentID]
+		if !ok || file.DocumentVersion > document.Version {
 			document = Document{
 				ID:      file.DocumentID,
 				Version: file.DocumentVersion,
 			}
 		}
-		if file.DocumentVersion > document.Version {
+		if file.DocumentVersion < document.Version {
 			continue
 		}
+
 		document.Files = append(document.Files, file)
+		documents[file.DocumentID] = document
 	}
 
-	return documents, nil
+	documentsSlice := make([]Document, 0, len(documents))
+	for _, document := range documents {
+		documentsSlice = append(documentsSlice, document)
+	}
+	return documentsSlice, nil
 }

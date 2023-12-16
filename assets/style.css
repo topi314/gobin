@@ -423,6 +423,7 @@ main {
 label[for="code-edit"] {
     color: var(--text-primary);
     user-select: none;
+    display: flex;
 }
 
 label[for="code-edit"].error {

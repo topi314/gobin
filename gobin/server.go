@@ -138,11 +138,11 @@ func (s *Server) cleanup(ctx context.Context, cleanUpInterval time.Duration, exp
 	))
 	defer span.End()
 
-	slog.Info("Starting document cleanup...")
+	slog.Debug("Starting document cleanup...")
 	ticker := time.NewTicker(cleanUpInterval)
 	defer func() {
 		ticker.Stop()
-		slog.Info("document cleanup stopped")
+		slog.Debug("document cleanup stopped")
 	}()
 
 	for {

@@ -23,6 +23,7 @@ type DocumentVars struct {
 
 	Files       []File
 	CurrentFile int
+	TotalLength int
 	Versions    []DocumentVersion
 
 	PreviewURL string
@@ -32,7 +33,7 @@ type DocumentVars struct {
 	Styles []Style
 	Style  string
 	Theme  string
-	Max    int
+	Max    int64
 	Host   string
 }
 

@@ -238,8 +238,10 @@ Create a new `gobin.json` file with the following content:
     "database": "gobin",
     "ssl_mode": "disable"
   },
-  // max document size in characters
+  // max character count for all files in a document combined (0 to disable)
   "max_document_size": 0,
+  // max_highlight_size is the max character count for a single file in a document to be highlighted (0 to disable)
+  "max_highlight_size": 0,
   // omit or set values to 0 or "0" to disable rate limit
   "rate_limit": {
     // number of requests which can be done in the duration
@@ -336,6 +338,7 @@ GOBIN_DATABASE_DATABASE=gobin
 GOBIN_DATABASE_SSL_MODE=disable
 
 GOBIN_MAX_DOCUMENT_SIZE=0
+GOBIN_MAX_HIGHLIGHT_SIZE=0
 
 GOBIN_RATE_LIMIT_REQUESTS=10
 GOBIN_RATE_LIMIT_DURATION=1m
@@ -552,7 +555,7 @@ second `file-1` and so on.
 <details>
 <summary>Example</summary>
 
-```multupart/form-data
+```multipart/form-data
 -----------------------------302370379826172687681786440755
 Content-Disposition: form-data; name="file-0"; filename="main.go"
 Content-Type: text/x-gosrc
@@ -566,7 +569,6 @@ func main() {
 -----------------------------302370379826172687681786440755
 Content-Disposition: form-data; name="file-1"; filename="untitled1"
 Content-Type: text/plain; charset=utf-8
-Language: auto
 
 Hello World!
 -----------------------------302370379826172687681786440755--
@@ -804,21 +806,22 @@ second `file-1` and so on.
 <details>
 <summary>Example</summary>
 
-```multupart/form-data
+```multipart/form-data
 -----------------------------302370379826172687681786440755
 Content-Disposition: form-data; name="file-0"; filename="main.go"
-Content-Type: Go
+Content-Type: text/x-gosrc
+Language: Go
 
 package main
 
 func main() {
-	println("Hello World Updated!")
+	println("Hello World!")
 }
 -----------------------------302370379826172687681786440755
 Content-Disposition: form-data; name="file-1"; filename="untitled1"
-Content-Type: auto
+Content-Type: text/plain; charset=utf-8
 
-Hello World Updated!
+Hello World!
 -----------------------------302370379826172687681786440755--
 ```
 

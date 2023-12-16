@@ -15,7 +15,7 @@ func getFormatter(r *http.Request, fallback bool) (chroma.Formatter, string) {
 	formatterName := r.URL.Query().Get("formatter")
 	if formatterName == "" {
 		if !fallback {
-			return formatters.NoOp, ""
+			return nil, ""
 		}
 		formatterName = "html"
 	}
@@ -29,6 +29,9 @@ func getFormatter(r *http.Request, fallback bool) (chroma.Formatter, string) {
 }
 
 func (s *Server) formatFile(file database.File, formatter chroma.Formatter, style *chroma.Style) (string, error) {
+	if formatter == nil {
+		return "", nil
+	}
 	lexer := lexers.Get(file.Language)
 	if s.cfg.MaxHighlightSize > 0 && len([]rune(file.Content)) > s.cfg.MaxHighlightSize {
 		lexer = lexers.Get("plaintext")

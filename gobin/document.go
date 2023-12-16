@@ -24,6 +24,7 @@ import (
 	"github.com/topi314/chroma/v2/lexers"
 	"github.com/topi314/gobin/v2/gobin/database"
 	"github.com/topi314/gobin/v2/internal/flags"
+	"github.com/topi314/gobin/v2/internal/gio"
 	"github.com/topi314/gobin/v2/internal/httperr"
 	"github.com/topi314/gobin/v2/templates"
 	"github.com/topi314/tint"
@@ -34,6 +35,10 @@ var (
 	ErrInvalidDocumentFileName    = errors.New("invalid document file name")
 	ErrInvalidDocumentFileContent = errors.New("invalid document file content")
 	ErrDuplicateDocumentFileNames = errors.New("duplicate document file names")
+	ErrDocumentTooLarge           = func(maxLength int64) error {
+		return fmt.Errorf("document too large, must be less than %d chars", maxLength)
+	}
+	ErrInvalidExpiresAt = errors.New("invalid expires_at, must be in the future")
 )
 
 var VersionTimeFormat = "2006-01-02 15:04:05"
@@ -169,7 +174,10 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 	style := getStyle(r)
 	fileName := r.URL.Query().Get("file")
 
-	var currentFile int
+	var (
+		currentFile int
+		totalLength int
+	)
 	templateFiles := make([]templates.File, len(document.Files))
 	for i, file := range document.Files {
 		formatted, err := s.formatFile(file, formatter, style)
@@ -186,6 +194,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 			Formatted: formatted,
 			Language:  file.Language,
 		}
+		totalLength += len([]rune(file.Content))
 	}
 
 	templateVersions := make([]templates.DocumentVersion, len(versions))
@@ -227,6 +236,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 
 		Files:       templateFiles,
 		CurrentFile: currentFile,
+		TotalLength: totalLength,
 		Versions:    templateVersions,
 
 		Lexers: lexers.Names(false),
@@ -591,7 +601,7 @@ func (s *Server) getDocumentFile(r *http.Request) (*database.File, error) {
 }
 
 func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
-	files, err := parseDocumentFiles(r)
+	files, err := s.parseDocumentFiles(r)
 	if err != nil {
 		s.error(w, r, err)
 		return
@@ -651,7 +661,7 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
-	files, err := parseDocumentFiles(r)
+	files, err := s.parseDocumentFiles(r)
 	if err != nil {
 		s.error(w, r, err)
 		return
@@ -828,7 +838,7 @@ func (s *Server) PostDocumentShare(w http.ResponseWriter, r *http.Request) {
 	s.ok(w, r, ShareResponse{Token: token})
 }
 
-func parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
+func (s *Server) parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 	var files []RequestFile
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "" {
@@ -845,12 +855,18 @@ func parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to get multipart reader: %w", err)
 		}
+
+		var limitReader *gio.LimitedReader
+		if s.cfg.MaxDocumentSize > 0 {
+			limitReader = gio.LimitReader(nil, s.cfg.MaxDocumentSize)
+		}
+
 		for i := 0; ; i++ {
 			part, err := mr.NextPart()
-			if err == io.EOF {
-				break
-			}
 			if err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
 				return nil, fmt.Errorf("failed to get multipart part: %w", err)
 			}
 
@@ -862,9 +878,15 @@ func parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 				return nil, httperr.BadRequest(ErrInvalidDocumentFileName)
 			}
 
-			data, err := io.ReadAll(part)
+			if limitReader != nil {
+				limitReader.R = part
+			}
+			data, err := io.ReadAll(limitReader)
 			if err != nil {
-				return nil, fmt.Errorf("failed to read part data: %w", err)
+				if errors.Is(err, gio.ErrLimitReached) {
+					return nil, httperr.BadRequest(ErrDocumentTooLarge(s.cfg.MaxDocumentSize))
+				}
+				return nil, fmt.Errorf("failed to read part body: %w", err)
 			}
 
 			if len(data) == 0 {
@@ -892,8 +914,16 @@ func parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 			})
 		}
 	} else {
-		data, err := io.ReadAll(r.Body)
+		reader := io.Reader(r.Body)
+		if s.cfg.MaxDocumentSize > 0 {
+			reader = gio.LimitReader(r.Body, s.cfg.MaxDocumentSize)
+		}
+
+		data, err := io.ReadAll(reader)
 		if err != nil {
+			if errors.Is(err, gio.ErrLimitReached) {
+				return nil, httperr.BadRequest(ErrDocumentTooLarge(s.cfg.MaxDocumentSize))
+			}
 			return nil, fmt.Errorf("failed to read request body: %w", err)
 		}
 
@@ -988,6 +1018,9 @@ func getExpiresAt(expiresAtStr string) (*time.Time, error) {
 	expiresAt, err := time.Parse(time.RFC3339, expiresAtStr)
 	if err != nil {
 		return nil, httperr.BadRequest(fmt.Errorf("failed to parse expires_at query param: %w", err))
+	}
+	if expiresAt.Before(time.Now()) {
+		return nil, httperr.BadRequest(ErrInvalidExpiresAt)
 	}
 	return &expiresAt, nil
 }
