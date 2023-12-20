@@ -878,10 +878,12 @@ func (s *Server) parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 				return nil, httperr.BadRequest(ErrInvalidDocumentFileName)
 			}
 
+			reader := io.Reader(part)
 			if limitReader != nil {
 				limitReader.R = part
+				reader = limitReader
 			}
-			data, err := io.ReadAll(limitReader)
+			data, err := io.ReadAll(reader)
 			if err != nil {
 				if errors.Is(err, gio.ErrLimitReached) {
 					return nil, httperr.BadRequest(ErrDocumentTooLarge(s.cfg.MaxDocumentSize))

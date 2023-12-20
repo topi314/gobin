@@ -44,6 +44,7 @@ func (s *Server) ThemeCSS(w http.ResponseWriter, r *http.Request) {
 func (s *Server) themeCSS(style *chroma.Style) string {
 	cssBuff := new(bytes.Buffer)
 	background := style.Get(chroma.Background)
+	_, _ = fmt.Fprintf(cssBuff, "html{color-scheme: %s;}", style.Theme)
 	_, _ = fmt.Fprint(cssBuff, ":root{")
 	_, _ = fmt.Fprintf(cssBuff, "--bg-primary: %s;", background.Background.String())
 	_, _ = fmt.Fprintf(cssBuff, "--bg-secondary: %s;", background.Background.BrightenOrDarken(0.07).String())

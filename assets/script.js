@@ -213,10 +213,16 @@ document.getElementById("style").addEventListener("change", (e) => {
     themeCssElement.href = href.toString();
 });
 
-document.getElementById("language").addEventListener("change", (e) => {
+document.getElementById("language").addEventListener("change", async (e) => {
     const state = getState();
-    state.files[state.current_file].language = e.target.value;
-    addState(state);
+    const file = state.files[state.current_file];
+    file.language = e.target.value;
+
+    if (state.mode === "view") {
+        state.files[state.current_file] = await fetchDocumentFile(state.key, state.version, file.name, file.language);
+        updateCode(state);
+    }
+    setState(state);
 });
 
 /* Keyboard Shortcut Events */
@@ -455,6 +461,26 @@ async function saveDocument(key, files) {
 
 async function fetchDocument(key, version) {
     const response = await fetch(`/documents/${key}${version !== 0 ? `/versions/${version}` : ""}?formatter=html`, {
+        method: "GET"
+    });
+
+    let body = await response.text();
+    try {
+        body = JSON.parse(body);
+    } catch (e) {
+        body = {message: body};
+    }
+    if (!response.ok) {
+        showErrorPopup(body.message || response.statusText);
+        console.error("error fetching document version:", response);
+        return;
+    }
+
+    return body
+}
+
+async function fetchDocumentFile(key, version, file, language) {
+    const response = await fetch(`/documents/${key}${version !== 0 ? `/versions/${version}` : ""}/files/${file}?formatter=html&language=${language}`, {
         method: "GET"
     });
 

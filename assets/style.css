@@ -78,6 +78,7 @@ html {
 }
 
 #error-popup {
+    z-index: 2;
     position: absolute;
     top: 0.5rem;
     left: 50%;
@@ -135,7 +136,7 @@ dialog::backdrop {
 body {
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    height: 100dvh;
     padding: 0;
     margin: 0;
     font-family: "JetBrainsMono", sans-serif;
@@ -435,6 +436,7 @@ label[for="code-edit"].error {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
+    gap: 1rem;
 }
 
 #footer .spacer {
@@ -476,13 +478,19 @@ select {
     background-size: 1rem;
 }
 
-select:hover {
-    filter: opacity(0.7);
+select:hover,
+select:focus {
+    background-color: var(--nav-button-bg);
 }
 
 select:disabled {
     cursor: not-allowed;
     filter: opacity(0.2);
+}
+
+a:focus,
+button:focus {
+    outline: var(--text-primary) 1px solid;
 }
 
 #language {
