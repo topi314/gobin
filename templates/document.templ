@@ -75,6 +75,13 @@ templ Document(vars DocumentVars) {
                     <option value={ style.Name } data-theme={ style.Theme } selected?={ vars.Style == style.Name }>{ style.Name }</option>
                 }
             </select>
+            <label for="expire"
+				if !vars.Edit {
+				    style="display: none;"
+				}
+            >
+            	<input title="Expire in" id="expire" type="number" min="0" placeholder="expire in"/>h
+			</label>
             <div class="spacer"></div>
 			<label for="code-edit">
 			    <span id="code-edit-count" title="Document Size">{ strconv.Itoa(vars.TotalLength) }</span>

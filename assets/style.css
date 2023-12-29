@@ -428,7 +428,7 @@ label[for="code-edit"] {
     display: flex;
 }
 
-label[for="code-edit"].error {
+label[for="code-edit"].invalid {
     color: var(--bg-error)
 }
 
@@ -490,8 +490,47 @@ select:disabled {
 }
 
 a:focus,
-button:focus {
+button:focus,
+select:focus,
+input[type="number"]:focus {
     outline: var(--text-primary) 1px solid;
+}
+
+input[type="number"]:invalid {
+    outline: var(--bg-error) 1px solid;
+}
+
+input[type="number"] {
+    padding: 0.5rem 0.5rem 0.5rem 0.5rem;
+    width: min-content;
+    max-width: 7rem;
+    font-family: inherit;
+
+    color: var(--text-primary);
+    border: none;
+
+    background-color: var(--bg-secondary);
+    background-repeat: no-repeat;
+    background-position: left 0.5rem center;
+    background-size: 1rem;
+}
+
+input[type="number"]:hover,
+input[type="number"]:focus {
+    background-color: var(--nav-button-bg);
+}
+
+input[type="number"]:disabled {
+    cursor: not-allowed;
+    filter: opacity(0.2);
+}
+
+label[for="expire"] {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    color: var(--text-primary);
+    user-select: none;
 }
 
 #language {

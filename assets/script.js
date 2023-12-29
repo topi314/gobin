@@ -144,7 +144,7 @@ document.getElementById("code-edit").addEventListener("input", (e) => {
     document.getElementById("code-edit-count").innerHTML = `${count}`
     const maxElement = document.getElementById("code-edit-max");
     if (!maxElement) return;
-    document.querySelector(`label[for="code-edit"]`).classList.toggle("error", count > maxElement.innerHTML.substring(1));
+    document.querySelector(`label[for="code-edit"]`).classList.toggle("invalid", count > maxElement.innerHTML.substring(1));
 });
 
 document.getElementById("code-edit").addEventListener("paste", (event) => {
@@ -213,6 +213,19 @@ document.getElementById("style").addEventListener("change", (e) => {
     themeCssElement.href = href.toString();
 });
 
+document.getElementById("expire").addEventListener("input", (e) => {
+    const expireIn = parseInt(e.target.value);
+    const invalid = isNaN(expireIn);
+
+    document.getElementById("expire").classList.toggle("invalid", invalid);
+    if (invalid) {
+        return;
+    }
+    const state = getState();
+    state.expire_in = expireIn;
+    setState(state);
+});
+
 document.getElementById("language").addEventListener("change", async (e) => {
     const state = getState();
     const file = state.files[state.current_file];
@@ -267,7 +280,7 @@ document.getElementById("save").addEventListener("click", async () => {
 
     const saveButton = document.getElementById("save");
     saveButton.classList.add("loading");
-    const doc = await saveDocument(state.key, state.files);
+    const doc = await saveDocument(state.key, state.expire_in, state.files);
     saveButton.classList.remove("loading");
 
     if (!doc) {
@@ -277,6 +290,7 @@ document.getElementById("save").addEventListener("click", async () => {
     state.version = 0;
     state.files = doc.files;
     state.mode = "view";
+    state.expire_in = 0;
 
     if (doc.token) {
         setToken(doc.key, doc.token);
@@ -291,6 +305,8 @@ document.getElementById("save").addEventListener("click", async () => {
     const versionElement = document.getElementById("version");
     versionElement.insertBefore(optionElement, versionElement.firstChild);
     versionElement.value = doc.version;
+
+    document.getElementById("expire").value = "";
 
     updateCode(state);
     updateButtons(state);
@@ -422,7 +438,8 @@ document.getElementById("share-copy").addEventListener("click", async () => {
     document.getElementById("share-dialog").close();
 });
 
-async function saveDocument(key, files) {
+async function saveDocument(key, expire, files) {
+    console.log("saving document:", key, expire, files);
     const data = new FormData();
     for (const [i, file] of files.entries()) {
         const blob = new Blob([file.content], {
@@ -435,6 +452,10 @@ async function saveDocument(key, files) {
     const token = getToken(key);
     if (token) {
         headers["Authorization"] = `Bearer ${token}`
+    }
+
+    if (expire) {
+        headers["Expires"] = new Date(Date.now() + expire * 60 * 60 * 1000).toISOString();
     }
 
     const response = await fetch(`/documents/${key}?formatter=html`, {
@@ -669,6 +690,7 @@ function updateButtons(state) {
     const copyButton = document.getElementById("copy");
     const rawButton = document.getElementById("raw");
     const shareButton = document.getElementById("share");
+    const expireLabel = document.querySelector(`label[for="expire"]`);
     const versionSelect = document.getElementById("version");
     versionSelect.disabled = versionSelect.options.length <= 1;
     if (state.mode === "view") {
@@ -679,6 +701,7 @@ function updateButtons(state) {
         copyButton.disabled = false;
         rawButton.disabled = false;
         shareButton.disabled = false;
+        expireLabel.style.display = "none";
         return;
     }
     fileAddButton.style.display = "block";
@@ -689,6 +712,7 @@ function updateButtons(state) {
     copyButton.disabled = true;
     rawButton.disabled = true;
     shareButton.disabled = true;
+    expireLabel.style.display = "block";
 }
 
 function updateFaviconStyle(matches) {

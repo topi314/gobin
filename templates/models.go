@@ -50,6 +50,7 @@ type gobin struct {
 	Mode        string `json:"mode"`
 	Files       []File `json:"files"`
 	CurrentFile int    `json:"current_file"`
+	ExpireIn    int    `json:"expire_in"`
 }
 
 func (v DocumentVars) StateJSON() string {

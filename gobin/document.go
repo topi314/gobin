@@ -850,6 +850,13 @@ func (s *Server) parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 	}
 	query := r.URL.Query()
 
+	expiresAt, err := getExpiresAt(query, r.Header)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("ExpiresAt: %v\n", expiresAt)
+
 	if contentType == "multipart/form-data" {
 		mr, err := r.MultipartReader()
 		if err != nil {
@@ -900,12 +907,12 @@ func (s *Server) parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 				partContentType, _, _ = mime.ParseMediaType(partContentType)
 			}
 
-			var expiresAt *time.Time
-			if expiresAtHeader := part.Header.Get("Expires-At"); expiresAtHeader != "" {
-				expiresAt, err = getExpiresAt(expiresAtHeader)
-				if err != nil {
-					return nil, err
-				}
+			newExpiresAt, err := getExpiresAt(nil, http.Header(part.Header))
+			if err != nil {
+				return nil, err
+			}
+			if newExpiresAt != nil {
+				expiresAt = newExpiresAt
 			}
 
 			files = append(files, RequestFile{
@@ -940,18 +947,6 @@ func (s *Server) parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 		name := params["filename"]
 		if name == "" {
 			name = "untitled"
-		}
-
-		var expiresAt *time.Time
-		expiresAtStr := query.Get("expires_at")
-		if expiresAtStr == "" {
-			expiresAtStr = r.Header.Get("Expires-At")
-		}
-		if expiresAtStr != "" {
-			expiresAt, err = getExpiresAt(expiresAtStr)
-			if err != nil {
-				return nil, err
-			}
 		}
 
 		language := query.Get("language")
@@ -1016,7 +1011,14 @@ func getLanguage(language string, contentType string, fileName string, content s
 	return "plaintext"
 }
 
-func getExpiresAt(expiresAtStr string) (*time.Time, error) {
+func getExpiresAt(query url.Values, header http.Header) (*time.Time, error) {
+	expiresAtStr := query.Get("expires")
+	if expiresAtStr == "" {
+		expiresAtStr = header.Get("Expires")
+	}
+	if expiresAtStr == "" {
+		return nil, nil
+	}
 	expiresAt, err := time.Parse(time.RFC3339, expiresAtStr)
 	if err != nil {
 		return nil, httperr.BadRequest(fmt.Errorf("failed to parse expires_at query param: %w", err))
