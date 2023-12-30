@@ -511,14 +511,14 @@ To create a document with a single file you have to send a `POST` request to `/d
 | Content-Disposition? | string    | The file name of the document.                          |
 | Content-Type?        | string    | The content type of the document.                       |
 | Language?            | string    | The language of the document.                           |
-| Expires-At?          | Timestamp | When the document file should expire in RFC 3339 format |
+| Expires?             | Timestamp | When the document file should expire in RFC 3339 format |
 
 | Query Parameter | Type                         | Description                                             |
 |-----------------|------------------------------|---------------------------------------------------------|
 | language?       | [language](#language-enum)   | The language of the document.                           |
 | formatter?      | [formatter](#formatter-enum) | With which formatter to render the document.            |
 | style?          | style name                   | Which style to use for the formatter                    |
-| expires_at?     | Timestamp                    | When the document file should expire in RFC 3339 format |
+| expires?        | Timestamp                    | When the document file should expire in RFC 3339 format |
 
 <details>
 <summary>Example</summary>
@@ -540,17 +540,22 @@ as `multipart/form-data` body.
 Each file has to be in its own part with the name `file-{index}`. The first file has to be named `file-0`, the
 second `file-1` and so on.
 
-| Query Parameter | Type                         | Description                                  |
-|-----------------|------------------------------|----------------------------------------------|
-| formatter?      | [formatter](#formatter-enum) | With which formatter to render the document. |
-| style?          | style name                   | Which style to use for the formatter         |
+| Query Parameter | Type                         | Description                                             |
+|-----------------|------------------------------|---------------------------------------------------------|
+| formatter?      | [formatter](#formatter-enum) | With which formatter to render the document.            |
+| style?          | style name                   | Which style to use for the formatter                    |
+| expires?        | Timestamp                    | When the document file should expire in RFC 3339 format |
 
-| Part Header         | Type      | Description                                             |
-|---------------------|-----------|---------------------------------------------------------|
-| Content-Disposition | string    | The form & file name of the document.                   |
-| Content-Type?       | string    | The content type/language of the document.              |
-| Language?           | string    | The language of the document.                           |
-| Expires-At?         | Timestamp | When the document file should expire in RFC 3339 format |
+| Header               | Type      | Description                                             |
+|----------------------|-----------|---------------------------------------------------------|
+| Expires?             | Timestamp | When the document file should expire in RFC 3339 format |
+
+| Part Header         | Type      | Description                                                                                  |
+|---------------------|-----------|----------------------------------------------------------------------------------------------|
+| Content-Disposition | string    | The form & file name of the document.                                                        |
+| Content-Type?       | string    | The content type/language of the document.                                                   |
+| Language?           | string    | The language of the document.                                                                |
+| Expires?            | Timestamp | When the document file should expire in RFC 3339 format, overwrites the query param & header |
 
 <details>
 <summary>Example</summary>
@@ -560,6 +565,7 @@ second `file-1` and so on.
 Content-Disposition: form-data; name="file-0"; filename="main.go"
 Content-Type: text/x-gosrc
 Language: Go
+Expires: 2023-10-10T10:10:10Z
 
 package main
 
@@ -758,14 +764,14 @@ body.
 | Content-Type?       | string    | The content type of the document.                         |
 | Language?           | string    | The language of the document.                             |
 | Authorization?      | string    | The update token of the document. (prefix with `Bearer `) |
-| Expires-At?         | Timestamp | When the document file should expire in RFC 3339 format   |
+| Expires?            | Timestamp | When the document file should expire in RFC 3339 format   |
 
 | Query Parameter | Type                         | Description                                             |
 |-----------------|------------------------------|---------------------------------------------------------|
 | language?       | [language](#language-enum)   | The language of the document.                           |
 | formatter?      | [formatter](#formatter-enum) | With which formatter to render the document.            |
 | style?          | style name                   | Which style to use for the formatter                    |
-| expires_at?     | Timestamp                    | When the document file should expire in RFC 3339 format |
+| expires?        | Timestamp                    | When the document file should expire in RFC 3339 format |
 
 <details>
 <summary>Example</summary>
@@ -787,30 +793,37 @@ as `multipart/form-data` body.
 Each file has to be in its own part with the name `file-{index}`. The first file has to be named `file-0`, the
 second `file-1` and so on.
 
-| Header         | Type   | Description                                               |
-|----------------|--------|-----------------------------------------------------------|
-| Authorization? | string | The update token of the document. (prefix with `Bearer `) |
+| Header         | Type      | Description                                               |
+|----------------|-----------|-----------------------------------------------------------|
+| Authorization? | string    | The update token of the document. (prefix with `Bearer `) |
+| Expires?       | Timestamp | When the document file should expire in RFC 3339 format   |
 
-| Query Parameter | Type                         | Description                                  |
-|-----------------|------------------------------|----------------------------------------------|
-| formatter?      | [formatter](#formatter-enum) | With which formatter to render the document. |
-| style?          | style name                   | Which style to use for the formatter         |
+| Query Parameter | Type                         | Description                                             |
+|-----------------|------------------------------|---------------------------------------------------------|
+| formatter?      | [formatter](#formatter-enum) | With which formatter to render the document.            |
+| style?          | style name                   | Which style to use for the formatter                    |
+| expires?        | Timestamp                    | When the document file should expire in RFC 3339 format |
 
-| Part Header         | Type      | Description                                             |
-|---------------------|-----------|---------------------------------------------------------|
-| Content-Disposition | string    | The form & file name of the document.                   |
-| Content-Type?       | string    | The content type of the document.                       |
-| Language?           | string    | The language of the document.                           |
-| Expires-At?         | Timestamp | When the document file should expire in RFC 3339 format |
+| Part Header         | Type      | Description                                                                                  |
+|---------------------|-----------|----------------------------------------------------------------------------------------------|
+| Content-Disposition | string    | The form & file name of the document.                                                        |
+| Content-Type?       | string    | The content type of the document.                                                            |
+| Language?           | string    | The language of the document.                                                                |
+| Expires?            | Timestamp | When the document file should expire in RFC 3339 format, overwrites the query param & header |
 
 <details>
 <summary>Example</summary>
+
+```
+Authorization: kiczgez33j7qkvqdg9f7ksrd8jk88wba
+```
 
 ```multipart/form-data
 -----------------------------302370379826172687681786440755
 Content-Disposition: form-data; name="file-0"; filename="main.go"
 Content-Type: text/x-gosrc
 Language: Go
+Expires: 2023-10-10T10:10:10Z
 
 package main
 
@@ -830,61 +843,8 @@ Hello World!
 A successful request will return a `201 Created` response with a JSON body containing the document key and token to
 update the document.
 
-```json5
-{
-  "key": "hocwr6i6",
-  "version": 1,
-  "files": [
-    {
-      "name": "main.go",
-      "content": "package main\n\nfunc main() {\n    println(\"Hello World Updated!\")\n}",
-      // only if formatter is set
-      "formatted": "...",
-      "language": "Go",
-      "expires_at": null
-    },
-    {
-      "name": "untitled1",
-      "content": "Hello World Updated!",
-      // only if formatter is set
-      "formatted": "...",
-      "language": "plaintext",
-      "expires_at": null
-    }
-  ],
-  "token": "kiczgez33j7qkvqdg9f7ksrd8jk88wba"
-}
-```
-
----
-
-To update a document you have to send a `PATCH` request to `/documents/{key}` with the `content` as `plain/text` body and
-the `token` as `Authorization` header.
-
-| Query Parameter | Type                         | Description                                  |
-|-----------------|------------------------------|----------------------------------------------|
-| language?       | [language](#language-enum)   | The language of the document.                |
-| formatter?      | [formatter](#formatter-enum) | With which formatter to render the document. |
-| style?          | style name                   | Which style to use for the formatter         |
-
-```
-Authorization: kiczgez33j7qkvqdg9f7ksrd8jk88wba
-```
-
-```go
-package main
-
-func main() {
-	println("Hello World Updated!")
-}
-```
-
-A successful request will return a `200 OK` response with a JSON body containing the document key and token to update
-the document.
-
 > [!Note]
 > The update token will not change after updating the document. You can use the same token to update the document again.
-
 ```json5
 {
   "key": "hocwr6i6",
@@ -906,7 +866,8 @@ the document.
       "language": "plaintext",
       "expires_at": null
     }
-  ]
+  ],
+  "token": "kiczgez33j7qkvqdg9f7ksrd8jk88wba"
 }
 ```
 
