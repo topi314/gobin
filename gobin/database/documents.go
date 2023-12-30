@@ -172,12 +172,14 @@ func (d *DB) DeleteDocumentVersions(ctx context.Context, documentID string) erro
 func (d *DB) DeleteExpiredDocuments(ctx context.Context, expireAfter time.Duration) ([]Document, error) {
 	now := time.Now()
 	query := "DELETE FROM files WHERE expires_at < $1"
+	args := []interface{}{now}
 	if expireAfter > 0 {
 		query += " OR document_version < $2"
+		args = append(args, now.Add(expireAfter).UnixMilli())
 	}
 	query += " RETURNING *;"
 	var files []File
-	if err := d.dbx.SelectContext(ctx, &files, query, now, now.Add(expireAfter).UnixMilli()); err != nil {
+	if err := d.dbx.SelectContext(ctx, &files, query, args...); err != nil {
 		return nil, fmt.Errorf("failed to delete expired documents: %w", err)
 	}
 
