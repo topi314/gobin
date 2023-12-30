@@ -55,6 +55,13 @@ document.getElementById("files").addEventListener("focusout", (e) => {
         return;
     }
     e.target.contentEditable = false;
+
+    if (!state.files[state.current_file].name) {
+        const name = `untitled${state.current_file > 0 ? state.current_file : ""}`;
+        state.files[state.current_file].name = name;
+        e.target.innerText = name;
+    }
+    setState(state);
 });
 
 document.getElementById("files").addEventListener("keypress", (e) => {
@@ -75,7 +82,7 @@ document.getElementById("files").addEventListener("input", (e) => {
         return;
     }
     const state = getState();
-    state.files[state.current_file].name = e.target.innerText;
+    state.files[state.current_file].name = e.target.innerText.trim();
     setState(state);
 })
 

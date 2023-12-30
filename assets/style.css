@@ -491,6 +491,7 @@ select:disabled {
 
 button:focus,
 select:focus,
+span[contenteditable]:focus,
 input[type="number"]:focus {
     outline: var(--text-primary) 1px solid;
 }
