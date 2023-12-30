@@ -426,6 +426,7 @@ label[for="code-edit"] {
     color: var(--text-primary);
     user-select: none;
     display: flex;
+    padding: 0 0.5rem;
 }
 
 label[for="code-edit"].invalid {
