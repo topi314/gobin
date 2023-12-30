@@ -446,7 +446,6 @@ document.getElementById("share-copy").addEventListener("click", async () => {
 });
 
 async function saveDocument(key, expire, files) {
-    console.log("saving document:", key, expire, files);
     const data = new FormData();
     for (const [i, file] of files.entries()) {
         const blob = new Blob([file.content], {
