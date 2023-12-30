@@ -492,11 +492,15 @@ select:disabled {
 button:focus,
 select:focus,
 span[contenteditable]:focus,
-input[type="number"]:focus {
+label:has(> input[type="number"]:focus) {
     outline: var(--text-primary) 1px solid;
 }
 
-input[type="number"]:invalid {
+input[type="number"]:focus {
+    outline: none;
+}
+
+label:has(> input[type="number"]:invalid) {
     outline: var(--bg-error) 1px solid;
 }
 
@@ -505,22 +509,23 @@ input[type="number"] {
     width: min-content;
     max-width: 7rem;
     font-family: inherit;
-
-    color: var(--text-primary);
     border: none;
-
-    background-color: var(--bg-secondary);
-    background-repeat: no-repeat;
-    background-position: left 0.5rem center;
-    background-size: 1rem;
+    background-color: inherit;
+    color: inherit;
 }
 
-input[type="number"]:hover,
-input[type="number"]:focus {
+label:has(> input[type="number"]) {
+    color: var(--text-primary);
+
+    background-color: var(--bg-secondary);
+}
+
+label:has(> input[type="number"]:hover),
+label:has(> input[type="number"]:focus) {
     background-color: var(--nav-button-bg);
 }
 
-input[type="number"]:disabled {
+label:has(> input[type="number"]:disabled) {
     cursor: not-allowed;
     filter: opacity(0.2);
 }
