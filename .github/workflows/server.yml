@@ -2,7 +2,10 @@ name: Server
 
 on:
   push:
-    paths-ignore: [ "*.md" ]
+    paths-ignore:
+      - "*.md"
+      - "cmd/**"
+      - "cli/**"
 
 jobs:
   build:

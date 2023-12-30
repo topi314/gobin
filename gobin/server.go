@@ -3,12 +3,10 @@ package gobin
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptrace"
 	"os"
-	"runtime"
 	"sync"
 	"time"
 
@@ -189,16 +187,4 @@ func (s *Server) doCleanup(ctx context.Context, expireAfter time.Duration) {
 		}(ctx, documents[i])
 	}
 	wg.Wait()
-}
-
-func FormatBuildVersion(version string, commit string, buildTime time.Time) string {
-	if len(commit) > 7 {
-		commit = commit[:7]
-	}
-
-	buildTimeStr := "unknown"
-	if !buildTime.IsZero() {
-		buildTimeStr = buildTime.Format(time.ANSIC)
-	}
-	return fmt.Sprintf("Go Version: %s\nVersion: %s\nCommit: %s\nBuild Time: %s\nOS/Arch: %s/%s\n", runtime.Version(), version, commit, buildTimeStr, runtime.GOOS, runtime.GOARCH)
 }

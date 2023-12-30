@@ -2,7 +2,13 @@ name: CLI
 
 on:
   push:
-    paths-ignore: [ "*.md" ]
+    paths-ignore:
+      - "*.md"
+      - "gobin/**"
+      - "assets/**"
+      - "sql/**"
+      - "styles/**"
+      - "templates/**"
 
 jobs:
   cli-build:

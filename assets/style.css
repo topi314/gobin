@@ -489,7 +489,6 @@ select:disabled {
     filter: opacity(0.2);
 }
 
-a:focus,
 button:focus,
 select:focus,
 input[type="number"]:focus {

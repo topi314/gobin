@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/topi314/gobin/v2/cmd"
-	"github.com/topi314/gobin/v2/gobin"
+	"github.com/topi314/gobin/v2/internal/ver"
 )
 
 // These variables are set via the -ldflags option in go build
@@ -23,7 +23,7 @@ func main() {
 	cmd.NewRmCmd(rootCmd)
 	cmd.NewImportCmd(rootCmd)
 	cmd.NewShareCmd(rootCmd)
-	cmd.NewVersionCmd(rootCmd, gobin.FormatBuildVersion(Version, Commit, buildTime))
+	cmd.NewVersionCmd(rootCmd, ver.FormatBuildVersion(Version, Commit, buildTime))
 	cmd.NewEnvCmd(rootCmd)
 	cmd.NewCompletionCmd(rootCmd)
 	cmd.Execute(rootCmd)

@@ -23,6 +23,7 @@ import (
 	"github.com/topi314/chroma/v2/styles"
 	"github.com/topi314/gobin/v2/gobin"
 	"github.com/topi314/gobin/v2/gobin/database"
+	"github.com/topi314/gobin/v2/internal/ver"
 	"github.com/topi314/tint"
 	meternoop "go.opentelemetry.io/otel/metric/noop"
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
@@ -171,7 +172,7 @@ func main() {
 	formatters.Register("html", htmlFormatter)
 	formatters.Register("html-standalone", standaloneHTMLFormatter)
 
-	s := gobin.NewServer(gobin.FormatBuildVersion(Version, Commit, buildTime), cfg.DevMode, cfg, db, signer, tracer, meter, assets, htmlFormatter, standaloneHTMLFormatter)
+	s := gobin.NewServer(ver.FormatBuildVersion(Version, Commit, buildTime), cfg.DevMode, cfg, db, signer, tracer, meter, assets, htmlFormatter, standaloneHTMLFormatter)
 	slog.Info("Gobin started...", slog.String("address", cfg.ListenAddr))
 	go s.Start()
 	defer s.Close()
