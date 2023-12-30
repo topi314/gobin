@@ -437,7 +437,6 @@ label[for="code-edit"].invalid {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 1rem;
 }
 
 #footer .spacer {
