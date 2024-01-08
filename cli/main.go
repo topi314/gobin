@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	"github.com/topi314/gobin/v2/cmd"
+	"github.com/topi314/gobin/v2/cli/cmd"
 	"github.com/topi314/gobin/v2/internal/ver"
 )
 
