@@ -73,6 +73,8 @@ func main() {
 	viper.SetDefault("database_database", "gobin")
 	viper.SetDefault("database_ssl_mode", "disable")
 	viper.SetDefault("max_document_size", 0)
+	viper.SetDefault("max_highlight_size", 0)
+	viper.SetDefault("custom_styles", "")
 	viper.SetDefault("default_style", "onedark")
 
 	if *cfgPath != "" {
