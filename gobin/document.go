@@ -327,9 +327,34 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 	if len(document.Files) == 1 {
 		file := document.Files[0]
 
+		formatted, err := s.formatFile(file, formatter, style)
+		if err != nil {
+			s.error(w, r, fmt.Errorf("failed to render raw document: %w", err))
+			return
+		}
+
+		var (
+			contentType string
+			fileName    string
+		)
+		switch formatterName {
+		case "html", "standalone-html":
+			contentType = "text/html; charset=UTF-8"
+			fileName = file.Name + ".html"
+		case "svg":
+			contentType = "image/svg+xml"
+			fileName = file.Name + ".svg"
+		case "json":
+			contentType = "application/json"
+			fileName = file.Name + ".json"
+		default:
+			contentType = "text/plain; charset=UTF-8"
+			fileName = file.Name
+		}
+
 		w.Header().Set("Content-Disposition", mime.FormatMediaType("inline", map[string]string{
-			"name":     file.Name,
-			"filename": file.Name,
+			"name":     fileName,
+			"filename": fileName,
 		}))
 
 		lexer := lexers.Get(file.Language)
@@ -337,27 +362,6 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 			lexer = lexers.Fallback
 		}
 		w.Header().Set("Language", lexer.Config().Name)
-
-		formatted, err := s.formatFile(file, formatter, style)
-		if err != nil {
-			s.error(w, r, fmt.Errorf("failed to render raw document: %w", err))
-			return
-		}
-
-		var contentType string
-		switch formatterName {
-		case "html", "standalone-html":
-			contentType = "text/html; charset=UTF-8"
-		case "svg":
-			contentType = "image/svg+xml"
-		case "json":
-			contentType = "application/json"
-		default:
-			contentType = "application/octet-stream"
-			if len(lexer.Config().MimeTypes) > 0 {
-				contentType = lexer.Config().MimeTypes[0]
-			}
-		}
 
 		w.Header().Set("Content-Type", contentType)
 		if _, err = w.Write([]byte(formatted)); err != nil {
@@ -368,6 +372,12 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 
 	mpw := multipart.NewWriter(w)
 	for i, file := range document.Files {
+		formatted, err := s.formatFile(file, formatter, style)
+		if err != nil {
+			s.error(w, r, fmt.Errorf("failed to render raw document: %w", err))
+			return
+		}
+
 		headers := make(textproto.MIMEHeader, 2)
 		headers.Set("Content-Disposition", mime.FormatMediaType("form-data", map[string]string{
 			"name":     fmt.Sprintf("file-%d", i),
@@ -379,12 +389,6 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 			lexer = lexers.Fallback
 		}
 		headers.Set("Language", lexer.Config().Name)
-
-		formatted, err := s.formatFile(file, formatter, style)
-		if err != nil {
-			s.error(w, r, fmt.Errorf("failed to render raw document: %w", err))
-			return
-		}
 
 		var contentType string
 		switch formatterName {
@@ -403,8 +407,7 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 
 		headers.Set("Content-Type", contentType)
 
-		var part io.Writer
-		part, err = mpw.CreatePart(headers)
+		part, err := mpw.CreatePart(headers)
 		if err != nil {
 			s.error(w, r, err)
 			return
@@ -551,7 +554,47 @@ func (s *Server) GetRawDocumentFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := w.Write([]byte(file.Content)); err != nil {
+	formatter, formatterName := getFormatter(r, false)
+	style := getStyle(r)
+
+	lexer := lexers.Get(file.Language)
+	if lexer == nil {
+		lexer = lexers.Fallback
+	}
+	w.Header().Set("Language", lexer.Config().Name)
+
+	formatted, err := s.formatFile(*file, formatter, style)
+	if err != nil {
+		s.error(w, r, fmt.Errorf("failed to render raw document: %w", err))
+		return
+	}
+
+	var (
+		contentType string
+		fileName    string
+	)
+	switch formatterName {
+	case "html", "standalone-html":
+		contentType = "text/html; charset=UTF-8"
+		fileName = file.Name + ".html"
+	case "svg":
+		contentType = "image/svg+xml"
+		fileName = file.Name + ".svg"
+	case "json":
+		contentType = "application/json"
+		fileName = file.Name + ".json"
+	default:
+		contentType = "text/plain; charset=UTF-8"
+		fileName = file.Name
+	}
+
+	w.Header().Set("Content-Disposition", mime.FormatMediaType("inline", map[string]string{
+		"name":     fileName,
+		"filename": fileName,
+	}))
+	w.Header().Set("Content-Type", contentType)
+
+	if _, err = w.Write([]byte(formatted)); err != nil {
 		s.error(w, r, err)
 		return
 	}

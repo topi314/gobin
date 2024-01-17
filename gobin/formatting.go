@@ -30,7 +30,7 @@ func getFormatter(r *http.Request, fallback bool) (chroma.Formatter, string) {
 
 func (s *Server) formatFile(file database.File, formatter chroma.Formatter, style *chroma.Style) (string, error) {
 	if formatter == nil {
-		return "", nil
+		return file.Content, nil
 	}
 	lexer := lexers.Get(file.Language)
 	if s.cfg.MaxHighlightSize > 0 && len([]rune(file.Content)) > s.cfg.MaxHighlightSize {
