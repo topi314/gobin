@@ -4,7 +4,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func NewShare() (tea.Model, error) {
+func NewShare(main model) (tea.Model, error) {
 	return shareModel{}, nil
 }
 

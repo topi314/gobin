@@ -4,11 +4,12 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func NewGet() (tea.Model, error) {
+func NewGet(main model) (tea.Model, error) {
 	return getModel{}, nil
 }
 
 type getModel struct {
+	main model
 }
 
 func (m getModel) Init() tea.Cmd {

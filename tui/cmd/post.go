@@ -4,7 +4,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func NewPost() (tea.Model, error) {
+func NewPost(main model) (tea.Model, error) {
 	return postModel{}, nil
 }
 

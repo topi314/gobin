@@ -1,6 +1,8 @@
 package cfg
 
 import (
+	"bytes"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -38,7 +40,7 @@ func Update(f func(map[string]string)) (string, error) {
 	return configPath, env.NewEncoder(cfgFile).Encode(cfg)
 }
 
-func Get() (map[string]string, error) {
+func Get() (string, error) {
 	configPath := viper.ConfigFileUsed()
 	if configPath == "" {
 		home, _ := os.UserHomeDir()
@@ -47,12 +49,29 @@ func Get() (map[string]string, error) {
 
 	cfgFile, err := os.OpenFile(configPath, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, os.ErrNotExist) {
+			return "", nil
+		}
+		return "", err
 	}
 	defer cfgFile.Close()
 
+	buff := new(bytes.Buffer)
+	if _, err = io.Copy(buff, cfgFile); err != nil {
+		return "", err
+	}
+
+	return buff.String(), nil
+}
+
+func GetKeyValue() (map[string]string, error) {
+	r, err := Get()
+	if err != nil {
+		return nil, err
+	}
+
 	cfg := make(map[string]string)
-	if err = env.NewDecoder(cfgFile).Decode(&cfg); err != nil {
+	if err = env.NewDecoder(bytes.NewReader([]byte(r))).Decode(&cfg); err != nil {
 		return nil, err
 	}
 
