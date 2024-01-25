@@ -19,7 +19,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 \
     GOOS=$TARGETOS \
     GOARCH=$TARGETARCH \
-    go build -ldflags="-X 'main.Version=$VERSION' -X 'main.Commit=$COMMIT' -X 'main.BuildTime=$BUILD_TIME'" -o gobin-server github.com/topi314/gobin/v2
+    go build -ldflags="-X 'gobin.Version=$VERSION' -X 'gobin.Commit=$COMMIT' -X 'gobin.BuildTime=$BUILD_TIME'" -o gobin-server github.com/topi314/gobin/v2
 
 FROM alpine
 

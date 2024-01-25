@@ -31,16 +31,6 @@ import (
 
 //go:generate go run github.com/a-h/templ/cmd/templ@latest generate
 
-// These variables are set via the -ldflags option in go build
-var (
-	Name      = "gobin"
-	Namespace = "github.com/topi314/gobin/v2"
-
-	Version   = "unknown"
-	Commit    = "unknown"
-	BuildTime = "unknown"
-)
-
 var (
 	//go:embed assets
 	Assets embed.FS
@@ -102,22 +92,22 @@ func main() {
 	}
 
 	setupLogger(cfg.Log)
-	buildTime, _ := time.Parse(time.RFC3339, BuildTime)
-	slog.Info("Starting Gobin...", slog.String("version", Version), slog.String("commit", Commit), slog.Time("build-time", buildTime))
+	buildTime, _ := time.Parse(time.RFC3339, gobin.BuildTime)
+	slog.Info("Starting Gobin...", slog.String("version", gobin.Version), slog.String("commit", gobin.Commit), slog.Time("build-time", buildTime))
 	slog.Info("Config", slog.String("config", cfg.String()))
 
 	var (
-		tracer = tracenoop.NewTracerProvider().Tracer(Name)
-		meter  = meternoop.NewMeterProvider().Meter(Name)
-		err    error
+		tracer = tracenoop.NewTracerProvider().Tracer(gobin.Name)
+		meter  = meternoop.NewMeterProvider().Meter(gobin.Name)
 	)
 	if cfg.Otel != nil {
-		tracer, err = newTracer(*cfg.Otel)
+		var err error
+		tracer, err = gobin.NewTracer(*cfg.Otel)
 		if err != nil {
 			slog.Error("Error while creating tracer", tint.Err(err))
 			os.Exit(1)
 		}
-		meter, err = newMeter(*cfg.Otel)
+		meter, err = gobin.NewMeter(*cfg.Otel)
 		if err != nil {
 			slog.Error("Error while creating meter", tint.Err(err))
 			os.Exit(1)
@@ -174,7 +164,7 @@ func main() {
 	formatters.Register("html", htmlFormatter)
 	formatters.Register("html-standalone", standaloneHTMLFormatter)
 
-	s := gobin.NewServer(ver.FormatBuildVersion(Version, Commit, buildTime), cfg.DevMode, cfg, db, signer, tracer, meter, assets, htmlFormatter, standaloneHTMLFormatter)
+	s := gobin.NewServer(ver.FormatBuildVersion(gobin.Version, gobin.Commit, buildTime), cfg.DevMode, cfg, db, signer, tracer, meter, assets, htmlFormatter, standaloneHTMLFormatter)
 	slog.Info("Gobin started...", slog.String("address", cfg.ListenAddr))
 	go s.Start()
 	defer s.Close()

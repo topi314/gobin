@@ -141,7 +141,6 @@ body {
     padding: 0;
     margin: 0;
     font-family: "JetBrainsMono", sans-serif;
-    overflow: hidden;
 }
 
 header {
@@ -423,25 +422,30 @@ main {
 }
 
 label[for="code-edit"] {
+    position: absolute;
+    right: 0;
     color: var(--text-primary);
     user-select: none;
     display: flex;
-    padding: 0 0.5rem;
+    margin: 0.5rem;
 }
 
 label[for="code-edit"].invalid {
     color: var(--bg-error)
 }
 
-#footer {
+footer {
     background-color: var(--bg-secondary);
     display: flex;
     align-items: center;
+    justify-content: space-between;
     flex-wrap: wrap;
 }
 
-#footer .spacer {
-    flex-grow: 1;
+footer > div {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
 }
 
 .error {
@@ -585,10 +589,6 @@ label[for="expire"] {
 
 #theme-toggle + label {
     background-image: var(--theme);
-}
-
-.loading {
-    background-image: url(/assets/icons/loading.gif) !important;
 }
 
 @media (min-width: 32rem) {

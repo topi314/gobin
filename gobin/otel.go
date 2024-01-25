@@ -1,4 +1,4 @@
-package main
+package gobin
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/topi314/gobin/v2/gobin"
 	"github.com/topi314/tint"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
@@ -22,7 +21,19 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func resources(cfg gobin.OtelConfig) *resource.Resource {
+var (
+	Name      = "gobin"
+	Namespace = "github.com/topi314/gobin/v2"
+)
+
+// These variables are set via the -ldflags option in go build
+var (
+	Version   = "unknown"
+	Commit    = "unknown"
+	BuildTime = "unknown"
+)
+
+func resources(cfg OtelConfig) *resource.Resource {
 	return resource.NewWithAttributes(
 		semconv.SchemaURL,
 		semconv.ServiceName(Name),
@@ -32,7 +43,7 @@ func resources(cfg gobin.OtelConfig) *resource.Resource {
 	)
 }
 
-func newTracer(cfg gobin.OtelConfig) (trace.Tracer, error) {
+func NewTracer(cfg OtelConfig) (trace.Tracer, error) {
 	if cfg.Trace == nil {
 		return nil, nil
 	}
@@ -61,7 +72,7 @@ func newTracer(cfg gobin.OtelConfig) (trace.Tracer, error) {
 	return otel.Tracer(Name), nil
 }
 
-func newMeter(cfg gobin.OtelConfig) (metric.Meter, error) {
+func NewMeter(cfg OtelConfig) (metric.Meter, error) {
 	if cfg.Metrics == nil {
 		return nil, nil
 	}
