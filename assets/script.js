@@ -461,7 +461,12 @@ async function saveDocument(key, expire, files) {
     }
 
     if (expire) {
-        headers["Expires"] = new Date(Date.now() + expire * 60 * 60 * 1000).toISOString();
+        try {
+            headers["Expires"] = new Date(Date.now() + expire * 60 * 60 * 1000).toISOString();
+        } catch (e) {
+            showErrorPopup("Invalid expiration date");
+            return
+        }
     }
 
     const response = await fetch(`/documents/${key}?formatter=html`, {

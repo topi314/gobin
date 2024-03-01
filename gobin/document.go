@@ -898,8 +898,6 @@ func (s *Server) parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 		return nil, err
 	}
 
-	fmt.Printf("ExpiresAt: %v\n", expiresAt)
-
 	if contentType == "multipart/form-data" {
 		mr, err := r.MultipartReader()
 		if err != nil {
