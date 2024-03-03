@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS files
     content          TEXT    NOT NULL,
     language         VARCHAR NOT NULL,
     expires_at       TIMESTAMP,
+    order_index      BIGINT  NOT NULL DEFAULT 0,
     PRIMARY KEY (name, document_id, document_version)
 );
 

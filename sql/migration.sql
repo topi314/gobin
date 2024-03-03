@@ -1,6 +1,7 @@
 --- v2.0.0 -> v2.1.0
 ALTER TABLE files
-    ADD COLUMN expires_at TIMESTAMP;
+    ADD COLUMN expires_at TIMESTAMP
+    ADD COLUMN order_index BIGINT  NOT NULL DEFAULT 0;
 
 --- v1.6.0 -> v2.0.0
 CREATE TABLE IF NOT EXISTS files

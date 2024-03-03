@@ -651,12 +651,13 @@ func (s *Server) PostDocument(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var dbFiles []database.File
-	for _, file := range files {
+	for i, file := range files {
 		dbFiles = append(dbFiles, database.File{
-			Name:      file.Name,
-			Content:   file.Content,
-			Language:  file.Language,
-			ExpiresAt: file.ExpiresAt,
+			Name:       file.Name,
+			Content:    file.Content,
+			Language:   file.Language,
+			ExpiresAt:  file.ExpiresAt,
+			OrderIndex: i,
 		})
 	}
 
@@ -719,12 +720,13 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 	documentID := chi.URLParam(r, "documentID")
 
 	var dbFiles []database.File
-	for _, file := range files {
+	for i, file := range files {
 		dbFiles = append(dbFiles, database.File{
-			Name:      file.Name,
-			Content:   file.Content,
-			Language:  file.Language,
-			ExpiresAt: file.ExpiresAt,
+			Name:       file.Name,
+			Content:    file.Content,
+			Language:   file.Language,
+			ExpiresAt:  file.ExpiresAt,
+			OrderIndex: i,
 		})
 	}
 

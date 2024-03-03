@@ -14,6 +14,7 @@ type File struct {
 	Content         string     `db:"content"`
 	Language        string     `db:"language"`
 	ExpiresAt       *time.Time `db:"expires_at"`
+	OrderIndex      int        `db:"order_index"`
 }
 
 type Document struct {
@@ -24,7 +25,7 @@ type Document struct {
 
 func (d *DB) GetDocument(ctx context.Context, documentID string) ([]File, error) {
 	var files []File
-	if err := d.dbx.SelectContext(ctx, &files, "SELECT name, document_id, document_version, content, language, expires_at from (SELECT *, rank() OVER (PARTITION BY document_id ORDER BY document_version DESC) AS rank FROM files) AS f WHERE document_id = $1 AND rank = 1;", documentID); err != nil {
+	if err := d.dbx.SelectContext(ctx, &files, "SELECT name, document_id, document_version, content, language, expires_at from (SELECT *, rank() OVER (PARTITION BY document_id ORDER BY document_version DESC) AS rank FROM files) AS f WHERE document_id = $1 AND rank = 1 ORDER BY order_index;", documentID); err != nil {
 		return nil, fmt.Errorf("failed to get document: %w", err)
 	}
 
@@ -36,7 +37,7 @@ func (d *DB) GetDocument(ctx context.Context, documentID string) ([]File, error)
 
 func (d *DB) GetDocumentVersion(ctx context.Context, documentID string, documentVersion int64) ([]File, error) {
 	var files []File
-	if err := d.dbx.SelectContext(ctx, &files, "SELECT name, document_id, document_version, content, language, expires_at from files WHERE document_id = $1 AND document_version = $2;", documentID, documentVersion); err != nil {
+	if err := d.dbx.SelectContext(ctx, &files, "SELECT name, document_id, document_version, content, language, expires_at from files WHERE document_id = $1 AND document_version = $2 ORDER BY order_index;", documentID, documentVersion); err != nil {
 		return nil, fmt.Errorf("failed to get document version: %w", err)
 	}
 
@@ -94,7 +95,7 @@ func (d *DB) CreateDocument(ctx context.Context, files []File) (*string, *int64,
 		files[i].DocumentVersion = version
 	}
 
-	if _, err := d.dbx.NamedExecContext(ctx, "INSERT INTO files (name, document_id, document_version, content, language, expires_at) VALUES (:name, :document_id, :document_version, :content, :language, :expires_at);", files); err != nil {
+	if _, err := d.dbx.NamedExecContext(ctx, "INSERT INTO files (name, document_id, document_version, content, language, expires_at, order_index) VALUES (:name, :document_id, :document_version, :content, :language, :expires_at, :order_index);", files); err != nil {
 		return nil, nil, fmt.Errorf("failed to create document: %w", err)
 	}
 	return &documentID, &version, nil
