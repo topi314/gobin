@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/jmoiron/sqlx"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/semconv/v1.21.0"
+	"go.opentelemetry.io/otel/semconv/v1.25.0"
 	"go.opentelemetry.io/otel/trace"
 	_ "modernc.org/sqlite"
 )
