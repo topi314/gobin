@@ -78,12 +78,13 @@ func newMeter(cfg server.OtelConfig) (metric.Meter, error) {
 	)
 	otel.SetMeterProvider(mp)
 
+	httpServer := &http.Server{
+		Addr:    cfg.Metrics.ListenAddr,
+		Handler: promhttp.Handler(),
+	}
+
 	go func() {
-		server := &http.Server{
-			Addr:    cfg.Metrics.ListenAddr,
-			Handler: promhttp.Handler(),
-		}
-		if listenErr := server.ListenAndServe(); listenErr != nil && !errors.Is(listenErr, http.ErrServerClosed) {
+		if listenErr := httpServer.ListenAndServe(); listenErr != nil && !errors.Is(listenErr, http.ErrServerClosed) {
 			slog.Error("failed to listen metrics server", tint.Err(listenErr))
 		}
 	}()
