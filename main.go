@@ -5,7 +5,6 @@ import (
 	"embed"
 	"flag"
 	"io/fs"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -106,9 +105,6 @@ func main() {
 	case database.TypeSQLite:
 		driver = sqlite.New
 	}
-
-	entries, err := Migrations.ReadDir(".")
-	log.Printf("entries: %v", entries)
 
 	if err = gomigrate.Migrate(ctx, db, driver, Migrations, gomigrate.WithDirectory("server/migrations")); err != nil {
 		slog.Error("Error while migrating database", tint.Err(err))

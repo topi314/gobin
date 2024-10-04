@@ -18,7 +18,6 @@ import (
 	"github.com/topi314/gomigrate"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/semconv/v1.25.0"
-	"go.opentelemetry.io/otel/trace"
 	_ "modernc.org/sqlite"
 
 	"github.com/topi314/gobin/v2/internal/timex"
@@ -55,8 +54,8 @@ func (c Config) String() string {
 	str := fmt.Sprintf("\n  Type: %s\n  Debug: %t\n  ExpireAfter: %s\n  CleanupInterval: %s\n  ",
 		c.Type,
 		c.Debug,
-		c.ExpireAfter,
-		c.CleanupInterval,
+		time.Duration(c.ExpireAfter),
+		time.Duration(c.CleanupInterval),
 	)
 	switch c.Type {
 	case TypePostgres:
@@ -156,8 +155,7 @@ func New(ctx context.Context, cfg Config) (*DB, error) {
 
 type DB struct {
 	*sqlx.DB
-	rand   *rand.Rand
-	tracer trace.Tracer
+	rand *rand.Rand
 }
 
 func (d *DB) randomString(length int) string {

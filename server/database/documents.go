@@ -159,7 +159,7 @@ func (d *DB) DeleteDocumentVersion(ctx context.Context, documentID string, docum
 	return &Document{
 		ID:      documentID,
 		Version: documentVersion,
-		Files:   files,
+		Files:   lastDeletedFiles,
 	}, nil
 }
 

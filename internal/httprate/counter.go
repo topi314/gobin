@@ -50,11 +50,9 @@ func (c *counter) Try(key string) (bool, int, time.Time) {
 func (c *counter) Cleanup() {
 	ticker := time.NewTicker(time.Second * 10)
 	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			c.doCleanup()
-		}
+
+	for range ticker.C {
+		c.doCleanup()
 	}
 }
 
@@ -72,6 +70,6 @@ func (c *counter) doCleanup() {
 
 func counterKey(key string) uint64 {
 	h := xxhash.New()
-	h.WriteString(key)
+	_, _ = h.WriteString(key)
 	return h.Sum64()
 }
