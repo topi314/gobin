@@ -19,7 +19,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
 	github.com/topi314/chroma/v2 v2.0.0-20240614212830-eb9beba2251d
-	github.com/topi314/gomigrate v0.0.0-20241004133557-a12321325463
+	github.com/topi314/gomigrate v0.0.0-20241004214626-bb286a22f06c
 	github.com/topi314/otelchi v0.0.0-20240303215413-6ead809329d9
 	github.com/topi314/tint v0.0.0-20240303212505-44dd4a1b4f7f
 	go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace v0.55.0

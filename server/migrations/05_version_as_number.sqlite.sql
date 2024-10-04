@@ -1,4 +1,4 @@
---- v1.3.1
+--- v1.3.1 - sqlite
 
 ALTER TABLE documents
     RENAME TO documents_old;
