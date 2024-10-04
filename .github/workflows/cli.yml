@@ -5,10 +5,8 @@ on:
     paths-ignore:
       - "*.md"
       - "gobin/**"
-      - "../../gobin/assets/**"
       - "sql/**"
       - "styles/**"
-      - "../../gobin/templates/**"
 
 jobs:
   cli-build:
