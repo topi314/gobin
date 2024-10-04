@@ -87,7 +87,7 @@ on [Packages](https://github.com/topi314/gobin/pkgs/container/gobin).
 Create a new `docker-compose.yml` file with the following content:
 
 > [!Note]
-> You should change the password in the `docker-compose.yml` and `gobin.json` file.
+> You should change the password in the `docker-compose.yml` and `gobin.toml` file.
 
 ```yaml
 version: "3.8"
@@ -98,7 +98,7 @@ services:
     container_name: gobin
     restart: unless-stopped
     volumes:
-      - ./gobin.json:/var/lib/gobin/gobin.json
+      - ./gobin.toml:/var/lib/gobin/gobin.toml
       # use this for sqlite
       - ./gobin.db:/var/lib/gobin/gobin.db
     ports:
@@ -117,7 +117,7 @@ services:
       POSTGRES_PASSWORD: password
 ```
 
-For `gobin.json`/environment variables and database schema see [Configuration](#configuration).
+For `gobin.toml`/database schema see [Configuration](#configuration).
 
 ```bash
 docker-compose up -d
@@ -148,7 +148,7 @@ go install github.com/topi314/gobin/v2@latest
 ##### Run
 
 ```bash
-gobin --config=gobin.json
+gobin --config=gobin.toml
 ```
 
 ---
@@ -195,9 +195,9 @@ gobin help
 
 ## Configuration
 
-The database schema is automatically created when you start gobin and there is no `documents` table in the database.
+The database schema is automatically created or migrated when you start gobin.
 
-Create a new `gobin.json` file with the following content:
+Create a new `gobin.toml` file with the following content:
 
 > [!Note]
 > Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
@@ -546,9 +546,9 @@ second `file-1` and so on.
 | style?          | style name                   | Which style to use for the formatter                    |
 | expires?        | Timestamp                    | When the document file should expire in RFC 3339 format |
 
-| Header               | Type      | Description                                             |
-|----------------------|-----------|---------------------------------------------------------|
-| Expires?             | Timestamp | When the document file should expire in RFC 3339 format |
+| Header   | Type      | Description                                             |
+|----------|-----------|---------------------------------------------------------|
+| Expires? | Timestamp | When the document file should expire in RFC 3339 format |
 
 | Part Header         | Type      | Description                                                                                  |
 |---------------------|-----------|----------------------------------------------------------------------------------------------|
@@ -845,6 +845,7 @@ update the document.
 
 > [!Note]
 > The update token will not change after updating the document. You can use the same token to update the document again.
+
 ```json5
 {
   "key": "hocwr6i6",

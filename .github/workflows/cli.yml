@@ -5,35 +5,35 @@ on:
     paths-ignore:
       - "*.md"
       - "gobin/**"
-      - "assets/**"
+      - "../../gobin/assets/**"
       - "sql/**"
       - "styles/**"
-      - "templates/**"
+      - "../../gobin/templates/**"
 
 jobs:
   cli-build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goos: [ linux, windows, darwin ]
-        goarch: [ amd64, 386, arm, arm64 ]
+        goos: [ "linux", "windows", "darwin" ]
+        goarch: [ "amd64", "386", "arm", "arm64" ]
         exclude:
-          - goos: darwin
-            goarch: 386
-          - goos: darwin
-            goarch: arm
-          - goos: windows
-            goarch: arm
+          - goos: "darwin"
+            goarch: "386"
+          - goos: "darwin"
+            goarch: "arm"
+          - goos: "windows"
+            goarch: "arm"
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.22.x
+          go-version: 1.23.x
           cache: true
 
       - name: File Extension Windows
@@ -58,7 +58,7 @@ jobs:
           go build -ldflags="-X 'main.Version=${{ env.VERSION }}' -X 'main.Commit=${{ env.COMMIT }}' -X 'main.BuildTime=${{ env.BUILD_TIME }}'" -o dist/gobin-${{ matrix.goos }}-${{ matrix.goarch }}${{ env.file_name }} github.com/topi314/gobin/v2/cli
 
       - name: Upload
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: gobin-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/*
@@ -69,3 +69,7 @@ jobs:
         with:
           artifacts: dist/*
           allowUpdates: true
+          omitBodyDuringUpdate: true
+          omitDraftDuringUpdate: true
+          omitNameDuringUpdate: true
+          omitPrereleaseDuringUpdate: true

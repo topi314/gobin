@@ -8,7 +8,8 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
-	"github.com/topi314/gobin/v2/gobin"
+
+	"github.com/topi314/gobin/v2/server"
 )
 
 type Reader interface {
@@ -37,17 +38,15 @@ var defaultClient = &http.Client{
 }
 
 func Do(method string, path string, token string, body io.Reader) (*http.Response, error) {
-	server := viper.GetString("server")
-	rq, err := http.NewRequest(method, server+path, body)
+	gobinServer := viper.GetString("server")
+	rq, err := http.NewRequest(method, gobinServer+path, body)
 	if err != nil {
 		return nil, err
 	}
 	if r, ok := body.(Reader); ok {
 		rq.Header = r.Headers()
 	}
-	if err != nil {
-		return nil, err
-	}
+
 	if token != "" {
 		rq.Header.Set("Authorization", "Bearer "+token)
 	}
@@ -81,7 +80,7 @@ func ProcessBody(method string, rs *http.Response, body any) error {
 		}
 		return nil
 	}
-	var errRs gobin.ErrorResponse
+	var errRs server.ErrorResponse
 	if err := json.NewDecoder(rs.Body).Decode(&errRs); err != nil {
 		return fmt.Errorf("failed to decode error response: %w", err)
 	}

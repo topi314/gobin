@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/viper"
+
 	"github.com/topi314/gobin/v2/internal/env"
 )
 

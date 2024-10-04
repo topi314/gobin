@@ -4,5 +4,5 @@ README.md
 LICENSE
 docker-compose.yml
 Dockerfile
-gobin.json
-example.gobin.json
+gobin.toml
+example.gobin.toml

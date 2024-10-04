@@ -5,28 +5,30 @@ import (
 	"embed"
 	"flag"
 	"io/fs"
+	"log"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/go-jose/go-jose/v3"
 	"github.com/mattn/go-colorable"
-	"github.com/mitchellh/mapstructure"
-	"github.com/spf13/viper"
 	"github.com/topi314/chroma/v2/formatters"
 	"github.com/topi314/chroma/v2/formatters/html"
 	"github.com/topi314/chroma/v2/lexers"
 	"github.com/topi314/chroma/v2/styles"
-	"github.com/topi314/gobin/v2/gobin"
-	"github.com/topi314/gobin/v2/gobin/database"
-	"github.com/topi314/gobin/v2/internal/ver"
+	"github.com/topi314/gomigrate"
+	"github.com/topi314/gomigrate/drivers/postgres"
+	"github.com/topi314/gomigrate/drivers/sqlite"
 	"github.com/topi314/tint"
 	meternoop "go.opentelemetry.io/otel/metric/noop"
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
+
+	"github.com/topi314/gobin/v2/internal/ver"
+	"github.com/topi314/gobin/v2/server"
+	"github.com/topi314/gobin/v2/server/database"
 )
 
 //go:generate go run github.com/a-h/templ/cmd/templ@latest generate
@@ -42,62 +44,23 @@ var (
 )
 
 var (
-	//go:embed assets
+	//go:embed server/assets
 	Assets embed.FS
 
-	//go:embed sql/schema.sql
-	Schema string
+	//go:embed server/migrations
+	Migrations embed.FS
 
 	//go:embed styles
 	Styles embed.FS
 )
 
 func main() {
-	cfgPath := flag.String("config", "", "path to gobin.json")
+	cfgPath := flag.String("config", "gobin.toml", "path to gobin.toml")
 	flag.Parse()
 
-	viper.SetDefault("log_level", "info")
-	viper.SetDefault("log_format", "json")
-	viper.SetDefault("log_add_source", false)
-	viper.SetDefault("listen_addr", ":80")
-	viper.SetDefault("debug", false)
-	viper.SetDefault("dev_mode", false)
-	viper.SetDefault("database_type", "sqlite")
-	viper.SetDefault("database_debug", false)
-	viper.SetDefault("database_expire_after", "0")
-	viper.SetDefault("database_cleanup_interval", "1m")
-	viper.SetDefault("database_path", "gobin.db")
-	viper.SetDefault("database_host", "localhost")
-	viper.SetDefault("database_port", 5432)
-	viper.SetDefault("database_username", "gobin")
-	viper.SetDefault("database_database", "gobin")
-	viper.SetDefault("database_ssl_mode", "disable")
-	viper.SetDefault("max_document_size", 0)
-	viper.SetDefault("max_highlight_size", 0)
-	viper.SetDefault("custom_styles", "")
-	viper.SetDefault("default_style", "onedark")
-
-	if *cfgPath != "" {
-		viper.SetConfigFile(*cfgPath)
-	} else {
-		viper.SetConfigName("gobin")
-		viper.SetConfigType("json")
-		viper.AddConfigPath(".")
-		viper.AddConfigPath("/etc/gobin/")
-	}
-	if err := viper.ReadInConfig(); err != nil {
-		slog.Error("Error while reading config", tint.Err(err))
-		os.Exit(1)
-	}
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	viper.SetEnvPrefix("gobin")
-	viper.AutomaticEnv()
-
-	var cfg gobin.Config
-	if err := viper.Unmarshal(&cfg, func(config *mapstructure.DecoderConfig) {
-		config.TagName = "cfg"
-	}); err != nil {
-		slog.Error("Error while unmarshalling config", tint.Err(err))
+	cfg, err := server.LoadConfig(*cfgPath)
+	if err != nil {
+		slog.Error("Error while loading config", tint.Err(err))
 		os.Exit(1)
 	}
 
@@ -109,7 +72,6 @@ func main() {
 	var (
 		tracer = tracenoop.NewTracerProvider().Tracer(Name)
 		meter  = meternoop.NewMeterProvider().Meter(Name)
-		err    error
 	)
 	if cfg.Otel != nil {
 		tracer, err = newTracer(*cfg.Otel)
@@ -126,12 +88,32 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	db, err := database.New(ctx, cfg.Database, Schema)
+	db, err := database.New(ctx, cfg.Database)
 	if err != nil {
 		slog.Error("Error while connecting to database", tint.Err(err))
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			slog.Error("Error while closing database", tint.Err(closeErr))
+		}
+	}()
+
+	var driver gomigrate.NewDriver
+	switch cfg.Database.Type {
+	case database.TypePostgres:
+		driver = postgres.New
+	case database.TypeSQLite:
+		driver = sqlite.New
+	}
+
+	entries, err := Migrations.ReadDir(".")
+	log.Printf("entries: %v", entries)
+
+	if err = gomigrate.Migrate(ctx, db, driver, Migrations, gomigrate.WithDirectory("server/migrations")); err != nil {
+		slog.Error("Error while migrating database", tint.Err(err))
+		os.Exit(1)
+	}
 
 	signer, err := jose.NewSigner(jose.SigningKey{
 		Algorithm: jose.HS512,
@@ -174,7 +156,7 @@ func main() {
 	formatters.Register("html", htmlFormatter)
 	formatters.Register("html-standalone", standaloneHTMLFormatter)
 
-	s := gobin.NewServer(ver.FormatBuildVersion(Version, Commit, buildTime), cfg.DevMode, cfg, db, signer, tracer, meter, assets, htmlFormatter, standaloneHTMLFormatter)
+	s := server.NewServer(ver.FormatBuildVersion(Version, Commit, buildTime), cfg.DevMode, cfg, db, signer, tracer, meter, assets, htmlFormatter, standaloneHTMLFormatter)
 	slog.Info("Gobin started...", slog.String("address", cfg.ListenAddr))
 	go s.Start()
 	defer s.Close()
@@ -199,16 +181,16 @@ const (
 	ansiMagenta = "\033[35m"
 )
 
-func setupLogger(cfg gobin.LogConfig) {
+func setupLogger(cfg server.LogConfig) {
 	var handler slog.Handler
 	switch cfg.Format {
-	case "json":
+	case server.LogFormatJSON:
 		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 			AddSource: cfg.AddSource,
 			Level:     cfg.Level,
 		})
 
-	case "text":
+	case server.LogFormatText:
 		handler = tint.NewHandler(colorable.NewColorable(os.Stdout), &tint.Options{
 			AddSource: cfg.AddSource,
 			Level:     cfg.Level,
@@ -234,7 +216,7 @@ func setupLogger(cfg gobin.LogConfig) {
 			},
 		})
 	default:
-		slog.Error("Unknown log format", slog.String("format", cfg.Format))
+		slog.Error("Unknown log format", slog.String("format", string(cfg.Format)))
 		os.Exit(-1)
 	}
 	slog.SetDefault(slog.New(handler))

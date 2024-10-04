@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	"github.com/topi314/gobin/v2/cmd"
+	cmd2 "github.com/topi314/gobin/v2/cli/cmd"
 	"github.com/topi314/gobin/v2/internal/ver"
 )
 
@@ -17,14 +17,14 @@ var (
 func main() {
 	buildTime, _ := time.Parse(time.RFC3339, BuildTime)
 
-	rootCmd := cmd.NewRootCmd()
-	cmd.NewGetCmd(rootCmd)
-	cmd.NewPostCmd(rootCmd)
-	cmd.NewRmCmd(rootCmd)
-	cmd.NewImportCmd(rootCmd)
-	cmd.NewShareCmd(rootCmd)
-	cmd.NewVersionCmd(rootCmd, ver.FormatBuildVersion(Version, Commit, buildTime))
-	cmd.NewEnvCmd(rootCmd)
-	cmd.NewCompletionCmd(rootCmd)
-	cmd.Execute(rootCmd)
+	rootCmd := cmd2.NewRootCmd()
+	cmd2.NewGetCmd(rootCmd)
+	cmd2.NewPostCmd(rootCmd)
+	cmd2.NewRmCmd(rootCmd)
+	cmd2.NewImportCmd(rootCmd)
+	cmd2.NewShareCmd(rootCmd)
+	cmd2.NewVersionCmd(rootCmd, ver.FormatBuildVersion(Version, Commit, buildTime))
+	cmd2.NewEnvCmd(rootCmd)
+	cmd2.NewCompletionCmd(rootCmd)
+	cmd2.Execute(rootCmd)
 }

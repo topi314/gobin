@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/topi314/gobin/v2/gobin"
 	"github.com/topi314/tint"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
@@ -20,9 +19,11 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/semconv/v1.25.0"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/topi314/gobin/v2/server"
 )
 
-func resources(cfg gobin.OtelConfig) *resource.Resource {
+func resources(cfg server.OtelConfig) *resource.Resource {
 	return resource.NewWithAttributes(
 		semconv.SchemaURL,
 		semconv.ServiceName(Name),
@@ -32,7 +33,7 @@ func resources(cfg gobin.OtelConfig) *resource.Resource {
 	)
 }
 
-func newTracer(cfg gobin.OtelConfig) (trace.Tracer, error) {
+func newTracer(cfg server.OtelConfig) (trace.Tracer, error) {
 	if cfg.Trace == nil {
 		return nil, nil
 	}
@@ -61,7 +62,7 @@ func newTracer(cfg gobin.OtelConfig) (trace.Tracer, error) {
 	return otel.Tracer(Name), nil
 }
 
-func newMeter(cfg gobin.OtelConfig) (metric.Meter, error) {
+func newMeter(cfg server.OtelConfig) (metric.Meter, error) {
 	if cfg.Metrics == nil {
 		return nil, nil
 	}
