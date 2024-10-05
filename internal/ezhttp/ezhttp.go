@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
-
-	"github.com/topi314/gobin/v2/server"
 )
 
 const (
@@ -35,6 +33,13 @@ const (
 	ContentTypePNG    = "image/png"
 	ContentTypeJSON   = "application/json"
 )
+
+type ErrorResponse struct {
+	Message   string `json:"message"`
+	Status    int    `json:"status"`
+	Path      string `json:"path"`
+	RequestID string `json:"request_id"`
+}
 
 type Reader interface {
 	io.Reader
@@ -104,7 +109,7 @@ func ProcessBody(method string, rs *http.Response, body any) error {
 		}
 		return nil
 	}
-	var errRs server.ErrorResponse
+	var errRs ErrorResponse
 	if err := json.NewDecoder(rs.Body).Decode(&errRs); err != nil {
 		return fmt.Errorf("failed to decode error response: %w", err)
 	}

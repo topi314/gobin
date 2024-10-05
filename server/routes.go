@@ -205,7 +205,7 @@ func (s *Server) error(w http.ResponseWriter, r *http.Request, err error) {
 	if status == http.StatusInternalServerError {
 		slog.ErrorContext(r.Context(), "internal server error", tint.Err(err))
 	}
-	s.json(w, r, ErrorResponse{
+	s.json(w, r, ezhttp.ErrorResponse{
 		Message:   err.Error(),
 		Status:    status,
 		Path:      r.URL.Path,
