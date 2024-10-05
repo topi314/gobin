@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.22-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.23-alpine AS build
 
 WORKDIR /build
 
@@ -33,4 +33,4 @@ EXPOSE 80
 
 ENTRYPOINT ["/bin/gobin"]
 
-CMD ["-config", "/var/lib/gobin/gobin.json"]
+CMD ["-config", "/var/lib/gobin/gobin.toml"]

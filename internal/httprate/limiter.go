@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/topi314/gobin/v2/internal/ezhttp"
 )
 
 func NewRateLimiter(requestLimit int, windowLength time.Duration, onRequestLimit http.HandlerFunc) *RateLimiter {
@@ -38,12 +40,12 @@ func (l *RateLimiter) Handler(next http.Handler) http.Handler {
 
 		l.mu.Lock()
 		ok, remaining, reset := l.limitCounter.Try(key)
-		w.Header().Set("X-RateLimit-Limit", strconv.Itoa(l.requestLimit))
-		w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(remaining))
-		w.Header().Set("X-RateLimit-Reset", strconv.FormatInt(reset.Unix(), 10))
+		w.Header().Set(ezhttp.HeaderRateLimitLimit, strconv.Itoa(l.requestLimit))
+		w.Header().Set(ezhttp.HeaderRateLimitRemaining, strconv.Itoa(remaining))
+		w.Header().Set(ezhttp.HeaderRateLimitReset, strconv.FormatInt(reset.Unix(), 10))
 
 		if !ok {
-			w.Header().Set("Retry-After", strconv.FormatInt(int64(math.Ceil(time.Until(reset).Seconds())), 10))
+			w.Header().Set(ezhttp.HeaderRetryAfter, strconv.FormatInt(int64(math.Ceil(time.Until(reset).Seconds())), 10))
 			l.onRequestLimit(w, r)
 			l.mu.Unlock()
 			return
@@ -77,7 +79,6 @@ func canonicalizeIP(ip string) string {
 		case ':':
 			// IPv6
 			isIPv6 = true
-			break
 		}
 	}
 	if !isIPv6 {

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/viper"
+
 	"github.com/topi314/gobin/v2/internal/env"
 )
 
@@ -20,7 +21,9 @@ func Update(f func(map[string]string)) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer cfgFile.Close()
+	defer func() {
+		_ = cfgFile.Close()
+	}()
 
 	cfg := make(map[string]string)
 	if err = env.NewDecoder(cfgFile).Decode(&cfg); err != nil {
@@ -49,7 +52,9 @@ func Get() (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer cfgFile.Close()
+	defer func() {
+		_ = cfgFile.Close()
+	}()
 
 	cfg := make(map[string]string)
 	if err = env.NewDecoder(cfgFile).Decode(&cfg); err != nil {

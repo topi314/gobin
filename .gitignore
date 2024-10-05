@@ -1,6 +1,6 @@
 .idea/
 custom_styles/
-gobin.json
+gobin.toml
 .gobin
 gobin.db
 go.work
