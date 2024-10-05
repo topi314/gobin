@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -55,21 +54,16 @@ Will delete the jis74978 from the server.`,
 			if err != nil {
 				return fmt.Errorf("failed to create document: %w", err)
 			}
-			defer rs.Body.Close()
-
-			if rs.StatusCode != 200 && rs.StatusCode != 204 {
-				var errRs server.ErrorResponse
-				if err = json.NewDecoder(rs.Body).Decode(&errRs); err != nil {
-					return fmt.Errorf("failed to decode error response: %w", err)
-				}
-				return fmt.Errorf("failed to remove document: %s", errRs.Message)
-			}
+			defer func() {
+				_ = rs.Body.Close()
+			}()
 
 			var deleteRs server.DeleteResponse
+			if err = ezhttp.ProcessBody("delete document", rs, &deleteRs); err != nil {
+				return fmt.Errorf("failed to process response: %w", err)
+			}
+
 			if version != "" {
-				if err = json.NewDecoder(rs.Body).Decode(&deleteRs); err != nil {
-					return fmt.Errorf("failed to decode delete response: %w", err)
-				}
 				cmd.Printf("Removed version: %s from document: %s\n", version, documentID)
 			} else {
 				cmd.Printf("Removed document: %s\n", documentID)

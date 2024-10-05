@@ -8,6 +8,8 @@ import (
 
 	"github.com/topi314/chroma/v2"
 	"github.com/topi314/chroma/v2/styles"
+
+	"github.com/topi314/gobin/v2/internal/ezhttp"
 )
 
 func getStyle(r *http.Request) *chroma.Style {
@@ -32,8 +34,8 @@ func (s *Server) ThemeCSS(w http.ResponseWriter, r *http.Request) {
 	style := getStyle(r)
 	cssBuff := s.themeCSS(style)
 
-	w.Header().Set("Content-Type", "text/css; charset=UTF-8")
-	w.Header().Set("Content-Length", strconv.Itoa(len(cssBuff)))
+	w.Header().Set(ezhttp.HeaderContentType, ezhttp.ContentTypeCSS)
+	w.Header().Set(ezhttp.HeaderContentLength, strconv.Itoa(len(cssBuff)))
 	w.WriteHeader(http.StatusOK)
 	if r.Method == http.MethodHead {
 		return

@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -19,6 +20,7 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/topi314/gobin/v2/internal/ezhttp"
 	"github.com/topi314/gobin/v2/internal/flags"
 	"github.com/topi314/gobin/v2/internal/httperr"
 	"github.com/topi314/gobin/v2/server/database"
@@ -167,9 +169,9 @@ func (s *Server) executeWebhook(ctx context.Context, url string, secret string, 
 		logger.ErrorContext(ctx, "failed to create request", tint.Err(err))
 		return
 	}
-	rq.Header.Add("Content-Type", "application/json")
-	rq.Header.Add("User-Agent", "gobin")
-	rq.Header.Add("Authorization", "Secret "+secret)
+	rq.Header.Add(ezhttp.HeaderContentType, ezhttp.ContentTypeJSON)
+	rq.Header.Add(ezhttp.HeaderUserAgent, fmt.Sprintf("gobin/%s", s.version))
+	rq.Header.Add(ezhttp.HeaderAuthorization, fmt.Sprintf("Secret %s", secret))
 
 	for i := 0; i < s.cfg.Webhook.MaxTries; i++ {
 		backoff := time.Duration(s.cfg.Webhook.BackoffFactor * float64(s.cfg.Webhook.Backoff) * float64(i))
@@ -336,7 +338,7 @@ func (s *Server) DeleteDocumentWebhook(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetWebhookSecret(r *http.Request) string {
-	secretStr := r.Header.Get("Authorization")
+	secretStr := r.Header.Get(ezhttp.HeaderAuthorization)
 	if len(secretStr) > 7 && strings.ToUpper(secretStr[0:6]) == "SECRET" {
 		return secretStr[7:]
 	}

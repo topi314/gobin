@@ -12,6 +12,30 @@ import (
 	"github.com/topi314/gobin/v2/server"
 )
 
+const (
+	HeaderContentType        = "Content-Type"
+	HeaderContentLength      = "Content-Length"
+	HeaderContentDisposition = "Content-Disposition"
+	HeaderUserAgent          = "User-Agent"
+	HeaderAuthorization      = "Authorization"
+	HeaderLanguage           = "Language"
+	HeaderRateLimitLimit     = "X-RateLimit-Limit"
+	HeaderRateLimitRemaining = "X-RateLimit-Remaining"
+	HeaderRateLimitReset     = "X-RateLimit-Reset"
+	HeaderRetryAfter         = "Retry-After"
+	HeaderCacheControl       = "Cache-Control"
+)
+
+const (
+	DefaultContentTyp = "application/octet-stream"
+	ContentTypeCSS    = "text/css; charset=UTF-8"
+	ContentTypeHTML   = "text/html; charset=UTF-8"
+	ContentTypeText   = "text/plain; charset=UTF-8"
+	ContentTypeSVG    = "image/svg+xml"
+	ContentTypePNG    = "image/png"
+	ContentTypeJSON   = "application/json"
+)
+
 type Reader interface {
 	io.Reader
 	Headers() http.Header
@@ -48,7 +72,7 @@ func Do(method string, path string, token string, body io.Reader) (*http.Respons
 	}
 
 	if token != "" {
-		rq.Header.Set("Authorization", "Bearer "+token)
+		rq.Header.Set(HeaderAuthorization, "Bearer "+token)
 	}
 	return defaultClient.Do(rq)
 }
@@ -74,7 +98,7 @@ func Delete(path string, token string) (*http.Response, error) {
 }
 
 func ProcessBody(method string, rs *http.Response, body any) error {
-	if rs.StatusCode >= 200 && rs.StatusCode < 300 {
+	if rs.StatusCode >= http.StatusOK && rs.StatusCode < http.StatusMultipleChoices {
 		if err := json.NewDecoder(rs.Body).Decode(body); err != nil {
 			return fmt.Errorf("failed to decode response: %w", err)
 		}

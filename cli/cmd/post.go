@@ -96,7 +96,7 @@ Will post "hello world!" to the server`,
 
 			var r io.Reader
 			if len(readers) == 0 {
-				contentType := "application/octet-stream"
+				contentType := ezhttp.DefaultContentTyp
 				if len(languages) > 0 {
 					contentType = languages[0]
 				}
@@ -105,7 +105,7 @@ Will post "hello world!" to the server`,
 					fileName = file.Name()
 				}
 				r = ezhttp.NewHeaderReader(readers[0], http.Header{
-					"Content-Type": []string{
+					ezhttp.HeaderContentType: []string{
 						mime.FormatMediaType(contentType, map[string]string{
 							"filename": fileName,
 						}),
@@ -117,7 +117,7 @@ Will post "hello world!" to the server`,
 				mpw := multipart.NewWriter(buff)
 
 				for i, rr := range readers {
-					contentType := "application/octet-stream"
+					contentType := ezhttp.DefaultContentTyp
 					if len(languages) > i {
 						contentType = languages[i]
 					}
@@ -126,13 +126,13 @@ Will post "hello world!" to the server`,
 						fileName = file.Name()
 					}
 					part, err := mpw.CreatePart(textproto.MIMEHeader{
-						"Content-Disposition": []string{
+						ezhttp.HeaderContentDisposition: []string{
 							mime.FormatMediaType("form-data", map[string]string{
 								"name":     fmt.Sprintf("file-%d", i),
 								"filename": fileName,
 							}),
 						},
-						"Content-Type": []string{contentType},
+						ezhttp.HeaderContentType: []string{contentType},
 					})
 					if err != nil {
 						return fmt.Errorf("failed to create multipart part")
@@ -146,7 +146,7 @@ Will post "hello world!" to the server`,
 					return fmt.Errorf("failed to close multipart writer")
 				}
 				r = ezhttp.NewHeaderReader(buff, http.Header{
-					"Content-Type": []string{mpw.FormDataContentType()},
+					ezhttp.HeaderContentType: []string{mpw.FormDataContentType()},
 				})
 			}
 
@@ -171,7 +171,9 @@ Will post "hello world!" to the server`,
 					return fmt.Errorf("failed to update document: %w", err)
 				}
 			}
-			defer rs.Body.Close()
+			defer func() {
+				_ = rs.Body.Close()
+			}()
 
 			var documentRs server.DocumentResponse
 			if err = ezhttp.ProcessBody("post document", rs, &documentRs); err != nil {

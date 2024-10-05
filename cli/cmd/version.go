@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"net/http"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -46,6 +47,10 @@ OS/Arch: windows/amd64`,
 			defer func() {
 				_ = rs.Body.Close()
 			}()
+
+			if rs.StatusCode != http.StatusOK {
+				return fmt.Errorf("failed to get server version: %s", rs.Status)
+			}
 
 			data, err := io.ReadAll(rs.Body)
 			if err != nil {

@@ -24,6 +24,7 @@ import (
 	"github.com/topi314/chroma/v2/lexers"
 	"github.com/topi314/tint"
 
+	"github.com/topi314/gobin/v2/internal/ezhttp"
 	"github.com/topi314/gobin/v2/internal/flags"
 	"github.com/topi314/gobin/v2/internal/gio"
 	"github.com/topi314/gobin/v2/internal/httperr"
@@ -340,20 +341,20 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 		)
 		switch formatterName {
 		case "html", "standalone-html":
-			contentType = "text/html; charset=UTF-8"
+			contentType = ezhttp.ContentTypeHTML
 			fileName = file.Name + ".html"
 		case "svg":
-			contentType = "image/svg+xml"
+			contentType = ezhttp.ContentTypeSVG
 			fileName = file.Name + ".svg"
 		case "json":
-			contentType = "application/json"
+			contentType = ezhttp.ContentTypeJSON
 			fileName = file.Name + ".json"
 		default:
-			contentType = "text/plain; charset=UTF-8"
+			contentType = ezhttp.ContentTypeText
 			fileName = file.Name
 		}
 
-		w.Header().Set("Content-Disposition", mime.FormatMediaType("inline", map[string]string{
+		w.Header().Set(ezhttp.HeaderContentDisposition, mime.FormatMediaType("inline", map[string]string{
 			"name":     fileName,
 			"filename": fileName,
 		}))
@@ -362,9 +363,9 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 		if lexer == nil {
 			lexer = lexers.Fallback
 		}
-		w.Header().Set("Language", lexer.Config().Name)
+		w.Header().Set(ezhttp.HeaderLanguage, lexer.Config().Name)
 
-		w.Header().Set("Content-Type", contentType)
+		w.Header().Set(ezhttp.HeaderContentType, contentType)
 		if _, err = w.Write([]byte(formatted)); err != nil {
 			s.error(w, r, err)
 		}
@@ -380,7 +381,7 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 		}
 
 		headers := make(textproto.MIMEHeader, 2)
-		headers.Set("Content-Disposition", mime.FormatMediaType("form-data", map[string]string{
+		headers.Set(ezhttp.HeaderContentDisposition, mime.FormatMediaType("form-data", map[string]string{
 			"name":     fmt.Sprintf("file-%d", i),
 			"filename": file.Name,
 		}))
@@ -389,24 +390,24 @@ func (s *Server) GetRawDocument(w http.ResponseWriter, r *http.Request) {
 		if lexer == nil {
 			lexer = lexers.Fallback
 		}
-		headers.Set("Language", lexer.Config().Name)
+		headers.Set(ezhttp.HeaderLanguage, lexer.Config().Name)
 
 		var contentType string
 		switch formatterName {
 		case "html", "standalone-html":
-			contentType = "text/html; charset=UTF-8"
+			contentType = ezhttp.ContentTypeHTML
 		case "svg":
-			contentType = "image/svg+xml"
+			contentType = ezhttp.ContentTypeSVG
 		case "json":
-			contentType = "application/json"
+			contentType = ezhttp.ContentTypeJSON
 		default:
-			contentType = "application/octet-stream"
+			contentType = ezhttp.DefaultContentTyp
 			if len(lexer.Config().MimeTypes) > 0 {
 				contentType = lexer.Config().MimeTypes[0]
 			}
 		}
 
-		headers.Set("Content-Type", contentType)
+		headers.Set(ezhttp.HeaderContentType, contentType)
 
 		part, err := mpw.CreatePart(headers)
 		if err != nil {
@@ -464,9 +465,9 @@ func (s *Server) GetDocumentPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set(ezhttp.HeaderContentType, ezhttp.ContentTypePNG)
 	if r.Method == http.MethodHead {
-		w.Header().Set("Content-Length", strconv.Itoa(len(png)))
+		w.Header().Set(ezhttp.HeaderContentLength, strconv.Itoa(len(png)))
 		w.WriteHeader(http.StatusOK)
 		return
 	}
@@ -562,7 +563,7 @@ func (s *Server) GetRawDocumentFile(w http.ResponseWriter, r *http.Request) {
 	if lexer == nil {
 		lexer = lexers.Fallback
 	}
-	w.Header().Set("Language", lexer.Config().Name)
+	w.Header().Set(ezhttp.HeaderLanguage, lexer.Config().Name)
 
 	formatted, err := s.formatFile(*file, formatter, style)
 	if err != nil {
@@ -589,11 +590,11 @@ func (s *Server) GetRawDocumentFile(w http.ResponseWriter, r *http.Request) {
 		fileName = file.Name
 	}
 
-	w.Header().Set("Content-Disposition", mime.FormatMediaType("inline", map[string]string{
+	w.Header().Set(ezhttp.HeaderContentDisposition, mime.FormatMediaType("inline", map[string]string{
 		"name":     fileName,
 		"filename": fileName,
 	}))
-	w.Header().Set("Content-Type", contentType)
+	w.Header().Set(ezhttp.HeaderContentType, contentType)
 
 	if _, err = w.Write([]byte(formatted)); err != nil {
 		s.error(w, r, err)
@@ -886,7 +887,7 @@ func (s *Server) PostDocumentShare(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 	var files []RequestFile
-	contentType := r.Header.Get("Content-Type")
+	contentType := r.Header.Get(ezhttp.HeaderContentType)
 	if contentType != "" {
 		var err error
 		contentType, _, err = mime.ParseMediaType(contentType)
@@ -946,7 +947,7 @@ func (s *Server) parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 				return nil, httperr.BadRequest(ErrInvalidDocumentFileContent)
 			}
 
-			partContentType := part.Header.Get("Content-Type")
+			partContentType := part.Header.Get(ezhttp.HeaderContentType)
 			if partContentType != "" {
 				partContentType, _, _ = mime.ParseMediaType(partContentType)
 			}
@@ -962,7 +963,7 @@ func (s *Server) parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 			files = append(files, RequestFile{
 				Name:      part.FileName(),
 				Content:   string(data),
-				Language:  getLanguage(part.Header.Get("Language"), partContentType, part.FileName(), string(data)),
+				Language:  getLanguage(part.Header.Get(ezhttp.HeaderLanguage), partContentType, part.FileName(), string(data)),
 				ExpiresAt: expiresAt,
 			})
 		}
@@ -981,7 +982,7 @@ func (s *Server) parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 		}
 
 		params := make(map[string]string)
-		if contentDisposition := r.Header.Get("Content-Disposition"); contentDisposition != "" {
+		if contentDisposition := r.Header.Get(ezhttp.HeaderContentDisposition); contentDisposition != "" {
 			_, params, err = mime.ParseMediaType(contentDisposition)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse content disposition: %w", err)
@@ -995,7 +996,7 @@ func (s *Server) parseDocumentFiles(r *http.Request) ([]RequestFile, error) {
 
 		language := query.Get("language")
 		if language == "" {
-			language = r.Header.Get("Language")
+			language = r.Header.Get(ezhttp.HeaderLanguage)
 		}
 
 		files = []RequestFile{{

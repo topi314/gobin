@@ -92,7 +92,7 @@ Will set NAME to VALUE in the gobin env (defaults to ~/.gobin).`,
 	}
 }
 
-func configCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func configCompletion(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 	entries, err := cfg.Get()
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveError

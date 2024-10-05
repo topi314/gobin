@@ -1,21 +1,21 @@
 package flags
 
-type Integer interface {
-	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr
-}
+import (
+	"golang.org/x/exp/constraints"
+)
 
-func Add[T Integer](f T, bit T) T {
+func Add[T constraints.Integer](f T, bit T) T {
 	return f | bit
 }
 
-func Remove[T Integer](f T, bit T) T {
+func Remove[T constraints.Integer](f T, bit T) T {
 	return f &^ bit
 }
 
-func Has[T Integer](f T, bit T) bool {
+func Has[T constraints.Integer](f T, bit T) bool {
 	return (f & bit) == bit
 }
 
-func Misses[T Integer](f T, bit T) bool {
+func Misses[T constraints.Integer](f T, bit T) bool {
 	return (f & bit) != bit
 }

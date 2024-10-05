@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptrace"
-	"os"
 	"sync"
 	"time"
 
@@ -108,7 +107,6 @@ func (s *Server) Start() {
 	go s.cleanup(cleanupContext, time.Duration(s.cfg.Database.CleanupInterval), time.Duration(s.cfg.Database.ExpireAfter))
 	if err := s.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		slog.Error("Error while listening", tint.Err(err))
-		os.Exit(1)
 	}
 }
 

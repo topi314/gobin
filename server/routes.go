@@ -16,6 +16,7 @@ import (
 	"github.com/topi314/otelchi"
 	"github.com/topi314/tint"
 
+	"github.com/topi314/gobin/v2/internal/ezhttp"
 	"github.com/topi314/gobin/v2/internal/httperr"
 	"github.com/topi314/gobin/v2/server/templates"
 )
@@ -221,7 +222,7 @@ func (s *Server) ok(w http.ResponseWriter, r *http.Request, v any) {
 }
 
 func (s *Server) json(w http.ResponseWriter, r *http.Request, v any, status int) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(ezhttp.HeaderContentType, ezhttp.ContentTypeJSON)
 	w.WriteHeader(status)
 	if r.Method == http.MethodHead {
 		return
@@ -239,8 +240,12 @@ func (s *Server) file(path string) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		defer file.Close()
-		_, _ = io.Copy(w, file)
+		defer func() {
+			_ = file.Close()
+		}()
+		if _, err = io.Copy(w, file); err != nil {
+			slog.ErrorContext(r.Context(), "failed to copy file", tint.Err(err))
+		}
 	}
 }
 

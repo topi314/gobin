@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/stampede"
 	"github.com/go-jose/go-jose/v3/jwt"
 
+	"github.com/topi314/gobin/v2/internal/ezhttp"
 	"github.com/topi314/gobin/v2/internal/httperr"
 )
 
@@ -35,11 +36,11 @@ func (s *Server) cacheKeyFunc(r *http.Request) uint64 {
 func cacheControl(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/assets/") {
-			w.Header().Set("Cache-Control", "public, max-age=86400")
+			w.Header().Set(ezhttp.HeaderCacheControl, "public, max-age=86400")
 			next.ServeHTTP(w, r)
 			return
 		}
-		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		w.Header().Set(ezhttp.HeaderCacheControl, "no-cache, no-store, must-revalidate")
 		next.ServeHTTP(w, r)
 	})
 }
@@ -59,10 +60,10 @@ func (s *Server) RateLimit(next http.Handler) http.Handler {
 		}
 		// Filter blacklisted IPs
 		if slices.Contains(s.cfg.RateLimit.Blacklist, remoteAddr) {
-			w.Header().Set("X-RateLimit-Limit", strconv.Itoa(s.cfg.RateLimit.Requests))
-			w.Header().Set("X-RateLimit-Remaining", "0")
-			w.Header().Set("X-RateLimit-Reset", strconv.Itoa(maxUnix))
-			w.Header().Set("Retry-After", strconv.Itoa(maxUnix-int(time.Now().UnixMilli())))
+			w.Header().Set(ezhttp.HeaderRateLimitLimit, strconv.Itoa(s.cfg.RateLimit.Requests))
+			w.Header().Set(ezhttp.HeaderRateLimitRemaining, "0")
+			w.Header().Set(ezhttp.HeaderRateLimitReset, strconv.Itoa(maxUnix))
+			w.Header().Set(ezhttp.HeaderRetryAfter, strconv.Itoa(maxUnix-int(time.Now().UnixMilli())))
 			w.WriteHeader(http.StatusTooManyRequests)
 			s.error(w, r, httperr.TooManyRequests(ErrRateLimit))
 			return
@@ -77,7 +78,7 @@ func (s *Server) RateLimit(next http.Handler) http.Handler {
 
 func (s *Server) JWTMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tokenString := r.Header.Get("Authorization")
+		tokenString := r.Header.Get(ezhttp.HeaderAuthorization)
 		if len(tokenString) > 7 && strings.ToUpper(tokenString[0:6]) == "BEARER" {
 			tokenString = tokenString[7:]
 		}
