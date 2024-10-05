@@ -1,11 +1,11 @@
 @font-face {
     font-family: "JetBrainsMono";
-    src: url("/gobin/assetsassets/fonts/JetBrainsMono-VariableFont_wght.ttf");
+    src: url("/assets/fonts/JetBrainsMono-VariableFont_wght.ttf");
 }
 
 @font-face {
     font-family: "JetBrainsMono";
-    src: url("/gobin/assetsassets/fonts/JetBrainsMono-Italic-VariableFont_wght.ttf");
+    src: url("/assets/fonts/JetBrainsMono-Italic-VariableFont_wght.ttf");
     font-style: italic;
 }
 
@@ -15,41 +15,41 @@
 }
 
 .dark {
-    --arrow-down: url("/gobin/assetsassets/icons/dark/arrow-down.png");
-    --x: url("/gobin/assetsassets/icons/dark/x.png");
-    --add: url("/gobin/assetsassets/icons/dark/add.png");
-    --copy: url("/gobin/assetsassets/icons/dark/copy.png");
-    --delete: url("/gobin/assetsassets/icons/dark/delete.png");
-    --edit: url("/gobin/assetsassets/icons/dark/edit.png");
-    --github: url("/gobin/assetsassets/icons/dark/github.svg");
-    --language: url("/gobin/assetsassets/icons/dark/language.png");
-    --new: url("/gobin/assetsassets/icons/dark/new.png");
-    --raw: url("/gobin/assetsassets/icons/dark/raw.png");
-    --save: url("/gobin/assetsassets/icons/dark/save.png");
-    --style: url("/gobin/assetsassets/icons/dark/style.png");
-    --share: url("/gobin/assetsassets/icons/dark/share.png");
-    --close: url("/gobin/assetsassets/icons/dark/close.png");
-    --version: url("/gobin/assetsassets/icons/dark/version.png");
-    --theme: url("/gobin/assetsassets/icons/dark/theme.png");
+    --arrow-down: url("/assets/icons/dark/arrow-down.png");
+    --x: url("/assets/icons/dark/x.png");
+    --add: url("/assets/icons/dark/add.png");
+    --copy: url("/assets/icons/dark/copy.png");
+    --delete: url("/assets/icons/dark/delete.png");
+    --edit: url("/assets/icons/dark/edit.png");
+    --github: url("/assets/icons/dark/github.svg");
+    --language: url("/assets/icons/dark/language.png");
+    --new: url("/assets/icons/dark/new.png");
+    --raw: url("/assets/icons/dark/raw.png");
+    --save: url("/assets/icons/dark/save.png");
+    --style: url("/assets/icons/dark/style.png");
+    --share: url("/assets/icons/dark/share.png");
+    --close: url("/assets/icons/dark/close.png");
+    --version: url("/assets/icons/dark/version.png");
+    --theme: url("/assets/icons/dark/theme.png");
 }
 
 .light {
-    --arrow-down: url("/gobin/assetsassets/icons/light/arrow-down.png");
-    --x: url("/gobin/assetsassets/icons/light/x.png");
-    --add: url("/gobin/assetsassets/icons/light/add.png");
-    --copy: url("/gobin/assetsassets/icons/light/copy.png");
-    --delete: url("/gobin/assetsassets/icons/light/delete.png");
-    --edit: url("/gobin/assetsassets/icons/light/edit.png");
-    --github: url("/gobin/assetsassets/icons/light/github.svg");
-    --language: url("/gobin/assetsassets/icons/light/language.png");
-    --new: url("/gobin/assetsassets/icons/light/new.png");
-    --raw: url("/gobin/assetsassets/icons/light/raw.png");
-    --save: url("/gobin/assetsassets/icons/light/save.png");
-    --style: url("/gobin/assetsassets/icons/light/style.png");
-    --share: url("/gobin/assetsassets/icons/light/share.png");
-    --close: url("/gobin/assetsassets/icons/light/close.png");
-    --version: url("/gobin/assetsassets/icons/light/version.png");
-    --theme: url("/gobin/assetsassets/icons/light/theme.png");
+    --arrow-down: url("/assets/icons/light/arrow-down.png");
+    --x: url("/assets/icons/light/x.png");
+    --add: url("/assets/icons/light/add.png");
+    --copy: url("/assets/icons/light/copy.png");
+    --delete: url("/assets/icons/light/delete.png");
+    --edit: url("/assets/icons/light/edit.png");
+    --github: url("/assets/icons/light/github.svg");
+    --language: url("/assets/icons/light/language.png");
+    --new: url("/assets/icons/light/new.png");
+    --raw: url("/assets/icons/light/raw.png");
+    --save: url("/assets/icons/light/save.png");
+    --style: url("/assets/icons/light/style.png");
+    --share: url("/assets/icons/light/share.png");
+    --close: url("/assets/icons/light/close.png");
+    --version: url("/assets/icons/light/version.png");
+    --theme: url("/assets/icons/light/theme.png");
 }
 
 html {
@@ -588,7 +588,7 @@ label[for="expire"] {
 }
 
 .loading {
-    background-image: url(/gobin/assets/icons/loading.gif) !important;
+    background-image: url(/assets/icons/loading.gif) !important;
 }
 
 @media (min-width: 32rem) {

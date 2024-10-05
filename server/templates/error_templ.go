@@ -33,7 +33,7 @@ func Error(vars ErrorVars) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<!doctype html><html lang=\"en\" class=\"dark\"><head><meta charset=\"utf-8\"><title>gobin</title><link rel=\"stylesheet\" type=\"text/css\" href=\"/gobin/assets/style.css\"><link rel=\"icon\" href=\"/gobin/assets/favicon.png\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><meta name=\"theme-color\" content=\"#282c34\"><style>\r\n\t\t\t:root {\r\n\t\t\t\t--bg-primary: #282c34;\r\n\t\t\t\t--text-primary: #ffffff;\r\n\t\t\t}\r\n\t\t</style></head><body><main><div class=\"error\"><h1>Oops!</h1><h2>Something went wrong:</h2><div class=\"error-details\"><p>Message: ")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<!doctype html><html lang=\"en\" class=\"dark\"><head><meta charset=\"utf-8\"><title>gobin</title><link rel=\"stylesheet\" type=\"text/css\" href=\"/assets/style.css\"><link rel=\"icon\" href=\"/assets/favicon.png\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><meta name=\"theme-color\" content=\"#282c34\"><style>\r\n\t\t\t:root {\r\n\t\t\t\t--bg-primary: #282c34;\r\n\t\t\t\t--text-primary: #ffffff;\r\n\t\t\t}\r\n\t\t</style></head><body><main><div class=\"error\"><h1>Oops!</h1><h2>Something went wrong:</h2><div class=\"error-details\"><p>Message: ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

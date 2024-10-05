@@ -60,7 +60,7 @@ func main() {
 	cfg, err := server.LoadConfig(*cfgPath)
 	if err != nil {
 		slog.Error("Error while loading config", tint.Err(err))
-		os.Exit(1)
+		return
 	}
 
 	setupLogger(cfg.Log)
@@ -76,12 +76,12 @@ func main() {
 		tracer, err = newTracer(*cfg.Otel)
 		if err != nil {
 			slog.Error("Error while creating tracer", tint.Err(err))
-			os.Exit(1)
+			return
 		}
 		meter, err = newMeter(*cfg.Otel)
 		if err != nil {
 			slog.Error("Error while creating meter", tint.Err(err))
-			os.Exit(1)
+			return
 		}
 	}
 
@@ -90,7 +90,7 @@ func main() {
 	db, err := database.New(ctx, cfg.Database)
 	if err != nil {
 		slog.Error("Error while connecting to database", tint.Err(err))
-		os.Exit(1)
+		return
 	}
 	defer func() {
 		if closeErr := db.Close(); closeErr != nil {
@@ -108,7 +108,7 @@ func main() {
 
 	if err = gomigrate.Migrate(ctx, db, driver, Migrations, gomigrate.WithDirectory("server/migrations")); err != nil {
 		slog.Error("Error while migrating database", tint.Err(err))
-		os.Exit(1)
+		return
 	}
 
 	signer, err := jose.NewSigner(jose.SigningKey{
@@ -117,15 +117,20 @@ func main() {
 	}, nil)
 	if err != nil {
 		slog.Error("Error while creating signer", tint.Err(err))
-		os.Exit(1)
+		return
 	}
 
 	var assets http.FileSystem
 	if cfg.DevMode {
 		slog.Info("Development mode enabled")
-		assets = http.Dir(".")
+		assets = http.Dir("server")
 	} else {
-		assets = http.FS(Assets)
+		sub, err := fs.Sub(Assets, "server")
+		if err != nil {
+			slog.Error("Failed to get sub fs for embedded assets", tint.Err(err))
+			return
+		}
+		assets = http.FS(sub)
 	}
 
 	loadEmbeddedStyles()
