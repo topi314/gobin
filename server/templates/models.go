@@ -29,12 +29,13 @@ type DocumentVars struct {
 	PreviewURL string
 	PreviewAlt string
 
-	Lexers []string
-	Styles []Style
-	Style  string
-	Theme  string
-	Max    int64
-	Host   string
+	Languages   []string
+	Themes      []Theme
+	Theme       string
+	ColorScheme string
+	Folds       bool
+	Max         int64
+	Host        string
 }
 
 type File struct {
@@ -89,7 +90,7 @@ func (v DocumentVars) URL() string {
 }
 
 func (v DocumentVars) ThemeCSSURL() string {
-	return fmt.Sprintf("/assets/theme.css?style=%s", v.Style)
+	return fmt.Sprintf("/assets/theme.css?theme=%s", v.Theme)
 }
 
 type DocumentVersion struct {
@@ -98,9 +99,9 @@ type DocumentVersion struct {
 	Time    string
 }
 
-type Style struct {
-	Name  string
-	Theme string
+type Theme struct {
+	Name        string
+	ColorScheme string
 }
 
 type ErrorVars struct {

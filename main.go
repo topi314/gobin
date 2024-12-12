@@ -12,16 +12,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/charmbracelet/log"
 	"github.com/go-jose/go-jose/v3"
-	"github.com/mattn/go-colorable"
-	"github.com/topi314/chroma/v2/formatters"
-	"github.com/topi314/chroma/v2/formatters/html"
-	"github.com/topi314/chroma/v2/lexers"
-	"github.com/topi314/chroma/v2/styles"
+	"github.com/muesli/termenv"
 	"github.com/topi314/gomigrate"
 	"github.com/topi314/gomigrate/drivers/postgres"
 	"github.com/topi314/gomigrate/drivers/sqlite"
 	"github.com/topi314/tint"
+	"go.gopad.dev/go-tree-sitter-highlight/html"
 	meternoop "go.opentelemetry.io/otel/metric/noop"
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
 
@@ -49,8 +47,14 @@ var (
 	//go:embed server/migrations
 	Migrations embed.FS
 
-	//go:embed styles
-	Styles embed.FS
+	//go:embed languages.toml
+	Languages []byte
+
+	//go:embed queries/*
+	Queries embed.FS
+
+	//go:embed themes/*
+	Themes embed.FS
 )
 
 func main() {
@@ -133,31 +137,19 @@ func main() {
 		assets = http.FS(sub)
 	}
 
-	loadEmbeddedStyles()
-	loadLocalStyles(cfg.CustomStyles)
+	if err = server.LoadLanguages(Queries, Languages); err != nil {
+		slog.Error("Error while loading languages", tint.Err(err))
+		return
+	}
 
-	styles.Fallback = styles.Get(cfg.DefaultStyle)
-	lexers.Fallback = lexers.Get("plaintext")
-	htmlFormatter := html.New(
-		html.WithClasses(true),
-		html.ClassPrefix("ch-"),
-		html.Standalone(false),
-		html.InlineCode(false),
-		html.WithNopPreWrapper(),
-		html.WithLineNumbers(true),
-		html.WithLinkableLineNumbers(true, "L"),
-		html.TabWidth(4),
-	)
-	standaloneHTMLFormatter := html.New(
-		html.Standalone(true),
-		html.WithLineNumbers(true),
-		html.WithLinkableLineNumbers(true, "L"),
-		html.TabWidth(4),
-	)
-	formatters.Register("html", htmlFormatter)
-	formatters.Register("html-standalone", standaloneHTMLFormatter)
+	if err = server.LoadThemes(Themes); err != nil {
+		slog.Error("Error while loading themes", tint.Err(err))
+		return
+	}
 
-	s := server.NewServer(ver.FormatBuildVersion(Version, Commit, buildTime), cfg.DevMode, cfg, db, signer, tracer, meter, assets, htmlFormatter, standaloneHTMLFormatter)
+	htmlRenderer := html.NewRenderer(nil)
+
+	s := server.NewServer(ver.FormatBuildVersion(Version, Commit, buildTime), cfg.DevMode, cfg, db, signer, tracer, meter, assets, htmlRenderer)
 	slog.Info("Gobin started...", slog.String("address", cfg.ListenAddr))
 	go s.Start()
 	defer s.Close()
@@ -167,93 +159,29 @@ func main() {
 	<-si
 }
 
-const (
-	ansiFaint         = "\033[2m"
-	ansiWhiteBold     = "\033[37;1m"
-	ansiYellowBold    = "\033[33;1m"
-	ansiCyanBold      = "\033[36;1m"
-	ansiCyanBoldFaint = "\033[36;1;2m"
-	ansiRedFaint      = "\033[31;2m"
-	ansiRedBold       = "\033[31;1m"
-
-	ansiRed     = "\033[31m"
-	ansiYellow  = "\033[33m"
-	ansiGreen   = "\033[32m"
-	ansiMagenta = "\033[35m"
-)
-
 func setupLogger(cfg server.LogConfig) {
-	var handler slog.Handler
+	var formatter log.Formatter
 	switch cfg.Format {
 	case server.LogFormatJSON:
-		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-			AddSource: cfg.AddSource,
-			Level:     cfg.Level,
-		})
-
+		formatter = log.JSONFormatter
 	case server.LogFormatText:
-		handler = tint.NewHandler(colorable.NewColorable(os.Stdout), &tint.Options{
-			AddSource: cfg.AddSource,
-			Level:     cfg.Level,
-			NoColor:   cfg.NoColor,
-			LevelColors: map[slog.Level]string{
-				slog.LevelDebug: ansiMagenta,
-				slog.LevelInfo:  ansiGreen,
-				slog.LevelWarn:  ansiYellow,
-				slog.LevelError: ansiRed,
-			},
-			Colors: map[tint.Kind]string{
-				tint.KindTime:            ansiYellowBold,
-				tint.KindSourceFile:      ansiCyanBold,
-				tint.KindSourceSeparator: ansiCyanBoldFaint,
-				tint.KindSourceLine:      ansiCyanBold,
-				tint.KindMessage:         ansiWhiteBold,
-				tint.KindKey:             ansiFaint,
-				tint.KindSeparator:       ansiFaint,
-				tint.KindValue:           ansiWhiteBold,
-				tint.KindErrorKey:        ansiRedFaint,
-				tint.KindErrorSeparator:  ansiFaint,
-				tint.KindErrorValue:      ansiRedBold,
-			},
-		})
+		formatter = log.TextFormatter
+	case server.LogFormatLogFMT:
+		formatter = log.LogfmtFormatter
 	default:
 		slog.Error("Unknown log format", slog.String("format", string(cfg.Format)))
 		os.Exit(-1)
 	}
+
+	handler := log.NewWithOptions(os.Stdout, log.Options{
+		Level:           log.Level(cfg.Level),
+		ReportTimestamp: true,
+		ReportCaller:    cfg.AddSource,
+		Formatter:       formatter,
+	})
+	if cfg.Format == server.LogFormatText && !cfg.NoColor {
+		handler.SetColorProfile(termenv.TrueColor)
+	}
+
 	slog.SetDefault(slog.New(handler))
-}
-
-func loadEmbeddedStyles() {
-	slog.Info("Loading embedded styles")
-	stylesSub, err := fs.Sub(Styles, "styles")
-	if err != nil {
-		slog.Error("Failed to get sub fs for embedded styles", tint.Err(err))
-		return
-	}
-	cStyles, err := styles.LoadFromFS(stylesSub)
-	if err != nil {
-		slog.Error("Failed to load embedded styles", tint.Err(err))
-		return
-	}
-	for _, style := range cStyles {
-		slog.Debug("Loaded embedded style", slog.String("name", style.Name))
-		styles.Register(style)
-	}
-}
-
-func loadLocalStyles(stylesDir string) {
-	if stylesDir == "" {
-		return
-	}
-
-	slog.Info("Loading local styles", slog.String("dir", stylesDir))
-	cStyles, err := styles.LoadFromFS(os.DirFS(stylesDir))
-	if err != nil {
-		slog.Error("Failed to load local styles", tint.Err(err))
-		return
-	}
-	for _, style := range cStyles {
-		slog.Debug("Loaded local style", slog.String("name", style.Name))
-		styles.Register(style)
-	}
 }
