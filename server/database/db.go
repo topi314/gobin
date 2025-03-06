@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"math/rand"
 	"strings"
@@ -16,14 +17,19 @@ import (
 	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/jmoiron/sqlx"
 	"github.com/topi314/gomigrate"
+	"github.com/topi314/gomigrate/drivers/postgres"
+	"github.com/topi314/gomigrate/drivers/sqlite"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/semconv/v1.25.0"
 	_ "modernc.org/sqlite"
 
-	"github.com/topi314/gobin/v2/internal/timex"
+	"github.com/topi314/gobin/v3/internal/timex"
 )
 
-var chars = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
+var (
+	chars = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
+	r     = rand.New(rand.NewSource(time.Now().UnixNano()))
+)
 
 type Type string
 
@@ -86,22 +92,22 @@ func (c Config) PostgresDataSourceName() string {
 	)
 }
 
-var _ gomigrate.Queryer = (*DB)(nil)
-
-func New(ctx context.Context, cfg Config) (*DB, error) {
+func New(ctx context.Context, cfg Config, migrations fs.FS) (DB, error) {
 	var (
-		driverName     string
-		dataSourceName string
-		dbSystem       attribute.KeyValue
+		driverName      string
+		dataSourceName  string
+		dbSystem        attribute.KeyValue
+		migrationDriver gomigrate.NewDriver
 	)
 	switch cfg.Type {
-	case "postgres":
+	case TypePostgres:
 		driverName = "pgx"
 		dbSystem = semconv.DBSystemPostgreSQL
 		pgCfg, err := pgx.ParseConfig(cfg.PostgresDataSourceName())
 		if err != nil {
 			return nil, err
 		}
+		migrationDriver = postgres.New
 
 		if cfg.Debug {
 			pgCfg.Tracer = &tracelog.TraceLog{
@@ -116,12 +122,13 @@ func New(ctx context.Context, cfg Config) (*DB, error) {
 			}
 		}
 		dataSourceName = stdlib.RegisterConnConfig(pgCfg)
-	case "sqlite":
-		driverName = "sqlite"
+	case TypeSQLite:
+		driverName = "sqliteDB"
 		dbSystem = semconv.DBSystemSqlite
 		dataSourceName = cfg.Path
+		migrationDriver = sqlite.New
 	default:
-		return nil, errors.New("invalid database type, must be one of: postgres, sqlite")
+		return nil, errors.New("invalid database type, must be one of: postgresDB, sqliteDB")
 	}
 
 	sqlDB, err := otelsql.Open(driverName, dataSourceName,
@@ -147,21 +154,54 @@ func New(ctx context.Context, cfg Config) (*DB, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	return &DB{
-		DB:   dbx,
-		rand: rand.New(rand.NewSource(time.Now().UnixNano())),
-	}, nil
+	if err = gomigrate.Migrate(ctx, dbx, migrationDriver, migrations, gomigrate.WithDirectory("server/migrations")); err != nil {
+		return nil, fmt.Errorf("failed to migrate database: %w", err)
+	}
+
+	switch cfg.Type {
+	case TypePostgres:
+		return newPostgresDB(dbx), nil
+	case TypeSQLite:
+		return newSQLiteDB(dbx), nil
+	default:
+		return nil, errors.New("invalid database type, must be one of: postgresDB, sqliteDB")
+	}
 }
 
-type DB struct {
-	*sqlx.DB
-	rand *rand.Rand
+type DB interface {
+	gomigrate.Queryer
+
+	GetDocument(ctx context.Context, documentID string) ([]File, error)
+	GetDocumentVersion(ctx context.Context, documentID string, documentVersion int64) ([]File, error)
+	GetVersionCount(ctx context.Context, documentID string) (int, error)
+	GetDocumentVersions(ctx context.Context, documentID string) ([]int64, error)
+	GetDocumentVersionsWithFiles(ctx context.Context, documentID string, withContent bool) (map[int64][]File, error)
+	CreateDocument(ctx context.Context, files []File) (*string, *int64, error)
+	UpdateDocument(ctx context.Context, documentID string, files []File) (*int64, error)
+	DeleteDocument(ctx context.Context, documentID string) (*Document, error)
+	DeleteDocumentVersion(ctx context.Context, documentID string, documentVersion int64) (*Document, error)
+	DeleteDocumentVersions(ctx context.Context, documentID string) error
+	DeleteExpiredDocuments(ctx context.Context, expireAfter time.Duration) ([]Document, error)
+
+	GetDocumentFile(ctx context.Context, documentID string, fileName string) (*File, error)
+	GetDocumentFileVersion(ctx context.Context, documentID string, documentVersion int64, fileName string) (*File, error)
+	DeleteDocumentFile(ctx context.Context, documentID string, fileName string) error
+	DeleteDocumentVersionFile(ctx context.Context, documentID string, documentVersion int64, fileName string) error
+
+	GetWebhook(ctx context.Context, documentID string, webhookID string, secret string) (*Webhook, error)
+	GetWebhooksByDocumentID(ctx context.Context, documentID string) ([]Webhook, error)
+	GetAndDeleteWebhooksByDocumentID(ctx context.Context, documentID string) ([]Webhook, error)
+	CreateWebhook(ctx context.Context, documentID string, url string, secret string, events []string) (*Webhook, error)
+	UpdateWebhook(ctx context.Context, documentID string, webhookID string, secret string, newURL string, newSecret string, newEvents []string) (*Webhook, error)
+	DeleteWebhook(ctx context.Context, documentID string, webhookID string, secret string) error
+
+	Close() error
 }
 
-func (d *DB) randomString(length int) string {
+func randomString(length int) string {
 	b := make([]rune, length)
 	for i := range b {
-		b[i] = chars[d.rand.Intn(len(chars))]
+		b[i] = chars[r.Intn(len(chars))]
 	}
 	return string(b)
 }

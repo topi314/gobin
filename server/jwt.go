@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-jose/go-jose/v3/jwt"
 
-	"github.com/topi314/gobin/v2/internal/flags"
+	"github.com/topi314/gobin/v3/internal/flags"
 )
 
 type Permissions int

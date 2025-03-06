@@ -13,8 +13,8 @@ import (
 	"github.com/spf13/viper"
 	"github.com/topi314/chroma/v2/lexers"
 
-	"github.com/topi314/gobin/v2/internal/ezhttp"
-	"github.com/topi314/gobin/v2/server"
+	"github.com/topi314/gobin/v3/internal/ezhttp"
+	"github.com/topi314/gobin/v3/server"
 )
 
 func NewGetCmd(parent *cobra.Command) {

@@ -6,9 +6,9 @@ jwt_secret = "..."
 max_document_size = 0
 max_highlight_size = 0
 
-# load custom chroma xml or base16 yaml themes from this directory, omit to disable
+# load custom chroma xml or base16 yaml themes from this directory, leave empty to disable
 custom_styles = "custom_styles"
-default_style = "snazzy"
+default_style = "onedark"
 
 # settings for the logging
 [log]
@@ -38,29 +38,42 @@ password = "gobin"
 database = "gobin"
 ssl_mode = "disable"
 
-# omit or set values to 0 or "0" to disable rate limit
+# rate limit settings
 [rate_limit]
+enabled = false
 requests = 10
 duration = "1m"
 whitelist = ["127.0.0.1"]
 blacklist = ["123.456.789.0"]
 
-# settings for social media previews, omit to disable
+# settings for social media previews
 [preview]
+enabled = false
 inkscape_path = "inkscape.exe"
 max_lines = 0
 dpi = 120
 cache_size = 1024
 cache_ttl = "1h"
 
-# open telemetry settings, omit to disable
+# open telemetry settings
 [otel]
+enabled = false
 instance_id = "1"
-trace = { endpoint = "tempo:4318", insecure = true }
-metrics = { listen_addr = ":9100" }
 
-# settings for webhooks, omit to disable
+# settings for otel tracing
+[otel.trace]
+enabled = false
+endpoint = "localhost:4318"
+insecure = true
+
+# settings for otel metrics
+[otel.metrics]
+enabled = false
+listen_addr = ":9100"
+
+# settings for webhooks
 [webhook]
+enabled = false
 timeout = "10s"
 max_tries = 3
 backoff = "1s"

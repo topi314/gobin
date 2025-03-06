@@ -12,21 +12,27 @@ import (
 	"github.com/go-jose/go-jose/v3"
 	"github.com/topi314/chroma/v2/formatters/html"
 	"github.com/topi314/chroma/v2/styles"
-	"github.com/topi314/tint"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
+	tracenoop "go.opentelemetry.io/otel/trace/noop"
 
-	"github.com/topi314/gobin/v2/internal/httperr"
-	"github.com/topi314/gobin/v2/internal/httprate"
-	"github.com/topi314/gobin/v2/server/database"
-	"github.com/topi314/gobin/v2/server/templates"
+	"github.com/topi314/gobin/v3/internal/httperr"
+	"github.com/topi314/gobin/v3/internal/httprate"
+	"github.com/topi314/gobin/v3/internal/ver"
+	"github.com/topi314/gobin/v3/server/database"
+	"github.com/topi314/gobin/v3/server/templates"
 )
 
-func NewServer(version string, debug bool, cfg Config, db *database.DB, signer jose.Signer, tracer trace.Tracer, meter metric.Meter, assets http.FileSystem, htmlFormatter *html.Formatter, standaloneHTMLFormatter *html.Formatter) *Server {
+var (
+	Name      = "gobin"
+	Namespace = "github.com/topi314/gobin/v3"
+)
+
+func NewServer(version ver.Version, debug bool, cfg Config, db database.DB, signer jose.Signer, assets http.FileSystem, htmlFormatter *html.Formatter, standaloneHTMLFormatter *html.Formatter) *Server {
 	var allStyles []templates.Style
 	for _, name := range styles.Names() {
 		allStyles = append(allStyles, templates.Style{
@@ -36,7 +42,7 @@ func NewServer(version string, debug bool, cfg Config, db *database.DB, signer j
 	}
 
 	var client *http.Client
-	if cfg.Webhook != nil {
+	if cfg.Webhook.Enabled {
 		client = &http.Client{
 			Transport: otelhttp.NewTransport(
 				http.DefaultTransport,
@@ -48,6 +54,10 @@ func NewServer(version string, debug bool, cfg Config, db *database.DB, signer j
 		}
 	}
 
+	tracer := tracenoop.NewTracerProvider().Tracer(Name)
+	if cfg.Otel.Trace.Enabled {
+		tracer = otel.Tracer(Name)
+	}
 	s := &Server{
 		version:                 version,
 		debug:                   debug,
@@ -56,7 +66,6 @@ func NewServer(version string, debug bool, cfg Config, db *database.DB, signer j
 		client:                  client,
 		signer:                  signer,
 		tracer:                  tracer,
-		meter:                   meter,
 		assets:                  assets,
 		styles:                  allStyles,
 		htmlFormatter:           htmlFormatter,
@@ -68,7 +77,7 @@ func NewServer(version string, debug bool, cfg Config, db *database.DB, signer j
 		Handler: s.Routes(),
 	}
 
-	if cfg.RateLimit != nil && cfg.RateLimit.Requests > 0 && cfg.RateLimit.Duration > 0 {
+	if cfg.RateLimit.Enabled {
 		s.rateLimitHandler = httprate.NewRateLimiter(
 			cfg.RateLimit.Requests,
 			time.Duration(cfg.RateLimit.Duration),
@@ -82,15 +91,14 @@ func NewServer(version string, debug bool, cfg Config, db *database.DB, signer j
 }
 
 type Server struct {
-	version                 string
+	version                 ver.Version
 	debug                   bool
 	cfg                     Config
-	db                      *database.DB
+	db                      database.DB
 	server                  *http.Server
 	client                  *http.Client
 	signer                  jose.Signer
 	tracer                  trace.Tracer
-	meter                   metric.Meter
 	assets                  http.FileSystem
 	htmlFormatter           *html.Formatter
 	standaloneHTMLFormatter *html.Formatter
@@ -106,7 +114,7 @@ func (s *Server) Start() {
 
 	go s.cleanup(cleanupContext, time.Duration(s.cfg.Database.CleanupInterval), time.Duration(s.cfg.Database.ExpireAfter))
 	if err := s.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		slog.Error("Error while listening", tint.Err(err))
+		slog.Error("Error while listening", slog.Any("err", err))
 	}
 }
 
@@ -114,13 +122,13 @@ func (s *Server) Close() {
 	s.cleanupCancel()
 
 	if err := s.server.Close(); err != nil {
-		slog.Error("Error while closing server", tint.Err(err))
+		slog.Error("Error while closing server", slog.Any("err", err))
 	}
 
 	s.webhookWaitGroup.Wait()
 
 	if err := s.db.Close(); err != nil {
-		slog.Error("Error while closing database", tint.Err(err))
+		slog.Error("Error while closing database", slog.Any("err", err))
 	}
 }
 
@@ -162,7 +170,7 @@ func (s *Server) doCleanup(ctx context.Context, expireAfter time.Duration) {
 	if err != nil && !errors.Is(err, context.Canceled) {
 		span.SetStatus(codes.Error, "failed to delete expired documents")
 		span.RecordError(err)
-		slog.ErrorContext(ctx, "failed to delete expired documents", tint.Err(err))
+		slog.ErrorContext(ctx, "failed to delete expired documents", slog.Any("err", err))
 	}
 
 	var wg sync.WaitGroup

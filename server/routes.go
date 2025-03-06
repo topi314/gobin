@@ -12,13 +12,13 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/stampede"
+	"github.com/riandyrn/otelchi"
+	"github.com/riandyrn/otelchi/metric"
 	"github.com/samber/slog-chi"
-	"github.com/topi314/otelchi"
-	"github.com/topi314/tint"
 
-	"github.com/topi314/gobin/v2/internal/ezhttp"
-	"github.com/topi314/gobin/v2/internal/httperr"
-	"github.com/topi314/gobin/v2/server/templates"
+	"github.com/topi314/gobin/v3/internal/ezhttp"
+	"github.com/topi314/gobin/v3/internal/httperr"
+	"github.com/topi314/gobin/v3/server/templates"
 )
 
 var (
@@ -32,6 +32,10 @@ var (
 func (s *Server) Routes() http.Handler {
 	r := chi.NewRouter()
 	r.Use(otelchi.Middleware("gobin", otelchi.WithChiRoutes(r)))
+	baseCfg := metric.NewBaseConfig("gobin")
+	r.Use(metric.NewRequestDurationMillis(baseCfg))
+	r.Use(metric.NewRequestInFlight(baseCfg))
+	r.Use(metric.NewResponseSizeBytes(baseCfg))
 	r.Use(middleware.CleanPath)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.RequestID)
@@ -40,8 +44,8 @@ func (s *Server) Routes() http.Handler {
 		ClientErrorLevel: slog.LevelDebug,
 		ServerErrorLevel: slog.LevelError,
 		WithRequestID:    true,
-		WithSpanID:       s.cfg.Otel != nil,
-		WithTraceID:      s.cfg.Otel != nil,
+		WithSpanID:       s.cfg.Otel.Enabled,
+		WithTraceID:      s.cfg.Otel.Enabled,
 		Filters: []slogchi.Filter{
 			slogchi.IgnorePathPrefix("/assets"),
 		},
@@ -49,7 +53,7 @@ func (s *Server) Routes() http.Handler {
 	r.Use(cacheControl)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Heartbeat("/ping"))
-	if s.cfg.RateLimit != nil {
+	if s.cfg.RateLimit.Enabled {
 		r.Use(s.RateLimit)
 	}
 	r.Use(s.JWTMiddleware)
@@ -65,10 +69,10 @@ func (s *Server) Routes() http.Handler {
 			s.error(w, r, httperr.NotFound(ErrPreviewsDisabled))
 		})
 	}
-	if s.cfg.Preview != nil && s.cfg.Preview.CacheSize > 0 && s.cfg.Preview.CacheTTL > 0 {
+	if s.cfg.Preview.Enabled {
 		previewCache = stampede.HandlerWithKey(s.cfg.Preview.CacheSize, time.Duration(s.cfg.Preview.CacheTTL), s.cacheKeyFunc)
 	}
-	if s.cfg.Preview != nil {
+	if s.cfg.Preview.Enabled {
 		previewHandler = func(r chi.Router) {
 			r.Route("/preview", func(r chi.Router) {
 				if previewCache != nil {
@@ -156,7 +160,7 @@ func (s *Server) Routes() http.Handler {
 }
 
 func (s *Server) GetVersion(w http.ResponseWriter, _ *http.Request) {
-	_, _ = w.Write([]byte(s.version))
+	_, _ = w.Write([]byte(s.version.Format()))
 }
 
 func (s *Server) redirectRoot(w http.ResponseWriter, r *http.Request) {
@@ -182,7 +186,7 @@ func (s *Server) prettyError(w http.ResponseWriter, r *http.Request, err error) 
 		RequestID: middleware.GetReqID(r.Context()),
 		Path:      r.URL.Path,
 	}).Render(r.Context(), w); tmplErr != nil && !errors.Is(tmplErr, http.ErrHandlerTimeout) {
-		slog.ErrorContext(r.Context(), "failed to execute error template", tint.Err(tmplErr))
+		slog.ErrorContext(r.Context(), "failed to execute error template", slog.Any("err", tmplErr))
 	}
 }
 
@@ -203,7 +207,7 @@ func (s *Server) error(w http.ResponseWriter, r *http.Request, err error) {
 	}
 
 	if status == http.StatusInternalServerError {
-		slog.ErrorContext(r.Context(), "internal server error", tint.Err(err))
+		slog.ErrorContext(r.Context(), "internal server error", slog.Any("err", err))
 	}
 	s.json(w, r, ezhttp.ErrorResponse{
 		Message:   err.Error(),
@@ -229,7 +233,7 @@ func (s *Server) json(w http.ResponseWriter, r *http.Request, v any, status int)
 	}
 
 	if err := json.NewEncoder(w).Encode(v); err != nil && !errors.Is(err, http.ErrHandlerTimeout) {
-		slog.ErrorContext(r.Context(), "failed to encode json", tint.Err(err))
+		slog.ErrorContext(r.Context(), "failed to encode json", slog.Any("err", err))
 	}
 }
 
@@ -244,13 +248,13 @@ func (s *Server) file(path string) http.HandlerFunc {
 			_ = file.Close()
 		}()
 		if _, err = io.Copy(w, file); err != nil {
-			slog.ErrorContext(r.Context(), "failed to copy file", tint.Err(err))
+			slog.ErrorContext(r.Context(), "failed to copy file", slog.Any("err", err))
 		}
 	}
 }
 
 func (s *Server) shortContent(content string) string {
-	if s.cfg.Preview != nil && s.cfg.Preview.MaxLines > 0 {
+	if s.cfg.Preview.Enabled && s.cfg.Preview.MaxLines > 0 {
 		var newLines int
 		maxNewLineIndex := strings.IndexFunc(content, func(r rune) bool {
 			if r == '\n' {

@@ -15,15 +15,14 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/topi314/tint"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/topi314/gobin/v2/internal/ezhttp"
-	"github.com/topi314/gobin/v2/internal/flags"
-	"github.com/topi314/gobin/v2/internal/httperr"
-	"github.com/topi314/gobin/v2/server/database"
+	"github.com/topi314/gobin/v3/internal/ezhttp"
+	"github.com/topi314/gobin/v3/internal/flags"
+	"github.com/topi314/gobin/v3/internal/httperr"
+	"github.com/topi314/gobin/v3/server/database"
 )
 
 var (
@@ -82,7 +81,7 @@ const (
 )
 
 func (s *Server) ExecuteWebhooks(ctx context.Context, event string, document WebhookDocument) {
-	if s.cfg.Webhook == nil {
+	if !s.cfg.Webhook.Enabled {
 		return
 	}
 	s.webhookWaitGroup.Add(1)
@@ -112,7 +111,7 @@ func (s *Server) executeWebhooks(ctx context.Context, event string, document Web
 		webhooks, err = s.db.GetWebhooksByDocumentID(dbCtx, document.Key)
 	}
 	if err != nil {
-		slog.ErrorContext(dbCtx, "failed to get webhooks by document id", tint.Err(err))
+		slog.ErrorContext(dbCtx, "failed to get webhooks by document id", slog.Any("err", err))
 		return
 	}
 
@@ -158,7 +157,7 @@ func (s *Server) executeWebhook(ctx context.Context, url string, secret string, 
 	if err := json.NewEncoder(buff).Encode(request); err != nil {
 		span.SetStatus(codes.Error, "failed to encode document")
 		span.RecordError(err)
-		logger.ErrorContext(ctx, "failed to encode document", tint.Err(err))
+		logger.ErrorContext(ctx, "failed to encode document", slog.Any("err", err))
 		return
 	}
 
@@ -166,7 +165,7 @@ func (s *Server) executeWebhook(ctx context.Context, url string, secret string, 
 	if err != nil {
 		span.SetStatus(codes.Error, "failed to create request")
 		span.RecordError(err)
-		logger.ErrorContext(ctx, "failed to create request", tint.Err(err))
+		logger.ErrorContext(ctx, "failed to create request", slog.Any("err", err))
 		return
 	}
 	rq.Header.Add(ezhttp.HeaderContentType, ezhttp.ContentTypeJSON)
@@ -185,7 +184,7 @@ func (s *Server) executeWebhook(ctx context.Context, url string, secret string, 
 
 		rs, err := s.client.Do(rq)
 		if err != nil {
-			logger.DebugContext(ctx, "failed to execute request", tint.Err(err))
+			logger.DebugContext(ctx, "failed to execute request", slog.Any("err", err))
 			continue
 		}
 
@@ -201,7 +200,7 @@ func (s *Server) executeWebhook(ctx context.Context, url string, secret string, 
 	err = errors.New("max tries reached")
 	span.SetStatus(codes.Error, "failed to execute webhook")
 	span.RecordError(err)
-	logger.ErrorContext(ctx, "failed to execute webhook", tint.Err(err))
+	logger.ErrorContext(ctx, "failed to execute webhook", slog.Any("err", err))
 }
 
 func (s *Server) PostDocumentWebhook(w http.ResponseWriter, r *http.Request) {

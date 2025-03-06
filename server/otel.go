@@ -1,41 +1,49 @@
-package main
+package server
 
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/topi314/tint"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/exporters/prometheus"
-	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/semconv/v1.25.0"
-	"go.opentelemetry.io/otel/trace"
-
-	"github.com/topi314/gobin/v2/server"
 )
 
-func resources(cfg server.OtelConfig) *resource.Resource {
+func SetupOtel(version string, cfg OtelConfig) error {
+	if err := setupTrace(version, cfg); err != nil {
+		return fmt.Errorf("failed to setup tracing: %w", err)
+	}
+
+	if err := setupMeter(version, cfg); err != nil {
+		return fmt.Errorf("failed to setup metrics: %w", err)
+	}
+
+	return nil
+}
+
+func resources(version string, cfg OtelConfig) *resource.Resource {
 	return resource.NewWithAttributes(
 		semconv.SchemaURL,
 		semconv.ServiceName(Name),
 		semconv.ServiceNamespace(Namespace),
 		semconv.ServiceInstanceID(cfg.InstanceID),
-		semconv.ServiceVersion(Version),
+		semconv.ServiceVersion(version),
 	)
 }
 
-func newTracer(cfg server.OtelConfig) (trace.Tracer, error) {
-	if cfg.Trace == nil {
-		return nil, nil
+func setupTrace(version string, cfg OtelConfig) error {
+	if !cfg.Trace.Enabled {
+		return nil
 	}
 
 	opts := []otlptracehttp.Option{
@@ -49,32 +57,32 @@ func newTracer(cfg server.OtelConfig) (trace.Tracer, error) {
 	defer cancel()
 	exp, err := otlptracehttp.New(ctx, opts...)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exp),
-		sdktrace.WithResource(resources(cfg)),
+		sdktrace.WithResource(resources(version, cfg)),
 	)
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 
-	return otel.Tracer(Name), nil
+	return nil
 }
 
-func newMeter(cfg server.OtelConfig) (metric.Meter, error) {
-	if cfg.Metrics == nil {
-		return nil, nil
+func setupMeter(version string, cfg OtelConfig) error {
+	if !cfg.Metrics.Enabled {
+		return nil
 	}
 
 	exp, err := prometheus.New()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	mp := sdkmetric.NewMeterProvider(
 		sdkmetric.WithReader(exp),
-		sdkmetric.WithResource(resources(cfg)),
+		sdkmetric.WithResource(resources(version, cfg)),
 	)
 	otel.SetMeterProvider(mp)
 
@@ -85,9 +93,9 @@ func newMeter(cfg server.OtelConfig) (metric.Meter, error) {
 
 	go func() {
 		if listenErr := httpServer.ListenAndServe(); listenErr != nil && !errors.Is(listenErr, http.ErrServerClosed) {
-			slog.Error("failed to listen metrics server", tint.Err(listenErr))
+			slog.Error("failed to listen metrics server", slog.Any("err", listenErr))
 		}
 	}()
 
-	return mp.Meter(Name), nil
+	return nil
 }

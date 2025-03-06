@@ -8,10 +8,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/topi314/gobin/v2/internal/ezhttp"
+	"github.com/topi314/gobin/v3/internal/ezhttp"
+	"github.com/topi314/gobin/v3/internal/ver"
 )
 
-func NewVersionCmd(parent *cobra.Command, version string) {
+func NewVersionCmd(parent *cobra.Command, version ver.Version) {
 	cmd := &cobra.Command{
 		Use:   "version",
 		Short: "Prints the version of the gobin cli",
@@ -35,7 +36,7 @@ OS/Arch: windows/amd64`,
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			gobinServer := viper.GetString("server")
-			cmd.Println(version)
+			cmd.Println(version.Format())
 
 			if gobinServer == "" {
 				return nil

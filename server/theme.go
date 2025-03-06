@@ -9,7 +9,7 @@ import (
 	"github.com/topi314/chroma/v2"
 	"github.com/topi314/chroma/v2/styles"
 
-	"github.com/topi314/gobin/v2/internal/ezhttp"
+	"github.com/topi314/gobin/v3/internal/ezhttp"
 )
 
 func getStyle(r *http.Request) *chroma.Style {

@@ -22,14 +22,13 @@ import (
 	"github.com/topi314/chroma/v2"
 	"github.com/topi314/chroma/v2/formatters"
 	"github.com/topi314/chroma/v2/lexers"
-	"github.com/topi314/tint"
 
-	"github.com/topi314/gobin/v2/internal/ezhttp"
-	"github.com/topi314/gobin/v2/internal/flags"
-	"github.com/topi314/gobin/v2/internal/gio"
-	"github.com/topi314/gobin/v2/internal/httperr"
-	"github.com/topi314/gobin/v2/server/database"
-	"github.com/topi314/gobin/v2/server/templates"
+	"github.com/topi314/gobin/v3/internal/ezhttp"
+	"github.com/topi314/gobin/v3/internal/flags"
+	"github.com/topi314/gobin/v3/internal/gio"
+	"github.com/topi314/gobin/v3/internal/httperr"
+	"github.com/topi314/gobin/v3/server/database"
+	"github.com/topi314/gobin/v3/server/templates"
 )
 
 var (
@@ -212,7 +211,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		previewURL string
 		previewAlt string
 	)
-	if s.cfg.Preview != nil {
+	if s.cfg.Preview.Enabled {
 		previewURL = "https://" + r.Host + "/" + document.ID
 		if version := chi.URLParam(r, "version"); version != "" {
 			previewURL += "/" + version
@@ -244,7 +243,7 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		PreviewURL: previewURL,
 		PreviewAlt: previewAlt,
 	}).Render(r.Context(), w); err != nil {
-		slog.ErrorContext(r.Context(), "failed to execute template", tint.Err(err))
+		slog.ErrorContext(r.Context(), "failed to execute template", slog.Any("err", err))
 	}
 }
 
@@ -752,12 +751,7 @@ func (s *Server) PatchDocument(w http.ResponseWriter, r *http.Request) {
 
 	webhooksFiles := make([]WebhookDocumentFile, len(files))
 	for i, file := range files {
-		webhooksFiles[i] = WebhookDocumentFile{
-			Name:      file.Name,
-			Content:   file.Content,
-			Language:  file.Language,
-			ExpiresAt: file.ExpiresAt,
-		}
+		webhooksFiles[i] = WebhookDocumentFile(file)
 	}
 	s.ExecuteWebhooks(r.Context(), WebhookEventUpdate, WebhookDocument{
 		Key:     documentID,

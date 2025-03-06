@@ -13,8 +13,8 @@ import (
 	"github.com/go-chi/stampede"
 	"github.com/go-jose/go-jose/v3/jwt"
 
-	"github.com/topi314/gobin/v2/internal/ezhttp"
-	"github.com/topi314/gobin/v2/internal/httperr"
+	"github.com/topi314/gobin/v3/internal/ezhttp"
+	"github.com/topi314/gobin/v3/internal/httperr"
 )
 
 const maxUnix = int(^int32(0)) * 1000

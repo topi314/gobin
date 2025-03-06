@@ -1,0 +1,7 @@
+--- v2.1.0
+
+ALTER TABLE files
+    ADD COLUMN expires_at TIMESTAMP;
+
+ALTER TABLE files
+    ADD COLUMN order_index BIGINT NOT NULL DEFAULT 0;

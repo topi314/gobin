@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/topi314/gobin/v2/internal/ezhttp"
+	"github.com/topi314/gobin/v3/internal/ezhttp"
 )
 
 func NewRateLimiter(requestLimit int, windowLength time.Duration, onRequestLimit http.HandlerFunc) *RateLimiter {

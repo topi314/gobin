@@ -12,41 +12,25 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/charmbracelet/log"
 	"github.com/go-jose/go-jose/v3"
-	"github.com/mattn/go-colorable"
 	"github.com/topi314/chroma/v2/formatters"
 	"github.com/topi314/chroma/v2/formatters/html"
 	"github.com/topi314/chroma/v2/lexers"
 	"github.com/topi314/chroma/v2/styles"
-	"github.com/topi314/gomigrate"
-	"github.com/topi314/gomigrate/drivers/postgres"
-	"github.com/topi314/gomigrate/drivers/sqlite"
-	"github.com/topi314/tint"
-	meternoop "go.opentelemetry.io/otel/metric/noop"
-	tracenoop "go.opentelemetry.io/otel/trace/noop"
 
-	"github.com/topi314/gobin/v2/internal/ver"
-	"github.com/topi314/gobin/v2/server"
-	"github.com/topi314/gobin/v2/server/database"
+	"github.com/topi314/gobin/v3/internal/ver"
+	"github.com/topi314/gobin/v3/server"
+	"github.com/topi314/gobin/v3/server/database"
 )
 
 //go:generate go run github.com/a-h/templ/cmd/templ@latest generate
-
-// These variables are set via the -ldflags option in go build
-var (
-	Name      = "gobin"
-	Namespace = "github.com/topi314/gobin/v2"
-
-	Version   = "unknown"
-	Commit    = "unknown"
-	BuildTime = "unknown"
-)
 
 var (
 	//go:embed server/assets
 	Assets embed.FS
 
-	//go:embed server/migrations
+	//go:embed server/migrations/*
 	Migrations embed.FS
 
 	//go:embed styles
@@ -59,64 +43,39 @@ func main() {
 
 	cfg, err := server.LoadConfig(*cfgPath)
 	if err != nil {
-		slog.Error("Error while loading config", tint.Err(err))
+		slog.Error("Error while loading config", slog.Any("err", err))
 		return
 	}
 
 	setupLogger(cfg.Log)
-	buildTime, _ := time.Parse(time.RFC3339, BuildTime)
-	slog.Info("Starting Gobin...", slog.String("version", Version), slog.String("commit", Commit), slog.Time("build-time", buildTime))
+	version := ver.Load()
+	slog.Info("Starting Gobin...", slog.String("version", version.Version), slog.String("commit", version.Revision), slog.String("build-time", version.BuildTime))
 	slog.Info("Config", slog.String("config", cfg.String()))
 
-	var (
-		tracer = tracenoop.NewTracerProvider().Tracer(Name)
-		meter  = meternoop.NewMeterProvider().Meter(Name)
-	)
-	if cfg.Otel != nil {
-		tracer, err = newTracer(*cfg.Otel)
-		if err != nil {
-			slog.Error("Error while creating tracer", tint.Err(err))
-			return
-		}
-		meter, err = newMeter(*cfg.Otel)
-		if err != nil {
-			slog.Error("Error while creating meter", tint.Err(err))
-			return
-		}
+	if err = server.SetupOtel(version.Version, cfg.Otel); err != nil {
+		slog.Error("Error while setting up otel", slog.Any("err", err))
+		return
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	db, err := database.New(ctx, cfg.Database)
+	db, err := database.New(ctx, cfg.Database, Migrations)
 	if err != nil {
-		slog.Error("Error while connecting to database", tint.Err(err))
+		slog.Error("Error while connecting to database", slog.Any("err", err))
 		return
 	}
 	defer func() {
 		if closeErr := db.Close(); closeErr != nil {
-			slog.Error("Error while closing database", tint.Err(closeErr))
+			slog.Error("Error while closing database", slog.Any("err", closeErr))
 		}
 	}()
-
-	var driver gomigrate.NewDriver
-	switch cfg.Database.Type {
-	case database.TypePostgres:
-		driver = postgres.New
-	case database.TypeSQLite:
-		driver = sqlite.New
-	}
-
-	if err = gomigrate.Migrate(ctx, db, driver, Migrations, gomigrate.WithDirectory("server/migrations")); err != nil {
-		slog.Error("Error while migrating database", tint.Err(err))
-		return
-	}
 
 	signer, err := jose.NewSigner(jose.SigningKey{
 		Algorithm: jose.HS512,
 		Key:       []byte(cfg.JWTSecret),
 	}, nil)
 	if err != nil {
-		slog.Error("Error while creating signer", tint.Err(err))
+		slog.Error("Error while creating signer", slog.Any("err", err))
 		return
 	}
 
@@ -127,7 +86,7 @@ func main() {
 	} else {
 		sub, err := fs.Sub(Assets, "server")
 		if err != nil {
-			slog.Error("Failed to get sub fs for embedded assets", tint.Err(err))
+			slog.Error("Failed to get sub fs for embedded assets", slog.Any("err", err))
 			return
 		}
 		assets = http.FS(sub)
@@ -157,30 +116,15 @@ func main() {
 	formatters.Register("html", htmlFormatter)
 	formatters.Register("html-standalone", standaloneHTMLFormatter)
 
-	s := server.NewServer(ver.FormatBuildVersion(Version, Commit, buildTime), cfg.DevMode, cfg, db, signer, tracer, meter, assets, htmlFormatter, standaloneHTMLFormatter)
+	s := server.NewServer(version, cfg.DevMode, cfg, db, signer, assets, htmlFormatter, standaloneHTMLFormatter)
 	slog.Info("Gobin started...", slog.String("address", cfg.ListenAddr))
 	go s.Start()
 	defer s.Close()
 
 	si := make(chan os.Signal, 1)
-	signal.Notify(si, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+	signal.Notify(si, syscall.SIGINT, syscall.SIGTERM)
 	<-si
 }
-
-const (
-	ansiFaint         = "\033[2m"
-	ansiWhiteBold     = "\033[37;1m"
-	ansiYellowBold    = "\033[33;1m"
-	ansiCyanBold      = "\033[36;1m"
-	ansiCyanBoldFaint = "\033[36;1;2m"
-	ansiRedFaint      = "\033[31;2m"
-	ansiRedBold       = "\033[31;1m"
-
-	ansiRed     = "\033[31m"
-	ansiYellow  = "\033[33m"
-	ansiGreen   = "\033[32m"
-	ansiMagenta = "\033[35m"
-)
 
 func setupLogger(cfg server.LogConfig) {
 	var handler slog.Handler
@@ -192,29 +136,9 @@ func setupLogger(cfg server.LogConfig) {
 		})
 
 	case server.LogFormatText:
-		handler = tint.NewHandler(colorable.NewColorable(os.Stdout), &tint.Options{
-			AddSource: cfg.AddSource,
-			Level:     cfg.Level,
-			NoColor:   cfg.NoColor,
-			LevelColors: map[slog.Level]string{
-				slog.LevelDebug: ansiMagenta,
-				slog.LevelInfo:  ansiGreen,
-				slog.LevelWarn:  ansiYellow,
-				slog.LevelError: ansiRed,
-			},
-			Colors: map[tint.Kind]string{
-				tint.KindTime:            ansiYellowBold,
-				tint.KindSourceFile:      ansiCyanBold,
-				tint.KindSourceSeparator: ansiCyanBoldFaint,
-				tint.KindSourceLine:      ansiCyanBold,
-				tint.KindMessage:         ansiWhiteBold,
-				tint.KindKey:             ansiFaint,
-				tint.KindSeparator:       ansiFaint,
-				tint.KindValue:           ansiWhiteBold,
-				tint.KindErrorKey:        ansiRedFaint,
-				tint.KindErrorSeparator:  ansiFaint,
-				tint.KindErrorValue:      ansiRedBold,
-			},
+		handler = log.NewWithOptions(os.Stdout, log.Options{
+			Level:        log.Level(cfg.Level),
+			ReportCaller: cfg.AddSource,
 		})
 	default:
 		slog.Error("Unknown log format", slog.String("format", string(cfg.Format)))
@@ -227,12 +151,12 @@ func loadEmbeddedStyles() {
 	slog.Info("Loading embedded styles")
 	stylesSub, err := fs.Sub(Styles, "styles")
 	if err != nil {
-		slog.Error("Failed to get sub fs for embedded styles", tint.Err(err))
+		slog.Error("Failed to get sub fs for embedded styles", slog.Any("err", err))
 		return
 	}
 	cStyles, err := styles.LoadFromFS(stylesSub)
 	if err != nil {
-		slog.Error("Failed to load embedded styles", tint.Err(err))
+		slog.Error("Failed to load embedded styles", slog.Any("err", err))
 		return
 	}
 	for _, style := range cStyles {
@@ -249,7 +173,7 @@ func loadLocalStyles(stylesDir string) {
 	slog.Info("Loading local styles", slog.String("dir", stylesDir))
 	cStyles, err := styles.LoadFromFS(os.DirFS(stylesDir))
 	if err != nil {
-		slog.Error("Failed to load local styles", tint.Err(err))
+		slog.Error("Failed to load local styles", slog.Any("err", err))
 		return
 	}
 	for _, style := range cStyles {
