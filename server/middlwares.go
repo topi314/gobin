@@ -29,8 +29,8 @@ var (
 	}
 )
 
-func (s *Server) cacheKeyFunc(r *http.Request) uint64 {
-	return stampede.BytesToHash([]byte(r.Method), []byte(chi.URLParam(r, "documentID")), []byte(chi.URLParam(r, "version")), []byte(r.URL.RawQuery))
+func (s *Server) cacheKeyFunc(r *http.Request) (uint64, error) {
+	return stampede.BytesToHash([]byte(r.Method), []byte(chi.URLParam(r, "documentID")), []byte(chi.URLParam(r, "version")), []byte(r.URL.RawQuery)), nil
 }
 
 func cacheControl(next http.Handler) http.Handler {

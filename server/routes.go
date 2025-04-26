@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/stampede"
+	"github.com/goware/cachestore-mem"
 	"github.com/riandyrn/otelchi"
 	"github.com/riandyrn/otelchi/metric"
 	"github.com/samber/slog-chi"
@@ -70,7 +71,12 @@ func (s *Server) Routes() http.Handler {
 		})
 	}
 	if s.cfg.Preview.Enabled {
-		previewCache = stampede.HandlerWithKey(s.cfg.Preview.CacheSize, time.Duration(s.cfg.Preview.CacheTTL), s.cacheKeyFunc)
+		cache, err := memcache.NewBackend(uint32(s.cfg.Preview.CacheSize))
+		if err != nil {
+			panic(err)
+		}
+
+		previewCache = stampede.HandlerWithKey(slog.Default(), cache, time.Duration(s.cfg.Preview.CacheTTL), s.cacheKeyFunc)
 	}
 	if s.cfg.Preview.Enabled {
 		previewHandler = func(r chi.Router) {
