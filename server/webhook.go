@@ -169,7 +169,7 @@ func (s *Server) executeWebhook(ctx context.Context, url string, secret string, 
 		return
 	}
 	rq.Header.Add(ezhttp.HeaderContentType, ezhttp.ContentTypeJSON)
-	rq.Header.Add(ezhttp.HeaderUserAgent, fmt.Sprintf("gobin/%s", s.version))
+	rq.Header.Add(ezhttp.HeaderUserAgent, fmt.Sprintf("gobin/%s", s.version.Version))
 	rq.Header.Add(ezhttp.HeaderAuthorization, fmt.Sprintf("Secret %s", secret))
 
 	for i := 0; i < s.cfg.Webhook.MaxTries; i++ {
