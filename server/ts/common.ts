@@ -38,6 +38,17 @@ export function deleteToken(key: string): void {
 	localStorage.setItem(DOCUMENTS_KEY, JSON.stringify(documents));
 }
 
+export function deleteTokens(keys: string[]): void {
+	if (keys.length === 0) {
+		return;
+	}
+	const documents = listDocuments();
+	for (const key of keys) {
+		delete documents[key];
+	}
+	localStorage.setItem(DOCUMENTS_KEY, JSON.stringify(documents));
+}
+
 export function decodeJwtPayload(token: string): JwtPayload | null {
 	const parts = token.split(".");
 	if (parts.length !== 3) {

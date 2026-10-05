@@ -45,7 +45,7 @@ func Overview(vars OverviewVars) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<header><a title=\"gobin\" id=\"title\" href=\"/\">gobin</a> <a title=\"GitHub\" id=\"github\" class=\"icon-btn\" href=\"https://github.com/topi314/gobin\" target=\"_blank\"></a> <input id=\"nav-btn\" type=\"checkbox\"> <label title=\"Open Navigation\" class=\"hamb\" for=\"nav-btn\"><span></span></label><nav><a title=\"New\" id=\"new\" class=\"icon-btn\" href=\"/\"></a> <a title=\"Overview\" id=\"overview\" class=\"icon-btn\" href=\"/overview\" aria-current=\"page\"></a></nav></header><main id=\"overview-main\"><h1>Overview</h1><p class=\"overview-hint\">Documents with tokens stored in this browser.</p><ul id=\"document-list\"></ul><p id=\"document-list-empty\" style=\"display: none;\">No documents in this browser yet. <a href=\"/\">Create one</a>.</p></main><script src=\"/assets/overview.js\"></script></body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<header><a title=\"gobin\" id=\"title\" href=\"/\">gobin</a> <a title=\"GitHub\" id=\"github\" class=\"icon-btn\" href=\"https://github.com/topi314/gobin\" target=\"_blank\"></a> <input id=\"nav-btn\" type=\"checkbox\"> <label title=\"Open Navigation\" class=\"hamb\" for=\"nav-btn\"><span></span></label><nav><a title=\"New\" id=\"new\" class=\"icon-btn\" href=\"/\"></a> <a title=\"Overview\" id=\"overview\" class=\"icon-btn\" href=\"/overview\" aria-current=\"page\"></a></nav></header><main id=\"overview-main\"><h1>Overview</h1><p class=\"overview-hint\">Documents with tokens stored in this browser.</p><div id=\"overview-toolbar\" hidden><label class=\"overview-select-all\"><input type=\"checkbox\" id=\"select-all\" class=\"overview-check\"> Select all</label><div class=\"overview-toolbar-actions\"><button type=\"button\" id=\"delete-selected\" class=\"icon-btn\" title=\"Delete selected\" aria-label=\"Delete selected\" disabled></button> <button type=\"button\" id=\"clear-selected\" class=\"icon-btn\" title=\"Clear selected\" aria-label=\"Clear selected\" disabled></button></div></div><ul id=\"document-list\"></ul><p id=\"document-list-empty\" style=\"display: none;\">No documents in this browser yet. <a href=\"/\">Create one</a>.</p></main><script src=\"/assets/overview.js\"></script></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -81,7 +81,7 @@ func overviewHead(vars OverviewVars) templ.Component {
 		var templ_7745c5c3_Var3 templ.SafeURL
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinURLErrs(vars.ThemeCSSURL())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `server/templates/overview.templ`, Line: 41, Col: 81}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `server/templates/overview.templ`, Line: 51, Col: 81}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
