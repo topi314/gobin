@@ -32,7 +32,6 @@ type DocumentVars struct {
 	Lexers []string
 	Styles []Style
 	Style  string
-	Theme  string
 	Max    int64
 	Host   string
 }
@@ -68,22 +67,6 @@ func (v DocumentVars) StateJSON() string {
 	return fmt.Sprintf(`<script id="state" type="application/json">%s</script>`, string(data))
 }
 
-func (v DocumentVars) FileClasses(i int) string {
-	classes := "file"
-	if i == v.CurrentFile {
-		classes += " selected"
-	}
-	return classes
-}
-
-func (v DocumentVars) FileTabClasses(i int) string {
-	classes := "file-tab"
-	if i == v.CurrentFile {
-		classes += " initial"
-	}
-	return classes
-}
-
 func (v DocumentVars) URL() string {
 	return "https://" + v.Host
 }
@@ -108,4 +91,12 @@ type ErrorVars struct {
 	Status    int
 	Path      string
 	RequestID string
+}
+
+type OverviewVars struct {
+	Style string
+}
+
+func (v OverviewVars) ThemeCSSURL() string {
+	return fmt.Sprintf("/assets/theme.css?style=%s", v.Style)
 }

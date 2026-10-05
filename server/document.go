@@ -236,7 +236,6 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		Lexers: lexers.Names(false),
 		Styles: s.styles,
 		Style:  style.Name,
-		Theme:  style.Theme,
 
 		Max:        s.cfg.MaxDocumentSize,
 		Host:       r.Host,
@@ -244,6 +243,15 @@ func (s *Server) GetPrettyDocument(w http.ResponseWriter, r *http.Request) {
 		PreviewAlt: previewAlt,
 	}).Render(r.Context(), w); err != nil {
 		slog.ErrorContext(r.Context(), "failed to execute template", slog.Any("err", err))
+	}
+}
+
+func (s *Server) GetOverview(w http.ResponseWriter, r *http.Request) {
+	style := getStyle(r)
+	if err := templates.Overview(templates.OverviewVars{
+		Style: style.Name,
+	}).Render(r.Context(), w); err != nil {
+		slog.ErrorContext(r.Context(), "failed to execute overview template", slog.Any("err", err))
 	}
 }
 

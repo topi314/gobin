@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build
 
 WORKDIR /build
 
@@ -7,6 +7,10 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
+
+# Generate templ + frontend bundles before embed/build (pinned via go:generate).
+RUN --mount=type=cache,target=/go/pkg \
+    go generate ./...
 
 ARG TARGETOS
 ARG TARGETARCH

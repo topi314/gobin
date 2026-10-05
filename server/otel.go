@@ -16,36 +16,69 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	"go.opentelemetry.io/otel/semconv/v1.25.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.25.0"
 )
 
-func SetupOtel(version string, cfg OtelConfig) error {
-	if err := setupTrace(version, cfg); err != nil {
-		return fmt.Errorf("failed to setup tracing: %w", err)
+func SetupOtel(version string, cfg OtelConfig) (func(context.Context) error, error) {
+	noop := func(context.Context) error { return nil }
+	if !cfg.Enabled {
+		return noop, nil
 	}
 
-	if err := setupMeter(version, cfg); err != nil {
-		return fmt.Errorf("failed to setup metrics: %w", err)
+	res, err := resources(version, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create resource: %w", err)
 	}
 
-	return nil
+	var (
+		tp          *sdktrace.TracerProvider
+		mp          *sdkmetric.MeterProvider
+		metricServer *http.Server
+	)
+
+	if cfg.Trace.Enabled {
+		tp, err = setupTrace(cfg, res)
+		if err != nil {
+			return nil, fmt.Errorf("failed to setup tracing: %w", err)
+		}
+	}
+
+	if cfg.Metrics.Enabled {
+		mp, metricServer, err = setupMeter(cfg, res)
+		if err != nil {
+			return nil, fmt.Errorf("failed to setup metrics: %w", err)
+		}
+	}
+
+	return func(ctx context.Context) error {
+		var errs []error
+		if tp != nil {
+			errs = append(errs, tp.Shutdown(ctx))
+		}
+		if mp != nil {
+			errs = append(errs, mp.Shutdown(ctx))
+		}
+		if metricServer != nil {
+			errs = append(errs, metricServer.Shutdown(ctx))
+		}
+		return errors.Join(errs...)
+	}, nil
 }
 
-func resources(version string, cfg OtelConfig) *resource.Resource {
-	return resource.NewWithAttributes(
-		semconv.SchemaURL,
-		semconv.ServiceName(Name),
-		semconv.ServiceNamespace(Namespace),
-		semconv.ServiceInstanceID(cfg.InstanceID),
-		semconv.ServiceVersion(version),
+func resources(version string, cfg OtelConfig) (*resource.Resource, error) {
+	return resource.Merge(
+		resource.Default(),
+		resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceName(Name),
+			semconv.ServiceNamespace(Namespace),
+			semconv.ServiceInstanceID(cfg.InstanceID),
+			semconv.ServiceVersion(version),
+		),
 	)
 }
 
-func setupTrace(version string, cfg OtelConfig) error {
-	if !cfg.Trace.Enabled {
-		return nil
-	}
-
+func setupTrace(cfg OtelConfig, res *resource.Resource) (*sdktrace.TracerProvider, error) {
 	opts := []otlptracehttp.Option{
 		otlptracehttp.WithEndpoint(cfg.Trace.Endpoint),
 	}
@@ -57,38 +90,38 @@ func setupTrace(version string, cfg OtelConfig) error {
 	defer cancel()
 	exp, err := otlptracehttp.New(ctx, opts...)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exp),
-		sdktrace.WithResource(resources(version, cfg)),
+		sdktrace.WithResource(res),
 	)
 	otel.SetTracerProvider(tp)
-	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	))
 
-	return nil
+	return tp, nil
 }
 
-func setupMeter(version string, cfg OtelConfig) error {
-	if !cfg.Metrics.Enabled {
-		return nil
-	}
-
+func setupMeter(cfg OtelConfig, res *resource.Resource) (*sdkmetric.MeterProvider, *http.Server, error) {
 	exp, err := prometheus.New()
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	mp := sdkmetric.NewMeterProvider(
 		sdkmetric.WithReader(exp),
-		sdkmetric.WithResource(resources(version, cfg)),
+		sdkmetric.WithResource(res),
 	)
 	otel.SetMeterProvider(mp)
 
 	httpServer := &http.Server{
-		Addr:    cfg.Metrics.ListenAddr,
-		Handler: promhttp.Handler(),
+		Addr:              cfg.Metrics.ListenAddr,
+		Handler:           promhttp.Handler(),
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	go func() {
@@ -97,5 +130,5 @@ func setupMeter(version string, cfg OtelConfig) error {
 		}
 	}()
 
-	return nil
+	return mp, httpServer, nil
 }

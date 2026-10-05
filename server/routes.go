@@ -98,6 +98,8 @@ func (s *Server) Routes() http.Handler {
 
 	r.Get("/version", s.GetVersion)
 
+	r.Get("/overview", s.GetOverview)
+
 	r.Route("/documents", func(r chi.Router) {
 		r.Post("/", s.PostDocument)
 

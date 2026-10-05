@@ -123,12 +123,12 @@ func New(ctx context.Context, cfg Config, migrations fs.FS) (DB, error) {
 		}
 		dataSourceName = stdlib.RegisterConnConfig(pgCfg)
 	case TypeSQLite:
-		driverName = "sqliteDB"
+		driverName = "sqlite"
 		dbSystem = semconv.DBSystemSqlite
 		dataSourceName = cfg.Path
 		migrationDriver = sqlite.New
 	default:
-		return nil, errors.New("invalid database type, must be one of: postgresDB, sqliteDB")
+		return nil, errors.New("invalid database type, must be one of: postgresDB, sqlite")
 	}
 
 	sqlDB, err := otelsql.Open(driverName, dataSourceName,
@@ -145,7 +145,7 @@ func New(ctx context.Context, cfg Config, migrations fs.FS) (DB, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	if err = otelsql.RegisterDBStatsMetrics(sqlDB, otelsql.WithAttributes(dbSystem)); err != nil {
+	if _, err = otelsql.RegisterDBStatsMetrics(sqlDB, otelsql.WithAttributes(dbSystem)); err != nil {
 		return nil, fmt.Errorf("failed to register database stats metrics: %w", err)
 	}
 

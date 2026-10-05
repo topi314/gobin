@@ -7,34 +7,11 @@ import (
 
 templ Document(vars DocumentVars) {
 	<!DOCTYPE html>
-	<html lang="en" class={ vars.Theme }>
+	<html lang="en">
 	@head(vars)
 	<body>
 	<div id="error-popup" style="display: none;"></div>
-    <dialog id="share-dialog">
-        <div class="share-dialog-header">
-            <h2>Share</h2>
-            <button id="share-dialog-close" class="icon-btn"></button>
-        </div>
-        <p>Share this URL with your friends and let them edit or delete the document.</p>
-        <h3>Permissions</h3>
-        <div class="share-dialog-main">
-            <div class="share-dialog-permissions">
-                <label for="share-permissions-write">Write</label>
-                <input id="share-permissions-write" type="checkbox"/>
-
-                <label for="share-permissions-delete">Delete</label>
-                <input id="share-permissions-delete" type="checkbox"/>
-
-                <label for="share-permissions-share">Share</label>
-                <input id="share-permissions-share" type="checkbox"/>
-
-                <label for="share-permissions-webhook">Webhook</label>
-                <input id="share-permissions-webhook" type="checkbox"/>
-            </div>
-            <button id="share-copy">Copy</button>
-        </div>
-    </dialog>
+	@ShareDialog()
 	@header(vars)
 	<main>
 		<div id="files">
@@ -72,7 +49,7 @@ templ Document(vars DocumentVars) {
             </select>
             <select title="Style" id="style" autocomplete="off">
                 for _, style := range vars.Styles {
-                    <option value={ style.Name } data-theme={ style.Theme } selected?={ vars.Style == style.Name }>{ style.Name }</option>
+                    <option value={ style.Name } selected?={ vars.Style == style.Name }>{ style.Name }</option>
                 }
             </select>
             <label for="expire"

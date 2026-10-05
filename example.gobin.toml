@@ -2,35 +2,33 @@ debug = false
 dev_mode = false
 listen_addr = ":80"
 http_timeout = "30s"
+# secret for jwt tokens, replace with a long random string
 jwt_secret = "..."
+# max character count for all files in a document combined (0 to disable)
 max_document_size = 0
+# max character count for a single file to be highlighted (0 to disable)
 max_highlight_size = 0
-
 # load custom chroma xml or base16 yaml themes from this directory, leave empty to disable
 custom_styles = "custom_styles"
 default_style = "onedark"
 
-# settings for the logging
 [log]
-# level can be -4 (debug), 0 (info), 4 (warn), 8 (error)
+# level can be "debug", "info", "warn", "error" (or -4, 0, 4, 8)
 level = "info"
 # format can be "text" or "json"
 format = "text"
 add_source = false
 no_color = false
 
-# settings for the database
 [database]
 # type can be "sqlite" or "postgres"
 type = "postgres"
+debug = false
 expire_after = "0"
 cleanup_interval = "1m"
-debug = false
-
-# "path" is only used for SQLite
+# path is only used for SQLite (use "/var/lib/gobin/gobin.db" with Docker)
 path = "gobin.db"
-
-# "host", "port", "username", "password", "database", "ssl_mode" are only used for PostgreSQL
+# host, port, username, password, database, ssl_mode are only used for PostgreSQL
 host = "database"
 port = 5432
 username = "gobin"
@@ -38,7 +36,6 @@ password = "gobin"
 database = "gobin"
 ssl_mode = "disable"
 
-# rate limit settings
 [rate_limit]
 enabled = false
 requests = 10
@@ -46,32 +43,27 @@ duration = "1m"
 whitelist = ["127.0.0.1"]
 blacklist = ["123.456.789.0"]
 
-# settings for social media previews
 [preview]
 enabled = false
-inkscape_path = "inkscape.exe"
+inkscape_path = "inkscape"
 max_lines = 0
 dpi = 120
 cache_size = 1024
 cache_ttl = "1h"
 
-# open telemetry settings
 [otel]
 enabled = false
 instance_id = "1"
 
-# settings for otel tracing
 [otel.trace]
 enabled = false
 endpoint = "localhost:4318"
 insecure = true
 
-# settings for otel metrics
 [otel.metrics]
 enabled = false
 listen_addr = ":9100"
 
-# settings for webhooks
 [webhook]
 enabled = false
 timeout = "10s"

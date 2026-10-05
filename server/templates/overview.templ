@@ -1,0 +1,46 @@
+package templates
+
+templ Overview(vars OverviewVars) {
+	<!DOCTYPE html>
+	<html lang="en">
+	@overviewHead(vars)
+	<body>
+	<div id="error-popup" style="display: none;"></div>
+	@ShareDialog()
+	<header>
+		<a title="gobin" id="title" href="/">gobin</a>
+		<a title="GitHub" id="github" class="icon-btn" href="https://github.com/topi314/gobin" target="_blank"></a>
+
+		<input id="nav-btn" type="checkbox"/>
+		<label title="Open Navigation" class="hamb" for="nav-btn"><span></span></label>
+
+		<nav>
+			<a title="New" id="new" class="icon-btn" href="/"></a>
+			<a title="Overview" id="overview" class="icon-btn" href="/overview" aria-current="page"></a>
+		</nav>
+	</header>
+	<main id="overview-main">
+		<h1>Overview</h1>
+		<p class="overview-hint">Documents with tokens stored in this browser.</p>
+		<ul id="document-list"></ul>
+		<p id="document-list-empty" style="display: none;">
+			No documents in this browser yet. <a href="/">Create one</a>.
+		</p>
+	</main>
+	<script src="/assets/overview.js"></script>
+	</body>
+	</html>
+}
+
+templ overviewHead(vars OverviewVars) {
+	<head>
+		<meta charset="utf-8"/>
+		<title>gobin - overview</title>
+		<meta name="description" content="gobin is a simple hastebin compatible paste server written in Go."/>
+		<link rel="stylesheet" type="text/css" href="/assets/style.css"/>
+		<link id="theme-css" rel="stylesheet" type="text/css" href={ vars.ThemeCSSURL() }/>
+		<link rel="icon" href="/assets/favicon.png"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1"/>
+		<meta name="theme-color" content="#1f2228"/>
+	</head>
+}

@@ -136,8 +136,11 @@ docker-compose up -d
 ```bash
 git clone https://github.com/topi314/gobin.git
 cd gobin
+go generate ./...
 go build -o gobin github.com/topi314/gobin/v3
 ```
+
+`go generate` builds the templ templates and minified frontend assets (also run automatically in the Docker image build).
 
 or
 
@@ -197,113 +200,85 @@ gobin help
 
 The database schema is automatically created or migrated when you start gobin.
 
-Create a new `gobin.toml` file with the following content:
+Create a new `gobin.toml` file with the following content (see also [`example.gobin.toml`](example.gobin.toml)):
 
 > [!Note]
 > Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
 
-```json5
-{
-  "log": {
-    // level can be -4 (debug), 0 (info), 4 (warn), 8 (error)
-    "level": 0,
-    // log format, either "json" or "text"
-    "format": "text",
-    // whether to add the source file and line to the log output
-    "add_source": false,
-    // whether to add color to the log output (only for text format)
-    "no_color": false
-  },
-  // enable or disable debug profiler endpoint
-  "debug": false,
-  // enable or disable hot reload of templates and assets
-  "dev_mode": false,
-  "listen_addr": "0.0.0.0:80",
-  // secret for jwt tokens, replace with a long random string
-  "jwt_secret": "...",
-  "database": {
-    // either "postgres" or "sqlite"
-    "type": "postgres",
-    "debug": false,
-    "expire_after": "168h",
-    "cleanup_interval": "10m",
-    // path to sqlite database
-    // if you run gobin with docker make sure to set it to "/var/lib/gobin/gobin.db"
-    "path": "gobin.db",
-    // postgres connection settings
-    "host": "localhost",
-    "port": 5432,
-    "username": "gobin",
-    "password": "password",
-    "database": "gobin",
-    "ssl_mode": "disable"
-  },
-  // max character count for all files in a document combined (0 to disable)
-  "max_document_size": 0,
-  // max_highlight_size is the max character count for a single file in a document to be highlighted (0 to disable)
-  "max_highlight_size": 0,
-  // omit or set values to 0 or "0" to disable rate limit
-  "rate_limit": {
-    // number of requests which can be done in the duration
-    "requests": 10,
-    // the duration of the requests
-    "duration": "1m",
-    // a list of ip addresses which are exempt from rate limiting
-    "whitelist": [
-      "127.0.0.1"
-    ],
-    // a list of ip addresses which are blocked from rate limited endpoints
-    "blacklist": [
-      "123.456.789.0"
-    ]
-  },
-  // settings for social media previews, omit to disable
-  "preview": {
-    // path to inkscape binary https://inkscape.org/
-    "inkscape_path": "/usr/bin/inkscape",
-    // how many lines should be shown in the preview
-    "max_lines": 10,
-    // how high the resolution of the preview should be, 96 is the default
-    "dpi": 96,
-    // how many previews should be maximally cached
-    "cache_size": 1024,
-    // how long should previews be cached
-    "cache_duration": "1h"
-  },
-  // open telemetry settings, omit to disable
-  "otel": {
-    // the instance id of the server
-    "instance_id": "1",
-    // otel trace settings, omit to disable
-    "trace": {
-      // the address of the tempo instance
-      "endpoint": "tempo:4318",
-      // whether to use an insecure connection
-      "insecure": true
-    },
-    // otel metrics settings, omit to disable
-    "metrics": {
-      // the address where the metrics should be exposed
-      "listen_addr": ":9100"
-    }
-  },
-  // settings for webhooks, omit to disable
-  "webhook": {
-    // webhook reqauest timeout
-    "timeout": "10s",
-    // max number of tries to send a webhook
-    "max_tries": 3,
-    // how long to wait before retrying a webhook
-    "backoff": "1s",
-    // how much the backoff should be increased after each retry
-    "backoff_factor": 2,
-    // max backoff time
-    "max_backoff": "5m"
-  },
-  // load custom chroma xml or base16 yaml themes from this directory, omit to disable
-  "custom_styles": "custom_styles",
-  "default_style": "snazzy"
-}
+```toml
+debug = false
+dev_mode = false
+listen_addr = ":80"
+http_timeout = "30s"
+# secret for jwt tokens, replace with a long random string
+jwt_secret = "..."
+# max character count for all files in a document combined (0 to disable)
+max_document_size = 0
+# max character count for a single file to be highlighted (0 to disable)
+max_highlight_size = 0
+# load custom chroma xml or base16 yaml themes from this directory, leave empty to disable
+custom_styles = "custom_styles"
+default_style = "onedark"
+
+[log]
+# level can be "debug", "info", "warn", "error" (or -4, 0, 4, 8)
+level = "info"
+# format can be "text" or "json"
+format = "text"
+add_source = false
+no_color = false
+
+[database]
+# type can be "sqlite" or "postgres"
+type = "postgres"
+debug = false
+expire_after = "168h"
+cleanup_interval = "10m"
+# path is only used for SQLite (use "/var/lib/gobin/gobin.db" with Docker)
+path = "gobin.db"
+# host, port, username, password, database, ssl_mode are only used for PostgreSQL
+host = "localhost"
+port = 5432
+username = "gobin"
+password = "password"
+database = "gobin"
+ssl_mode = "disable"
+
+[rate_limit]
+enabled = false
+requests = 10
+duration = "1m"
+whitelist = ["127.0.0.1"]
+blacklist = ["123.456.789.0"]
+
+[preview]
+enabled = false
+inkscape_path = "/usr/bin/inkscape"
+max_lines = 10
+dpi = 96
+cache_size = 1024
+cache_ttl = "1h"
+
+[otel]
+enabled = false
+instance_id = "1"
+
+[otel.trace]
+enabled = false
+endpoint = "localhost:4318"
+insecure = true
+
+[otel.metrics]
+enabled = false
+listen_addr = ":9100"
+
+[webhook]
+enabled = false
+timeout = "10s"
+max_tries = 3
+backoff = "1s"
+backoff_factor = 2
+max_backoff = "5m"
 ```
 
 Alternatively you can use environment variables to configure gobin. The environment variables are prefixed with `GOBIN_`

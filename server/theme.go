@@ -17,8 +17,7 @@ func getStyle(r *http.Request) *chroma.Style {
 	if styleCookie, err := r.Cookie("style"); err == nil {
 		styleName = styleCookie.Value
 	}
-	queryStyle := r.URL.Query().Get("style")
-	if queryStyle != "" {
+	if queryStyle := r.URL.Query().Get("style"); queryStyle != "" {
 		styleName = queryStyle
 	}
 
@@ -26,7 +25,6 @@ func getStyle(r *http.Request) *chroma.Style {
 	if style == nil {
 		return styles.Fallback
 	}
-
 	return style
 }
 
@@ -46,16 +44,32 @@ func (s *Server) ThemeCSS(w http.ResponseWriter, r *http.Request) {
 func (s *Server) themeCSS(style *chroma.Style) string {
 	cssBuff := new(bytes.Buffer)
 	background := style.Get(chroma.Background)
-	_, _ = fmt.Fprintf(cssBuff, "html{color-scheme: %s;}", style.Theme)
+	iconSet := "dark"
+	if style.Theme == "light" {
+		iconSet = "light"
+	}
+
+	_, _ = fmt.Fprintf(cssBuff, "html{color-scheme:%s}", style.Theme)
 	_, _ = fmt.Fprint(cssBuff, ":root{")
-	_, _ = fmt.Fprintf(cssBuff, "--bg-primary: %s;", background.Background.String())
-	_, _ = fmt.Fprintf(cssBuff, "--bg-secondary: %s;", background.Background.BrightenOrDarken(0.07).String())
-	_, _ = fmt.Fprintf(cssBuff, "--nav-button-bg: %s;", background.Background.BrightenOrDarken(0.12).String())
-	_, _ = fmt.Fprintf(cssBuff, "--text-primary: %s;", background.Colour.String())
-	_, _ = fmt.Fprintf(cssBuff, "--text-secondary: %s;", background.Colour.BrightenOrDarken(0.2).String())
-	_, _ = fmt.Fprintf(cssBuff, "--bg-scrollbar: %s;", background.Background.BrightenOrDarken(0.1).String())
-	_, _ = fmt.Fprintf(cssBuff, "--bg-scrollbar-thumb: %s;", background.Background.BrightenOrDarken(0.2).String())
-	_, _ = fmt.Fprintf(cssBuff, "--bg-scrollbar-thumb-hover: %s;", background.Background.BrightenOrDarken(0.3).String())
+	_, _ = fmt.Fprintf(cssBuff, "--bg-primary:%s;", background.Background.String())
+	_, _ = fmt.Fprintf(cssBuff, "--bg-secondary:%s;", background.Background.BrightenOrDarken(0.07).String())
+	_, _ = fmt.Fprintf(cssBuff, "--nav-button-bg:%s;", background.Background.BrightenOrDarken(0.12).String())
+	_, _ = fmt.Fprintf(cssBuff, "--text-primary:%s;", background.Colour.String())
+	_, _ = fmt.Fprintf(cssBuff, "--text-secondary:%s;", background.Colour.BrightenOrDarken(0.2).String())
+	_, _ = fmt.Fprintf(cssBuff, "--bg-scrollbar:%s;", background.Background.BrightenOrDarken(0.1).String())
+	_, _ = fmt.Fprintf(cssBuff, "--bg-scrollbar-thumb:%s;", background.Background.BrightenOrDarken(0.2).String())
+	_, _ = fmt.Fprintf(cssBuff, "--bg-scrollbar-thumb-hover:%s;", background.Background.BrightenOrDarken(0.3).String())
+
+	for _, name := range []string{
+		"add", "close", "copy", "delete", "edit", "github", "language",
+		"new", "overview", "raw", "save", "share", "style", "version", "x",
+	} {
+		ext := "png"
+		if name == "github" || name == "overview" {
+			ext = "svg"
+		}
+		_, _ = fmt.Fprintf(cssBuff, "--%s:url(/assets/icons/%s/%s.%s);", name, iconSet, name, ext)
+	}
 	_, _ = fmt.Fprint(cssBuff, "}")
 
 	_ = s.htmlFormatter.WriteCSS(cssBuff, style)

@@ -24,7 +24,10 @@ import (
 	"github.com/topi314/gobin/v3/server/database"
 )
 
-//go:generate go run github.com/a-h/templ/cmd/templ@latest generate
+//go:generate go run github.com/a-h/templ/cmd/templ@v0.3.1070 generate
+//go:generate go run github.com/evanw/esbuild/cmd/esbuild@v0.28.2 --bundle --minify --legal-comments=none --outfile=server/assets/script.js server/ts/document.ts
+//go:generate go run github.com/evanw/esbuild/cmd/esbuild@v0.28.2 --bundle --minify --legal-comments=none --outfile=server/assets/overview.js server/ts/overview.ts
+//go:generate go run github.com/evanw/esbuild/cmd/esbuild@v0.28.2 --minify --legal-comments=none --outfile=server/assets/style.css server/css/style.css
 
 var (
 	//go:embed server/assets
@@ -52,10 +55,18 @@ func main() {
 	slog.Info("Starting Gobin...", slog.String("version", version.Version), slog.String("commit", version.Revision), slog.String("build-time", version.BuildTime))
 	slog.Info("Config", slog.String("config", cfg.String()))
 
-	if err = server.SetupOtel(version.Version, cfg.Otel); err != nil {
+	otelShutdown, err := server.SetupOtel(version.Version, cfg.Otel)
+	if err != nil {
 		slog.Error("Error while setting up otel", slog.Any("err", err))
 		return
 	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if shutErr := otelShutdown(ctx); shutErr != nil {
+			slog.Error("Error while shutting down otel", slog.Any("err", shutErr))
+		}
+	}()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
