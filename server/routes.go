@@ -34,11 +34,12 @@ func (s *Server) Routes() http.Handler {
 	r := chi.NewRouter()
 	r.Use(otelchi.Middleware("gobin", otelchi.WithChiRoutes(r)))
 	baseCfg := metric.NewBaseConfig("gobin")
-	r.Use(metric.NewRequestDurationMillis(baseCfg))
-	r.Use(metric.NewRequestInFlight(baseCfg))
-	r.Use(metric.NewResponseSizeBytes(baseCfg))
+	r.Use(metric.NewServerRequestDuration(baseCfg))
+	r.Use(metric.NewServerActiveRequests(baseCfg))
+	r.Use(metric.NewServerResponseBodySize(baseCfg))
 	r.Use(middleware.CleanPath)
-	r.Use(middleware.RealIP)
+	// Trust X-Real-IP from the reverse proxy (overwritten per request).
+	r.Use(middleware.ClientIPFromHeader("X-Real-IP"))
 	r.Use(middleware.RequestID)
 	r.Use(slogchi.NewWithConfig(slog.Default(), slogchi.Config{
 		DefaultLevel:     slog.LevelInfo,

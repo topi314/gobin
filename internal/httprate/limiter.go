@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-chi/chi/v5/middleware"
+
 	"github.com/topi314/gobin/v3/internal/ezhttp"
 )
 
@@ -57,9 +59,13 @@ func (l *RateLimiter) Handler(next http.Handler) http.Handler {
 }
 
 func getKey(r *http.Request) string {
-	ip, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		ip = r.RemoteAddr
+	ip := middleware.GetClientIP(r.Context())
+	if ip == "" {
+		var err error
+		ip, _, err = net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			ip = r.RemoteAddr
+		}
 	}
 	return canonicalizeIP(ip) + ":" + r.URL.Path
 }

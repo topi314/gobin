@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"slices"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/stampede"
 	"github.com/go-jose/go-jose/v3/jwt"
 
@@ -52,7 +54,7 @@ func (s *Server) RateLimit(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		remoteAddr := strings.SplitN(r.RemoteAddr, ":", 2)[0]
+		remoteAddr := clientIP(r)
 		// Filter whitelisted IPs
 		if slices.Contains(s.cfg.RateLimit.Whitelist, remoteAddr) {
 			next.ServeHTTP(w, r)
@@ -74,6 +76,17 @@ func (s *Server) RateLimit(next http.Handler) http.Handler {
 		}
 		s.rateLimitHandler(next).ServeHTTP(w, r)
 	})
+}
+
+func clientIP(r *http.Request) string {
+	if ip := middleware.GetClientIP(r.Context()); ip != "" {
+		return ip
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }
 
 func (s *Server) JWTMiddleware(next http.Handler) http.Handler {
