@@ -681,6 +681,32 @@ label[for="expire"] {
     color: var(--text-primary);
 }
 
+@media (max-width: 40rem) {
+    #overview-main {
+        padding: 1rem;
+    }
+
+    #document-list li {
+        flex-wrap: wrap;
+        gap: 0.5rem 0.75rem;
+    }
+
+    #document-list .doc-id {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    #document-list .doc-time {
+        flex: 1 1 auto;
+    }
+
+    #document-list .doc-actions {
+        flex-basis: 100%;
+        justify-content: flex-end;
+        margin-left: 0;
+    }
+}
+
 .loading {
     background-image: url(/assets/icons/loading.gif) !important;
 }
